@@ -1,0 +1,1321 @@
+14:49:44.894  [M0] unknown CAN id=0 ide=4
+14:49:44.897  [M0] unknown CAN id=0 ide=4
+14:49:44.900  [M0] unknown CAN id=0 ide=4
+14:49:44.913  [M1] pos=51.5 deg  spd=-250 eRPM  I=2.69 A  T=25  err=0
+14:49:44.936  [M1] pos=50.0 deg  spd=-1910 eRPM  I=12.30 A  T=24  err=0
+14:49:44.950  [M1] pos=47.9 deg  spd=-880 eRPM  I=16.45 A  T=24  err=0
+14:49:44.973  [M1] pos=47.2 deg  spd=-580 eRPM  I=15.91 A  T=24  err=0
+14:49:44.996  [M1] pos=46.4 deg  spd=-620 eRPM  I=15.59 A  T=24  err=0
+14:49:45.010  [M1] pos=45.1 deg  spd=-950 eRPM  I=15.16 A  T=24  err=0
+14:49:45.033  [M1] pos=43.8 deg  spd=-910 eRPM  I=15.31 A  T=24  err=0
+14:49:45.056  [M1] pos=42.3 deg  spd=-1060 eRPM  I=15.09 A  T=24  err=0
+14:49:45.070  [M1] pos=40.7 deg  spd=-1190 eRPM  I=14.74 A  T=24  err=0
+14:49:45.092  [M1] pos=38.7 deg  spd=-1390 eRPM  I=14.39 A  T=24  err=0
+14:49:45.115  [M1] pos=36.6 deg  spd=-1470 eRPM  I=14.18 A  T=24  err=0
+14:49:45.129  [M1] pos=34.1 deg  spd=-1740 eRPM  I=13.84 A  T=24  err=0
+14:49:45.152  [M1] pos=31.6 deg  spd=-1850 eRPM  I=13.45 A  T=24  err=0
+14:49:45.175  [M1] pos=29.0 deg  spd=-1890 eRPM  I=13.37 A  T=25  err=0
+14:49:45.189  [M1] pos=26.2 deg  spd=-1970 eRPM  I=13.33 A  T=25  err=0
+14:49:45.212  [M1] pos=23.6 deg  spd=-1750 eRPM  I=11.83 A  T=25  err=0
+14:49:45.235  [M1] pos=20.9 deg  spd=-1660 eRPM  I=11.27 A  T=24  err=0
+14:49:45.258  [M1] pos=18.9 deg  spd=-1440 eRPM  I=9.44 A  T=24  err=0
+14:49:45.272  [M1] pos=16.8 deg  spd=-1470 eRPM  I=7.97 A  T=24  err=0
+14:49:45.294  [M1] pos=15.1 deg  spd=-940 eRPM  I=7.89 A  T=24  err=0
+14:49:45.317  [M1] pos=14.7 deg  spd=-110 eRPM  I=7.65 A  T=24  err=0
+14:49:45.331  [M1] pos=14.5 deg  spd=-220 eRPM  I=7.05 A  T=24  err=0
+14:49:45.354  [M1] pos=13.9 deg  spd=-270 eRPM  I=7.12 A  T=24  err=0
+14:49:45.378  [M1] pos=13.6 deg  spd=-210 eRPM  I=6.97 A  T=24  err=0
+14:49:45.391  [M1] pos=13.3 deg  spd=-250 eRPM  I=6.57 A  T=24  err=0
+14:49:45.414  [M1] pos=13.3 deg  spd=130 eRPM  I=7.04 A  T=24  err=0
+14:49:45.437  [M1] pos=13.2 deg  spd=-20 eRPM  I=6.71 A  T=24  err=0
+14:49:45.450  [M1] pos=13.2 deg  spd=0 eRPM  I=6.66 A  T=24  err=0
+14:49:45.473  [M1] pos=13.2 deg  spd=0 eRPM  I=6.63 A  T=24  err=0
+14:49:45.496  [M1] pos=13.1 deg  spd=-50 eRPM  I=6.57 A  T=25  err=0
+14:49:45.510  [M1] pos=13.0 deg  spd=-40 eRPM  I=6.54 A  T=25  err=0
+14:49:45.533  [M1] pos=13.0 deg  spd=-30 eRPM  I=6.53 A  T=25  err=0
+14:49:45.556  [M1] pos=13.0 deg  spd=-10 eRPM  I=6.55 A  T=24  err=0
+14:49:45.570  [M1] pos=13.0 deg  spd=30 eRPM  I=6.64 A  T=24  err=0
+14:49:45.593  [M1] pos=13.0 deg  spd=20 eRPM  I=6.64 A  T=24  err=0
+14:49:45.616  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=24  err=0
+14:49:45.630  [M1] pos=13.0 deg  spd=0 eRPM  I=6.54 A  T=24  err=0
+14:49:45.653  [M1] pos=13.0 deg  spd=0 eRPM  I=6.57 A  T=24  err=0
+14:49:45.675  [M1] pos=13.0 deg  spd=0 eRPM  I=6.51 A  T=24  err=0
+14:49:45.689  [M1] pos=13.0 deg  spd=0 eRPM  I=6.54 A  T=24  err=0
+14:49:45.712  [M1] pos=13.0 deg  spd=0 eRPM  I=6.55 A  T=24  err=0
+14:49:45.735  [M1] pos=13.0 deg  spd=0 eRPM  I=6.57 A  T=24  err=0
+14:49:45.749  [M1] pos=13.0 deg  spd=0 eRPM  I=6.59 A  T=24  err=0
+14:49:45.772  [M1] pos=13.0 deg  spd=0 eRPM  I=6.56 A  T=24  err=0
+14:49:45.795  [M1] pos=13.0 deg  spd=0 eRPM  I=6.59 A  T=24  err=0
+14:49:45.809  [M1] pos=13.0 deg  spd=0 eRPM  I=6.57 A  T=25  err=0
+14:49:45.832  [M1] pos=13.0 deg  spd=0 eRPM  I=6.59 A  T=25  err=0
+14:49:45.855  [M1] pos=13.0 deg  spd=0 eRPM  I=6.59 A  T=25  err=0
+14:49:45.878  [M1] pos=13.0 deg  spd=0 eRPM  I=6.57 A  T=24  err=0
+14:49:45.891  [M1] pos=13.0 deg  spd=0 eRPM  I=6.54 A  T=24  err=0
+14:49:45.914  [M1] pos=13.0 deg  spd=0 eRPM  I=6.55 A  T=24  err=0
+14:49:45.937  [M1] pos=13.0 deg  spd=0 eRPM  I=6.54 A  T=24  err=0
+14:49:45.996  [M1] pos=13.0 deg  spd=0 eRPM  I=6.59 A  T=25  err=0
+14:49:46.001  [M1] pos=13.0 deg  spd=0 eRPM  I=6.55 A  T=25  err=0
+14:49:46.011  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=25  err=0
+14:49:46.013  [M1] pos=13.0 deg  spd=0 eRPM  I=6.59 A  T=25  err=0
+14:49:46.034  [M1] pos=13.0 deg  spd=0 eRPM  I=6.57 A  T=25  err=0
+14:49:46.057  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=25  err=0
+14:49:46.071  [M1] pos=13.0 deg  spd=0 eRPM  I=6.50 A  T=25  err=0
+14:49:46.094  [M1] pos=13.0 deg  spd=0 eRPM  I=6.52 A  T=24  err=0
+14:49:46.117  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=24  err=0
+14:49:46.130  [M1] pos=13.0 deg  spd=0 eRPM  I=6.59 A  T=24  err=0
+14:49:46.153  [M1] pos=13.0 deg  spd=0 eRPM  I=6.55 A  T=25  err=0
+14:49:46.176  [M1] pos=13.0 deg  spd=0 eRPM  I=6.57 A  T=25  err=0
+14:49:46.191  [M1] pos=13.0 deg  spd=0 eRPM  I=6.56 A  T=25  err=0
+14:49:46.213  [M1] pos=13.0 deg  spd=0 eRPM  I=6.57 A  T=25  err=0
+14:49:46.236  [M1] pos=13.0 deg  spd=0 eRPM  I=6.61 A  T=25  err=0
+14:49:46.250  [M1] pos=13.0 deg  spd=0 eRPM  I=6.59 A  T=24  err=0
+14:49:46.273  [M1] pos=13.0 deg  spd=0 eRPM  I=6.63 A  T=24  err=0
+14:49:46.296  [M1] pos=13.0 deg  spd=0 eRPM  I=6.64 A  T=24  err=0
+14:49:46.310  [M1] pos=13.0 deg  spd=0 eRPM  I=6.62 A  T=24  err=0
+14:49:46.333  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=24  err=0
+14:49:46.356  [M1] pos=13.0 deg  spd=0 eRPM  I=6.64 A  T=24  err=0
+14:49:46.370  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=24  err=0
+14:49:46.392  [M1] pos=13.0 deg  spd=0 eRPM  I=6.54 A  T=24  err=0
+14:49:46.415  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=24  err=0
+14:49:46.429  [M1] pos=13.0 deg  spd=0 eRPM  I=6.62 A  T=24  err=0
+14:49:46.452  [M1] pos=13.0 deg  spd=0 eRPM  I=6.60 A  T=24  err=0
+14:49:46.475  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=24  err=0
+14:49:46.489  [M1] pos=13.0 deg  spd=0 eRPM  I=6.61 A  T=25  err=0
+14:49:46.512  [M1] pos=13.0 deg  spd=0 eRPM  I=6.63 A  T=25  err=0
+14:49:46.535  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=25  err=0
+14:49:46.558  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=24  err=0
+14:49:46.572  [M1] pos=13.0 deg  spd=0 eRPM  I=6.61 A  T=24  err=0
+14:49:46.595  [M1] pos=13.0 deg  spd=0 eRPM  I=6.62 A  T=24  err=0
+14:49:46.617  [M1] pos=13.0 deg  spd=0 eRPM  I=6.60 A  T=24  err=0
+14:49:46.631  [M1] pos=13.0 deg  spd=0 eRPM  I=6.63 A  T=24  err=0
+14:49:46.654  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=24  err=0
+14:49:46.678  [M1] pos=13.0 deg  spd=0 eRPM  I=6.62 A  T=24  err=0
+14:49:46.691  [M1] pos=13.0 deg  spd=0 eRPM  I=6.57 A  T=24  err=0
+14:49:46.714  [M1] pos=13.0 deg  spd=0 eRPM  I=6.60 A  T=24  err=0
+14:49:46.737  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=24  err=0
+14:49:46.751  [M1] pos=13.0 deg  spd=0 eRPM  I=6.57 A  T=24  err=0
+14:49:46.774  [M1] pos=13.0 deg  spd=0 eRPM  I=6.55 A  T=24  err=0
+14:49:46.797  [M1] pos=13.0 deg  spd=0 eRPM  I=6.63 A  T=25  err=0
+14:49:46.811  [M1] pos=13.0 deg  spd=0 eRPM  I=6.60 A  T=25  err=0
+14:49:46.834  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=25  err=0
+14:49:46.856  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=25  err=0
+14:49:46.870  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=25  err=0
+14:49:46.893  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=24  err=0
+14:49:46.917  [M2] pos=-0.000 rad  vel=-0.01  tau=-0.00  T=-40  err=0
+14:49:46.922  [M2] pos=-0.000 rad  vel=-0.01  tau=-0.00  T=-40  err=0
+14:49:46.927  [M1] pos=13.0 deg  spd=0 eRPM  I=6.62 A  T=24  err=0
+14:49:46.932  [M2] pos=0.439 rad  vel=0.49  tau=-0.00  T=-40  err=0
+14:49:46.938  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=24  err=0
+14:49:46.951  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:46.957  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=24  err=0
+14:49:46.970  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:46.975  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:46.989  [M2] pos=0.439 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:46.994  [M1] pos=13.0 deg  spd=0 eRPM  I=6.63 A  T=25  err=0
+14:49:47.009  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.013  [M1] pos=13.0 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:47.027  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.032  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:47.046  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.051  [M1] pos=13.0 deg  spd=0 eRPM  I=6.64 A  T=25  err=0
+14:49:47.065  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.070  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=25  err=0
+14:49:47.084  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.098  [M1] pos=13.0 deg  spd=0 eRPM  I=6.62 A  T=24  err=0
+14:49:47.103  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.117  [M1] pos=13.0 deg  spd=0 eRPM  I=6.64 A  T=24  err=0
+14:49:47.122  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.135  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=24  err=0
+14:49:47.141  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.154  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:47.159  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:47.173  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:47.178  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:47.192  [M1] pos=13.0 deg  spd=0 eRPM  I=6.64 A  T=25  err=0
+14:49:47.197  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.211  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.216  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=25  err=0
+14:49:47.230  [M2] pos=0.439 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:47.235  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:47.249  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.254  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=25  err=0
+14:49:47.268  [M2] pos=0.439 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:47.273  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=24  err=0
+14:49:47.287  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:47.292  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=24  err=0
+14:49:47.306  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.311  [M1] pos=13.0 deg  spd=0 eRPM  I=6.68 A  T=24  err=0
+14:49:47.325  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.330  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=24  err=0
+14:49:47.344  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:47.357  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=24  err=0
+14:49:47.363  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:47.376  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:47.381  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:47.395  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:47.400  [M2] pos=0.439 rad  vel=-0.08  tau=-0.00  T=22  err=0
+14:49:47.414  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:47.419  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:47.433  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=25  err=0
+14:49:47.438  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:47.452  [M1] pos=13.0 deg  spd=0 eRPM  I=6.61 A  T=25  err=0
+14:49:47.457  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.471  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:47.476  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=25  err=0
+14:49:47.490  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.495  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:47.509  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.514  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:47.528  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.533  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=25  err=0
+14:49:47.547  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.552  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:47.566  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.571  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=25  err=0
+14:49:47.585  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:47.590  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=24  err=0
+14:49:47.603  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.617  [M1] pos=13.0 deg  spd=0 eRPM  I=6.64 A  T=24  err=0
+14:49:47.623  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.636  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:47.641  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:47.655  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:47.660  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.674  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:47.679  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.693  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:47.698  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:47.712  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=25  err=0
+14:49:47.717  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.731  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.736  [M1] pos=13.0 deg  spd=0 eRPM  I=6.62 A  T=25  err=0
+14:49:47.750  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.755  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:47.769  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.774  [M1] pos=13.0 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:47.788  [M2] pos=0.439 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:47.793  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=25  err=0
+14:49:47.807  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.812  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:47.826  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.831  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:47.845  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.850  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=24  err=0
+14:49:47.863  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.877  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=24  err=0
+14:49:47.882  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:47.896  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=24  err=0
+14:49:47.901  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.915  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=24  err=0
+14:49:47.920  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:47.934  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=24  err=0
+14:49:47.939  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:47.953  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=24  err=0
+14:49:47.958  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:47.972  [M2] pos=0.439 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:47.977  [M1] pos=13.0 deg  spd=0 eRPM  I=6.63 A  T=25  err=0
+14:49:47.991  [M2] pos=0.439 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:47.996  [M1] pos=13.0 deg  spd=0 eRPM  I=6.63 A  T=25  err=0
+14:49:48.010  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.015  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:48.029  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.034  [M1] pos=13.0 deg  spd=0 eRPM  I=6.64 A  T=25  err=0
+14:49:48.048  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:48.053  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:48.067  [M2] pos=0.439 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:48.072  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:48.086  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:48.091  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:48.104  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:48.110  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:48.123  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.137  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:48.142  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.156  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:48.161  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:48.175  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:48.181  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.194  [M1] pos=13.0 deg  spd=0 eRPM  I=6.58 A  T=24  err=0
+14:49:48.199  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.213  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=24  err=0
+14:49:48.218  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:48.232  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:48.237  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=24  err=0
+14:49:48.251  [M2] pos=0.439 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:48.256  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=24  err=0
+14:49:48.270  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:48.275  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=24  err=0
+14:49:48.289  [M2] pos=0.439 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:48.294  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:48.307  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:48.313  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:48.326  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.332  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:48.345  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.351  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:48.364  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:48.369  [M1] pos=13.0 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:48.383  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:48.397  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:48.402  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:48.416  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:48.421  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.435  [M1] pos=13.0 deg  spd=0 eRPM  I=6.65 A  T=25  err=0
+14:49:48.440  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.454  [M1] pos=13.0 deg  spd=0 eRPM  I=6.61 A  T=25  err=0
+14:49:48.459  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.473  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:48.478  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.492  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.497  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:48.511  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.516  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=24  err=0
+14:49:48.529  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:48.535  [M1] pos=13.0 deg  spd=0 eRPM  I=6.68 A  T=24  err=0
+14:49:48.549  [M2] pos=0.439 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:48.554  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=24  err=0
+14:49:48.567  [M2] pos=0.439 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:48.573  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=24  err=0
+14:49:48.586  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:48.591  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=24  err=0
+14:49:48.605  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.610  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:48.624  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.629  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:48.643  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:48.657  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:48.662  [M2] pos=0.439 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:48.676  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:48.681  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.695  [M1] pos=13.0 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:48.700  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:48.714  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:48.719  [M2] pos=0.439 rad  vel=-0.08  tau=-0.00  T=22  err=0
+14:49:48.733  [M1] pos=13.0 deg  spd=0 eRPM  I=6.66 A  T=25  err=0
+14:49:48.738  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.752  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.757  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:48.770  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.775  [M1] pos=13.0 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:48.789  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.795  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:48.808  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.814  [M1] pos=13.0 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:48.827  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.833  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:48.846  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.851  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:48.865  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.870  [M1] pos=13.0 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:48.884  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:48.898  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:48.903  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.917  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:48.922  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:48.936  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:48.941  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:48.955  [M1] pos=13.0 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:48.960  [M2] pos=0.439 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:48.973  [M1] pos=13.0 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:48.979  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:48.992  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:48.998  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.011  [M2] pos=0.439 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:49.016  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:49.030  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:49.035  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:49.049  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:49.054  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:49.068  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.073  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:49.087  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.092  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:49.106  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:49.111  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:49.125  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:49.130  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:49.144  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:49.158  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:49.164  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.177  [M1] pos=13.0 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:49.182  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.195  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:49.201  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.214  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:49.220  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:49.233  [M1] pos=13.0 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:49.238  [M2] pos=0.439 rad  vel=0.08  tau=-0.00  T=22  err=0
+14:49:49.252  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:49.257  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.271  [M2] pos=0.439 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:49.276  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:49.290  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:49.295  [M1] pos=13.0 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:49.309  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:49.314  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:49.328  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:49.333  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:49.348  [M2] pos=0.439 rad  vel=0.07  tau=-0.00  T=22  err=0
+14:49:49.352  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:49.366  [M2] pos=0.439 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:49.371  [M1] pos=13.0 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:49.385  [M2] pos=0.439 rad  vel=-0.10  tau=-0.00  T=22  err=0
+14:49:49.390  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:49.404  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:49.417  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:49.423  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.436  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:49.442  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.455  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:49.460  [M2] pos=0.439 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:49.474  [M1] pos=13.0 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:49.479  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:49.493  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:49.498  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.512  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:49.517  [M1] pos=13.0 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:49.531  [M2] pos=0.439 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:49.536  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:49.550  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:49.555  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:49.569  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:49.574  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:49.588  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.593  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:49.607  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:49.612  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:49.626  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:49.631  [M1] pos=13.0 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:49.645  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:49.650  [M1] pos=13.0 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:49.663  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:49.677  [M1] pos=13.0 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:49.682  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:49.696  [M1] pos=13.0 deg  spd=0 eRPM  I=6.80 A  T=25  err=0
+14:49:49.701  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:49.715  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:49.720  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:49.734  [M1] pos=13.0 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:49.739  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:49.753  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:49.758  [M2] pos=0.439 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:49.772  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:49.777  [M1] pos=13.0 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:49.791  [M2] pos=0.439 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:49.796  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:49.810  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:49.815  [M1] pos=13.0 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:49.829  [M2] pos=0.439 rad  vel=0.07  tau=-0.00  T=22  err=0
+14:49:49.834  [M1] pos=13.0 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:49.848  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:49.853  [M1] pos=13.0 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:49.867  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:49.872  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:49.886  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:49.891  [M1] pos=13.0 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:49.905  [M2] pos=0.439 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:49.910  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:49.924  [M2] pos=0.439 rad  vel=-0.08  tau=-0.00  T=22  err=0
+14:49:49.937  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:49.942  [M2] pos=0.439 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:49.956  [M1] pos=13.0 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:49.961  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:49.975  [M1] pos=13.0 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:49.980  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:49.994  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:49.999  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:50.013  [M1] pos=13.0 deg  spd=0 eRPM  I=6.80 A  T=25  err=0
+14:49:50.018  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:50.032  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.037  [M1] pos=13.0 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:50.051  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.056  [M1] pos=13.0 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:50.070  [M2] pos=0.439 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:50.075  [M1] pos=13.0 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:50.089  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.094  [M1] pos=13.0 deg  spd=0 eRPM  I=6.80 A  T=25  err=0
+14:49:50.108  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.113  [M1] pos=13.0 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:50.127  [M2] pos=0.439 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:50.132  [M1] pos=13.0 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:50.145  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.151  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:50.164  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.178  [M1] pos=13.0 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:50.183  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.197  [M1] pos=13.0 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:50.202  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.216  [M1] pos=13.0 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:50.221  [M2] pos=0.439 rad  vel=-0.08  tau=-0.00  T=22  err=0
+14:49:50.235  [M1] pos=13.0 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:50.240  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.254  [M1] pos=13.0 deg  spd=0 eRPM  I=6.82 A  T=25  err=0
+14:49:50.259  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.273  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:50.278  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.292  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.297  [M1] pos=13.0 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:50.311  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.316  [M1] pos=13.0 deg  spd=0 eRPM  I=6.82 A  T=25  err=0
+14:49:50.330  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.335  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:50.349  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.354  [M1] pos=13.0 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:50.367  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.373  [M1] pos=13.0 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:50.386  [M2] pos=0.439 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:50.391  [M1] pos=13.0 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:50.405  [M2] pos=0.439 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.410  [M1] pos=13.0 deg  spd=0 eRPM  I=6.80 A  T=25  err=0
+14:49:50.424  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:50.439  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:50.443  [M2] pos=0.439 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.457  [M1] pos=13.0 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:50.462  [M2] pos=0.438 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:50.476  [M1] pos=12.9 deg  spd=-10 eRPM  I=6.82 A  T=25  err=0
+14:49:50.481  [M2] pos=0.438 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:50.495  [M1] pos=12.9 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:50.500  [M2] pos=0.439 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:50.514  [M1] pos=12.9 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:50.519  [M2] pos=0.439 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:50.533  [M1] pos=12.9 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:50.538  [M2] pos=0.439 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:50.552  [M2] pos=0.438 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.557  [M1] pos=12.9 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:50.570  [M2] pos=0.438 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.576  [M1] pos=12.9 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:50.590  [M2] pos=0.435 rad  vel=-0.11  tau=-0.00  T=22  err=0
+14:49:50.595  [M1] pos=12.9 deg  spd=-20 eRPM  I=6.69 A  T=25  err=0
+14:49:50.608  [M2] pos=0.433 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:50.614  [M1] pos=12.9 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:50.627  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:50.632  [M1] pos=12.9 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:50.646  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:50.651  [M1] pos=12.9 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:50.665  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:50.670  [M1] pos=12.9 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:50.684  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:50.698  [M1] pos=12.9 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:50.703  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:50.717  [M1] pos=12.8 deg  spd=-10 eRPM  I=6.78 A  T=25  err=0
+14:49:50.722  [M2] pos=0.431 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:50.736  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:50.741  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:50.755  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:50.760  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.773  [M1] pos=12.8 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:50.779  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:50.792  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.798  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:50.811  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.816  [M1] pos=12.8 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:50.830  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.835  [M1] pos=12.8 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:50.849  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:50.855  [M1] pos=12.8 deg  spd=0 eRPM  I=6.65 A  T=25  err=0
+14:49:50.868  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:50.873  [M1] pos=12.8 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:50.887  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.892  [M1] pos=12.8 deg  spd=0 eRPM  I=6.64 A  T=25  err=0
+14:49:50.906  [M2] pos=0.430 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:50.911  [M1] pos=12.8 deg  spd=0 eRPM  I=6.65 A  T=25  err=0
+14:49:50.925  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:50.930  [M1] pos=12.8 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:50.944  [M2] pos=0.430 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:50.958  [M1] pos=12.8 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:50.963  [M2] pos=0.430 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:50.977  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:50.982  [M2] pos=0.431 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:50.995  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:51.001  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.014  [M1] pos=12.8 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:51.019  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:51.033  [M1] pos=12.8 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:51.038  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.052  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.057  [M1] pos=12.8 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:51.071  [M2] pos=0.430 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:51.076  [M1] pos=12.8 deg  spd=0 eRPM  I=6.67 A  T=25  err=0
+14:49:51.090  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.095  [M1] pos=12.8 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:51.109  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.114  [M1] pos=12.8 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:51.128  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.133  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:51.147  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:51.152  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:51.166  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:51.171  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:51.185  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.190  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:51.204  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.217  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:51.223  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.236  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:51.242  [M2] pos=0.431 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:51.255  [M1] pos=12.8 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:51.260  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:51.274  [M1] pos=12.8 deg  spd=0 eRPM  I=6.65 A  T=25  err=0
+14:49:51.281  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.293  [M1] pos=12.8 deg  spd=0 eRPM  I=6.64 A  T=25  err=0
+14:49:51.298  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.312  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:51.317  [M1] pos=12.8 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:51.331  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:51.337  [M1] pos=12.8 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:51.350  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.355  [M1] pos=12.8 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:51.369  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.374  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:51.388  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:51.393  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:51.407  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.412  [M1] pos=12.8 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:51.426  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:51.431  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:51.444  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.458  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:51.463  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.477  [M1] pos=12.8 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:51.482  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:51.496  [M1] pos=12.8 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:51.501  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:51.515  [M1] pos=12.8 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:51.520  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:51.534  [M1] pos=12.8 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:51.539  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.553  [M1] pos=12.8 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:51.558  [M2] pos=0.431 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:51.572  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:51.577  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:51.591  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.596  [M1] pos=12.8 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:51.610  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.615  [M1] pos=12.8 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:51.629  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:51.634  [M1] pos=12.8 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:51.648  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.653  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:51.666  [M2] pos=0.431 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:51.672  [M1] pos=12.8 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:51.685  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:51.691  [M1] pos=12.8 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:51.704  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:51.718  [M1] pos=12.8 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:51.723  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:51.737  [M1] pos=12.8 deg  spd=0 eRPM  I=6.69 A  T=25  err=0
+14:49:51.742  [M2] pos=0.431 rad  vel=-0.08  tau=-0.00  T=22  err=0
+14:49:51.756  [M1] pos=12.8 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:51.761  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.775  [M1] pos=12.8 deg  spd=0 eRPM  I=6.68 A  T=25  err=0
+14:49:51.780  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:51.794  [M1] pos=12.8 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:51.799  [M2] pos=0.431 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:51.813  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:51.818  [M1] pos=12.8 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:51.831  [M2] pos=0.431 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:51.837  [M1] pos=12.8 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:51.850  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.856  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:51.870  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:51.875  [M1] pos=12.8 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:51.888  [M2] pos=0.431 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:51.893  [M1] pos=12.8 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:51.907  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.912  [M1] pos=12.8 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:51.926  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:51.931  [M1] pos=12.8 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:51.945  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:51.950  [M1] pos=12.8 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:51.964  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:51.978  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:51.983  [M2] pos=0.431 rad  vel=-0.10  tau=-0.00  T=22  err=0
+14:49:51.997  [M1] pos=12.8 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:52.002  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:52.016  [M1] pos=12.8 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:52.021  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.034  [M1] pos=12.8 deg  spd=0 eRPM  I=6.70 A  T=25  err=0
+14:49:52.040  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.053  [M1] pos=12.8 deg  spd=0 eRPM  I=6.73 A  T=25  err=0
+14:49:52.058  [M2] pos=0.431 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:52.072  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:52.077  [M1] pos=12.8 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:52.091  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:52.096  [M1] pos=12.8 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:52.110  [M2] pos=0.431 rad  vel=0.07  tau=-0.00  T=22  err=0
+14:49:52.115  [M1] pos=12.8 deg  spd=0 eRPM  I=6.71 A  T=25  err=0
+14:49:52.129  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:52.134  [M1] pos=12.8 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:52.148  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:52.153  [M1] pos=12.8 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:52.167  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:52.172  [M1] pos=12.8 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:52.186  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:52.191  [M1] pos=12.8 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:52.205  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.219  [M1] pos=12.8 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:52.224  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:52.237  [M1] pos=12.8 deg  spd=0 eRPM  I=6.72 A  T=25  err=0
+14:49:52.243  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:52.256  [M1] pos=12.8 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:52.262  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:52.275  [M1] pos=12.8 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:52.280  [M2] pos=0.431 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:52.294  [M1] pos=12.8 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:52.299  [M2] pos=0.431 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:52.313  [M1] pos=12.8 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:52.318  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:52.332  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:52.337  [M1] pos=12.8 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:52.351  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:52.356  [M1] pos=12.8 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:52.370  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:52.375  [M1] pos=12.8 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:52.389  [M2] pos=0.431 rad  vel=0.08  tau=-0.00  T=22  err=0
+14:49:52.394  [M1] pos=12.8 deg  spd=0 eRPM  I=6.77 A  T=25  err=0
+14:49:52.408  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:52.413  [M1] pos=12.8 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:52.427  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:52.432  [M1] pos=12.8 deg  spd=0 eRPM  I=6.75 A  T=25  err=0
+14:49:52.446  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:52.451  [M1] pos=12.8 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:52.464  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.478  [M1] pos=12.8 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:52.483  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:52.497  [M1] pos=12.8 deg  spd=0 eRPM  I=6.74 A  T=25  err=0
+14:49:52.502  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.516  [M1] pos=12.8 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:52.521  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:52.535  [M1] pos=12.9 deg  spd=0 eRPM  I=6.76 A  T=25  err=0
+14:49:52.540  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:52.554  [M1] pos=12.9 deg  spd=0 eRPM  I=6.83 A  T=25  err=0
+14:49:52.559  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:52.573  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:52.578  [M1] pos=12.9 deg  spd=0 eRPM  I=6.82 A  T=25  err=0
+14:49:52.592  [M2] pos=0.431 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:52.597  [M1] pos=12.9 deg  spd=0 eRPM  I=6.80 A  T=25  err=0
+14:49:52.611  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.616  [M1] pos=12.9 deg  spd=0 eRPM  I=6.78 A  T=25  err=0
+14:49:52.631  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.635  [M1] pos=12.9 deg  spd=0 eRPM  I=6.82 A  T=25  err=0
+14:49:52.649  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:52.654  [M1] pos=12.9 deg  spd=0 eRPM  I=6.80 A  T=25  err=0
+14:49:52.668  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:52.673  [M1] pos=12.9 deg  spd=0 eRPM  I=6.82 A  T=25  err=0
+14:49:52.686  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.692  [M1] pos=12.9 deg  spd=0 eRPM  I=6.83 A  T=25  err=0
+14:49:52.705  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:52.711  [M1] pos=12.9 deg  spd=0 eRPM  I=6.82 A  T=25  err=0
+14:49:52.725  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:52.738  [M1] pos=12.9 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:52.743  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:52.757  [M1] pos=12.9 deg  spd=0 eRPM  I=6.83 A  T=25  err=0
+14:49:52.762  [M2] pos=0.431 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:52.776  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:52.781  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:52.795  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:52.800  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:52.814  [M1] pos=12.9 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:52.819  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:52.833  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.838  [M1] pos=12.9 deg  spd=0 eRPM  I=6.82 A  T=25  err=0
+14:49:52.851  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:52.857  [M1] pos=12.9 deg  spd=0 eRPM  I=6.82 A  T=25  err=0
+14:49:52.871  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:52.876  [M1] pos=12.9 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:52.889  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:52.895  [M1] pos=12.9 deg  spd=0 eRPM  I=6.83 A  T=25  err=0
+14:49:52.909  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:52.914  [M1] pos=12.9 deg  spd=0 eRPM  I=6.83 A  T=25  err=0
+14:49:52.928  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.932  [M1] pos=12.9 deg  spd=0 eRPM  I=6.80 A  T=25  err=0
+14:49:52.946  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.951  [M1] pos=12.9 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:52.965  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:52.979  [M1] pos=12.9 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:52.984  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:52.998  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.003  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:53.017  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:53.022  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:53.036  [M1] pos=12.9 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:53.041  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:53.054  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.060  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:53.073  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:53.079  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:53.092  [M2] pos=0.431 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:53.097  [M1] pos=12.9 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:53.111  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:53.116  [M1] pos=12.9 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:53.130  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:53.136  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.149  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:53.154  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.168  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:53.173  [M1] pos=12.9 deg  spd=0 eRPM  I=6.79 A  T=25  err=0
+14:49:53.187  [M2] pos=0.431 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:53.192  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.206  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:53.211  [M1] pos=12.9 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:53.225  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:53.239  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:53.244  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:53.258  [M1] pos=12.9 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:53.263  [M2] pos=0.431 rad  vel=0.07  tau=-0.00  T=22  err=0
+14:49:53.277  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.282  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:53.295  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:53.301  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:53.314  [M1] pos=12.9 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:53.319  [M2] pos=0.431 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:53.333  [M2] pos=0.431 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:53.338  [M1] pos=12.9 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:53.353  [M2] pos=0.431 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:53.357  [M1] pos=12.9 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:53.371  [M2] pos=0.432 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:53.376  [M1] pos=12.9 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:53.390  [M2] pos=0.431 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:53.395  [M1] pos=12.9 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:53.409  [M2] pos=0.432 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:53.414  [M1] pos=12.9 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:53.428  [M2] pos=0.431 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:53.433  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.447  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:53.452  [M1] pos=12.9 deg  spd=0 eRPM  I=6.83 A  T=25  err=0
+14:49:53.466  [M2] pos=0.432 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:53.471  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:53.484  [M2] pos=0.432 rad  vel=0.04  tau=-0.00  T=22  err=0
+14:49:53.498  [M1] pos=12.9 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:53.504  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:53.517  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.523  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:53.536  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:53.541  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:53.555  [M1] pos=12.9 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:53.560  [M2] pos=0.432 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:53.574  [M1] pos=12.9 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:53.579  [M2] pos=0.432 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:53.593  [M2] pos=0.432 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:53.598  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:53.612  [M2] pos=0.432 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:53.617  [M1] pos=12.9 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:53.631  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:53.636  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:53.650  [M2] pos=0.431 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:53.655  [M1] pos=12.9 deg  spd=0 eRPM  I=6.83 A  T=25  err=0
+14:49:53.669  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:53.674  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.688  [M2] pos=0.432 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:53.693  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.707  [M2] pos=0.431 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:53.712  [M1] pos=12.9 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:53.726  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:53.731  [M1] pos=12.9 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:53.744  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:53.758  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.763  [M2] pos=0.432 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:53.778  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:53.782  [M2] pos=0.432 rad  vel=0.02  tau=-0.00  T=22  err=0
+14:49:53.796  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:53.801  [M2] pos=0.432 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:53.815  [M1] pos=12.9 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:53.820  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:53.834  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:53.839  [M2] pos=0.431 rad  vel=-0.08  tau=-0.00  T=22  err=0
+14:49:53.853  [M2] pos=0.431 rad  vel=-0.05  tau=-0.00  T=22  err=0
+14:49:53.858  [M1] pos=12.9 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:53.872  [M2] pos=0.432 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:53.877  [M1] pos=12.9 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:53.891  [M2] pos=0.431 rad  vel=-0.02  tau=-0.00  T=22  err=0
+14:49:53.896  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:53.910  [M2] pos=0.431 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:53.915  [M1] pos=12.9 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:53.929  [M2] pos=0.431 rad  vel=-0.07  tau=-0.00  T=22  err=0
+14:49:53.934  [M1] pos=12.9 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:53.948  [M2] pos=0.432 rad  vel=0.05  tau=-0.00  T=22  err=0
+14:49:53.953  [M1] pos=12.9 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:53.967  [M2] pos=0.432 rad  vel=-0.04  tau=-0.00  T=22  err=0
+14:49:53.972  [M1] pos=12.9 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:53.986  [M2] pos=0.432 rad  vel=-0.01  tau=-0.00  T=22  err=0
+14:49:53.999  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:54.004  [M2] pos=0.432 rad  vel=0.01  tau=-0.00  T=22  err=0
+14:49:54.019  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:54.032  [M1] pos=12.9 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:54.055  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:54.078  [M1] pos=12.9 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:54.092  [M1] pos=12.9 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:54.115  [M1] pos=12.9 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:54.137  [M1] pos=12.9 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:54.151  [M1] pos=12.9 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:54.174  [M1] pos=12.9 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:54.197  [M1] pos=12.9 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:54.211  [M1] pos=12.9 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:54.234  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:54.257  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:54.280  [M1] pos=12.9 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:54.294  [M1] pos=12.9 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:54.316  [M1] pos=12.9 deg  spd=0 eRPM  I=6.97 A  T=25  err=0
+14:49:54.339  [M1] pos=12.9 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:54.353  [M1] pos=12.9 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:54.376  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:54.399  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:54.413  [M1] pos=12.9 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:54.436  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:54.459  [M1] pos=12.9 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:54.473  [M1] pos=12.9 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:54.496  [M1] pos=12.9 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:54.518  [M1] pos=12.9 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:54.532  [M1] pos=12.9 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:54.555  [M1] pos=12.9 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:54.578  [M1] pos=12.9 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:54.592  [M1] pos=12.9 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:54.615  [M1] pos=12.9 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:54.638  [M1] pos=12.9 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:54.652  [M1] pos=12.9 deg  spd=0 eRPM  I=6.97 A  T=25  err=0
+14:49:54.675  [M1] pos=12.9 deg  spd=0 eRPM  I=6.94 A  T=25  err=0
+14:49:54.698  [M1] pos=12.9 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:54.712  [M1] pos=12.9 deg  spd=0 eRPM  I=6.96 A  T=25  err=0
+14:49:54.735  [M1] pos=12.9 deg  spd=0 eRPM  I=6.96 A  T=25  err=0
+14:49:54.757  [M1] pos=12.9 deg  spd=0 eRPM  I=6.97 A  T=25  err=0
+14:49:54.771  [M1] pos=12.9 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:54.794  [M1] pos=12.9 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:54.817  [M1] pos=12.9 deg  spd=0 eRPM  I=6.95 A  T=25  err=0
+14:49:54.840  [M1] pos=12.9 deg  spd=0 eRPM  I=6.95 A  T=25  err=0
+14:49:54.854  [M1] pos=12.9 deg  spd=0 eRPM  I=6.96 A  T=25  err=0
+14:49:54.877  [M1] pos=12.9 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:54.900  [M1] pos=12.9 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:54.914  [M1] pos=12.8 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:54.937  [M1] pos=12.8 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:54.959  [M1] pos=12.8 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:54.973  [M1] pos=12.8 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:54.996  [M1] pos=12.8 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:55.019  [M1] pos=12.8 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:55.033  [M1] pos=12.8 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:55.056  [M1] pos=12.8 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:55.079  [M1] pos=12.8 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:55.093  [M1] pos=12.8 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:55.116  [M1] pos=12.8 deg  spd=10 eRPM  I=6.90 A  T=25  err=0
+14:49:55.139  [M1] pos=12.8 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:55.153  [M1] pos=12.8 deg  spd=10 eRPM  I=6.88 A  T=25  err=0
+14:49:55.176  [M1] pos=12.9 deg  spd=10 eRPM  I=6.95 A  T=25  err=0
+14:49:55.199  [M1] pos=12.9 deg  spd=0 eRPM  I=6.99 A  T=25  err=0
+14:49:55.212  [M1] pos=12.9 deg  spd=0 eRPM  I=6.98 A  T=25  err=0
+14:49:55.235  [M1] pos=12.8 deg  spd=0 eRPM  I=6.95 A  T=25  err=0
+14:49:55.258  [M1] pos=12.8 deg  spd=-10 eRPM  I=6.94 A  T=25  err=0
+14:49:55.272  [M1] pos=12.8 deg  spd=0 eRPM  I=6.94 A  T=25  err=0
+14:49:55.295  [M1] pos=12.8 deg  spd=0 eRPM  I=6.96 A  T=25  err=0
+14:49:55.318  [M1] pos=12.8 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:55.332  [M1] pos=12.8 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:55.355  [M1] pos=12.8 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:55.378  [M1] pos=12.8 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:55.392  [M1] pos=12.8 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:55.415  [M1] pos=12.8 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:55.437  [M1] pos=12.8 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:55.451  [M1] pos=12.8 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:55.474  [M1] pos=12.8 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:55.498  [M1] pos=12.8 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:55.520  [M1] pos=12.8 deg  spd=0 eRPM  I=6.91 A  T=25  err=0
+14:49:55.534  [M1] pos=12.8 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:55.557  [M1] pos=12.8 deg  spd=0 eRPM  I=6.94 A  T=25  err=0
+14:49:55.580  [M1] pos=12.8 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:55.594  [M1] pos=12.8 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:55.617  [M1] pos=12.8 deg  spd=0 eRPM  I=6.97 A  T=25  err=0
+14:49:55.640  [M1] pos=12.8 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:55.654  [M1] pos=12.8 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:55.676  [M1] pos=12.8 deg  spd=0 eRPM  I=6.95 A  T=25  err=0
+14:49:55.699  [M1] pos=12.8 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:55.713  [M1] pos=12.8 deg  spd=0 eRPM  I=6.90 A  T=25  err=0
+14:49:55.736  [M1] pos=12.8 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:55.759  [M1] pos=12.8 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:55.773  [M1] pos=12.8 deg  spd=-10 eRPM  I=6.91 A  T=25  err=0
+14:49:55.796  [M1] pos=12.8 deg  spd=-10 eRPM  I=6.92 A  T=25  err=0
+14:49:55.819  [M1] pos=12.8 deg  spd=-10 eRPM  I=6.94 A  T=25  err=0
+14:49:55.833  [M1] pos=12.8 deg  spd=0 eRPM  I=6.97 A  T=25  err=0
+14:49:55.856  [M1] pos=12.8 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:55.879  [M1] pos=12.8 deg  spd=0 eRPM  I=6.93 A  T=25  err=0
+14:49:55.893  [M1] pos=12.7 deg  spd=0 eRPM  I=6.96 A  T=25  err=0
+14:49:55.916  [M1] pos=12.7 deg  spd=-10 eRPM  I=6.88 A  T=25  err=0
+14:49:55.938  [M1] pos=12.7 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:55.953  [M1] pos=12.7 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:55.975  [M1] pos=12.7 deg  spd=0 eRPM  I=6.92 A  T=25  err=0
+14:49:55.998  [M1] pos=12.7 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:56.012  [M1] pos=12.7 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:56.035  [M1] pos=12.7 deg  spd=0 eRPM  I=6.88 A  T=25  err=0
+14:49:56.058  [M1] pos=12.7 deg  spd=0 eRPM  I=6.88 A  T=26  err=0
+14:49:56.072  [M1] pos=12.6 deg  spd=-10 eRPM  I=6.86 A  T=26  err=0
+14:49:56.095  [M1] pos=12.6 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:56.118  [M1] pos=12.6 deg  spd=-20 eRPM  I=6.77 A  T=25  err=0
+14:49:56.132  [M1] pos=12.6 deg  spd=-10 eRPM  I=6.82 A  T=25  err=0
+14:49:56.155  [M1] pos=12.6 deg  spd=0 eRPM  I=6.81 A  T=25  err=0
+14:49:56.178  [M1] pos=12.6 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:56.192  [M1] pos=12.6 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:56.215  [M1] pos=12.6 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:56.237  [M1] pos=12.6 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:56.252  [M1] pos=12.6 deg  spd=0 eRPM  I=6.85 A  T=26  err=0
+14:49:56.274  [M1] pos=12.6 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:56.297  [M1] pos=12.6 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:56.320  [M1] pos=12.6 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:56.334  [M1] pos=12.6 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:56.357  [M1] pos=12.6 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:56.380  [M1] pos=12.6 deg  spd=0 eRPM  I=6.86 A  T=25  err=0
+14:49:56.394  [M1] pos=12.6 deg  spd=0 eRPM  I=6.85 A  T=25  err=0
+14:49:56.417  [M1] pos=12.6 deg  spd=0 eRPM  I=6.84 A  T=25  err=0
+14:49:56.440  [M1] pos=12.6 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:56.454  [M1] pos=12.6 deg  spd=0 eRPM  I=6.87 A  T=25  err=0
+14:49:56.477  [M1] pos=12.6 deg  spd=0 eRPM  I=6.89 A  T=25  err=0
+14:49:56.500  [M1] pos=12.6 deg  spd=10 eRPM  I=6.87 A  T=25  err=0
+14:49:56.514  [M1] pos=12.7 deg  spd=20 eRPM  I=6.88 A  T=25  err=0
+14:49:56.536  [M1] pos=12.7 deg  spd=30 eRPM  I=6.94 A  T=25  err=0
+14:49:56.559  [M1] pos=12.8 deg  spd=50 eRPM  I=7.01 A  T=25  err=0
+14:49:56.573  [M1] pos=12.8 deg  spd=50 eRPM  I=7.07 A  T=25  err=0
+14:49:56.596  [M1] pos=12.9 deg  spd=60 eRPM  I=7.00 A  T=25  err=0
+14:49:56.619  [M1] pos=13.0 deg  spd=30 eRPM  I=7.08 A  T=26  err=0
+14:49:56.633  [M1] pos=13.0 deg  spd=30 eRPM  I=7.18 A  T=25  err=0
+14:49:56.656  [M1] pos=13.1 deg  spd=20 eRPM  I=7.19 A  T=25  err=0
+14:49:56.679  [M1] pos=13.1 deg  spd=10 eRPM  I=7.20 A  T=25  err=0
+14:49:56.693  [M1] pos=13.1 deg  spd=20 eRPM  I=7.20 A  T=25  err=0
+14:49:56.716  [M1] pos=13.2 deg  spd=20 eRPM  I=7.20 A  T=25  err=0
+14:49:56.739  [M1] pos=13.2 deg  spd=10 eRPM  I=7.26 A  T=25  err=0
+14:49:56.753  [M1] pos=13.2 deg  spd=0 eRPM  I=7.18 A  T=25  err=0
+14:49:56.775  [M1] pos=13.3 deg  spd=30 eRPM  I=7.37 A  T=25  err=0
+14:49:56.798  [M1] pos=13.3 deg  spd=50 eRPM  I=7.37 A  T=25  err=0
+14:49:56.812  [M1] pos=13.4 deg  spd=50 eRPM  I=7.30 A  T=25  err=0
+14:49:56.835  [M1] pos=13.4 deg  spd=10 eRPM  I=7.45 A  T=25  err=0
+14:49:56.858  [M1] pos=13.4 deg  spd=0 eRPM  I=7.41 A  T=25  err=0
+14:49:56.872  [M1] pos=13.4 deg  spd=0 eRPM  I=7.40 A  T=25  err=0
+14:49:56.895  [M1] pos=13.4 deg  spd=0 eRPM  I=7.42 A  T=25  err=0
+14:49:56.919  [M1] pos=13.5 deg  spd=40 eRPM  I=7.44 A  T=25  err=0
+14:49:56.932  [M1] pos=13.6 deg  spd=60 eRPM  I=7.51 A  T=25  err=0
+14:49:56.955  [M1] pos=13.6 deg  spd=40 eRPM  I=7.47 A  T=26  err=0
+14:49:56.978  [M1] pos=13.7 deg  spd=30 eRPM  I=7.54 A  T=26  err=0
+14:49:57.001  [M1] pos=13.7 deg  spd=30 eRPM  I=7.60 A  T=25  err=0
+14:49:57.015  [M1] pos=13.8 deg  spd=30 eRPM  I=7.57 A  T=25  err=0
+14:49:57.037  [M1] pos=13.8 deg  spd=20 eRPM  I=7.66 A  T=25  err=0
+14:49:57.060  [M1] pos=13.9 deg  spd=30 eRPM  I=7.53 A  T=25  err=0
+14:49:57.074  [M1] pos=13.9 deg  spd=20 eRPM  I=7.69 A  T=25  err=0
+14:49:57.098  [M1] pos=14.0 deg  spd=20 eRPM  I=7.79 A  T=25  err=0
+14:49:57.120  [M1] pos=14.0 deg  spd=0 eRPM  I=7.71 A  T=25  err=0
+14:49:57.134  [M1] pos=14.0 deg  spd=10 eRPM  I=7.71 A  T=25  err=0
+14:49:57.157  [M1] pos=14.0 deg  spd=10 eRPM  I=7.82 A  T=25  err=0
+14:49:57.180  [M1] pos=14.1 deg  spd=0 eRPM  I=7.77 A  T=25  err=0
+14:49:57.194  [M1] pos=14.0 deg  spd=0 eRPM  I=7.76 A  T=25  err=0
+14:49:57.217  [M1] pos=14.0 deg  spd=0 eRPM  I=7.63 A  T=25  err=0
+14:49:57.240  [M1] pos=14.0 deg  spd=-10 eRPM  I=7.70 A  T=26  err=0
+14:49:57.254  [M1] pos=14.0 deg  spd=-10 eRPM  I=7.64 A  T=26  err=0
+14:49:57.276  [M1] pos=14.0 deg  spd=0 eRPM  I=7.64 A  T=25  err=0
+14:49:57.299  [M1] pos=14.0 deg  spd=0 eRPM  I=7.66 A  T=25  err=0
+14:49:57.313  [M1] pos=14.0 deg  spd=0 eRPM  I=7.65 A  T=25  err=0
+14:49:57.336  [M1] pos=14.0 deg  spd=0 eRPM  I=7.61 A  T=25  err=0
+14:49:57.359  [M1] pos=14.0 deg  spd=0 eRPM  I=7.71 A  T=25  err=0
+14:49:57.373  [M1] pos=14.0 deg  spd=0 eRPM  I=7.71 A  T=25  err=0
+14:49:57.396  [M1] pos=14.0 deg  spd=0 eRPM  I=7.74 A  T=25  err=0
+14:49:57.419  [M1] pos=14.0 deg  spd=0 eRPM  I=7.74 A  T=25  err=0
+14:49:57.433  [M1] pos=14.0 deg  spd=0 eRPM  I=7.80 A  T=25  err=0
+14:49:57.456  [M1] pos=14.0 deg  spd=10 eRPM  I=7.86 A  T=25  err=0
+14:49:57.479  [M1] pos=14.0 deg  spd=30 eRPM  I=7.83 A  T=25  err=0
+14:49:57.493  [M1] pos=14.1 deg  spd=40 eRPM  I=7.77 A  T=25  err=0
+14:49:57.516  [M1] pos=14.1 deg  spd=40 eRPM  I=7.90 A  T=25  err=0
+14:49:57.538  [M1] pos=14.2 deg  spd=50 eRPM  I=7.86 A  T=25  err=0
+14:49:57.552  [M1] pos=14.3 deg  spd=30 eRPM  I=7.91 A  T=26  err=0
+14:49:57.575  [M1] pos=14.4 deg  spd=40 eRPM  I=8.01 A  T=26  err=0
+14:49:57.598  [M1] pos=14.4 deg  spd=30 eRPM  I=8.04 A  T=25  err=0
+14:49:57.612  [M1] pos=14.5 deg  spd=40 eRPM  I=8.02 A  T=25  err=0
+14:49:57.635  [M1] pos=14.6 deg  spd=40 eRPM  I=8.08 A  T=25  err=0
+14:49:57.658  [M1] pos=14.6 deg  spd=30 eRPM  I=8.18 A  T=25  err=0
+14:49:57.681  [M1] pos=14.7 deg  spd=40 eRPM  I=8.17 A  T=25  err=0
+14:49:57.695  [M1] pos=14.7 deg  spd=50 eRPM  I=8.26 A  T=25  err=0
+14:49:57.718  [M1] pos=14.8 deg  spd=60 eRPM  I=8.25 A  T=25  err=0
+14:49:57.740  [M1] pos=14.9 deg  spd=60 eRPM  I=8.36 A  T=25  err=0
+14:49:57.754  [M1] pos=15.0 deg  spd=80 eRPM  I=8.38 A  T=25  err=0
+14:49:57.777  [M1] pos=15.2 deg  spd=80 eRPM  I=8.35 A  T=25  err=0
+14:49:57.800  [M1] pos=15.3 deg  spd=70 eRPM  I=8.54 A  T=25  err=0
+14:49:57.814  [M1] pos=15.4 deg  spd=70 eRPM  I=8.60 A  T=25  err=0
+14:49:57.837  [M1] pos=15.5 deg  spd=70 eRPM  I=8.64 A  T=25  err=0
+14:49:57.860  [M1] pos=15.6 deg  spd=70 eRPM  I=8.75 A  T=25  err=0
+14:49:57.874  [M1] pos=15.7 deg  spd=80 eRPM  I=8.78 A  T=26  err=0
+14:49:57.897  [M1] pos=15.9 deg  spd=90 eRPM  I=9.05 A  T=26  err=0
+14:49:57.920  [M1] pos=16.0 deg  spd=70 eRPM  I=9.02 A  T=25  err=0
+14:49:57.934  [M1] pos=16.1 deg  spd=60 eRPM  I=8.98 A  T=25  err=0
+14:49:57.956  [M1] pos=16.2 deg  spd=70 eRPM  I=9.18 A  T=25  err=0
+14:49:57.979  [M1] pos=16.3 deg  spd=80 eRPM  I=9.14 A  T=25  err=0
+14:49:57.993  [M1] pos=16.4 deg  spd=90 eRPM  I=9.24 A  T=25  err=0
+14:49:58.016  [M1] pos=16.6 deg  spd=100 eRPM  I=9.35 A  T=25  err=0
+14:49:58.039  [M1] pos=16.7 deg  spd=60 eRPM  I=9.41 A  T=25  err=0
+14:49:58.053  [M1] pos=16.8 deg  spd=60 eRPM  I=9.46 A  T=25  err=0
+14:49:58.076  [M1] pos=16.9 deg  spd=50 eRPM  I=9.47 A  T=25  err=0
+14:49:58.099  [M1] pos=16.9 deg  spd=40 eRPM  I=9.52 A  T=25  err=0
+14:49:58.113  [M1] pos=17.0 deg  spd=40 eRPM  I=9.57 A  T=25  err=0
+14:49:58.136  [M1] pos=17.1 deg  spd=40 eRPM  I=9.62 A  T=25  err=0
+14:49:58.159  [M1] pos=17.1 deg  spd=30 eRPM  I=9.63 A  T=25  err=0
+14:49:58.173  [M1] pos=17.2 deg  spd=40 eRPM  I=9.65 A  T=25  err=0
+14:49:58.195  [M1] pos=17.2 deg  spd=40 eRPM  I=9.71 A  T=25  err=0
+14:49:58.218  [M1] pos=17.3 deg  spd=40 eRPM  I=9.75 A  T=25  err=0
+14:49:58.232  [M1] pos=17.4 deg  spd=30 eRPM  I=9.73 A  T=25  err=0
+14:49:58.255  [M1] pos=17.4 deg  spd=10 eRPM  I=9.74 A  T=25  err=0
+14:49:58.278  [M1] pos=17.4 deg  spd=0 eRPM  I=9.76 A  T=25  err=0
+14:49:58.301  [M1] pos=17.4 deg  spd=0 eRPM  I=9.81 A  T=25  err=0
+14:49:58.315  [M1] pos=17.4 deg  spd=0 eRPM  I=9.79 A  T=25  err=0
+14:49:58.338  [M1] pos=17.4 deg  spd=0 eRPM  I=9.78 A  T=25  err=0
+14:49:58.361  [M1] pos=17.4 deg  spd=-10 eRPM  I=9.72 A  T=25  err=0
+14:49:58.375  [M1] pos=17.3 deg  spd=-10 eRPM  I=9.78 A  T=25  err=0
+14:49:58.398  [M1] pos=17.3 deg  spd=-20 eRPM  I=9.74 A  T=25  err=0
+14:49:58.421  [M1] pos=17.2 deg  spd=-30 eRPM  I=9.69 A  T=25  err=0
+14:49:58.434  [M1] pos=17.2 deg  spd=-40 eRPM  I=9.64 A  T=25  err=0
+14:49:58.457  [M1] pos=17.1 deg  spd=-40 eRPM  I=9.64 A  T=25  err=0
+14:49:58.480  [M1] pos=17.0 deg  spd=-40 eRPM  I=9.55 A  T=26  err=0
+14:49:58.494  [M1] pos=17.0 deg  spd=-40 eRPM  I=9.49 A  T=26  err=0
+14:49:58.517  [M1] pos=16.9 deg  spd=-50 eRPM  I=9.52 A  T=26  err=0
+14:49:58.540  [M1] pos=16.8 deg  spd=-40 eRPM  I=9.47 A  T=26  err=0
+14:49:58.554  [M1] pos=16.8 deg  spd=-40 eRPM  I=9.40 A  T=26  err=0
+14:49:58.577  [M1] pos=16.7 deg  spd=-50 eRPM  I=9.39 A  T=25  err=0
+14:49:58.600  [M1] pos=16.6 deg  spd=-50 eRPM  I=9.34 A  T=25  err=0
+14:49:58.614  [M1] pos=16.5 deg  spd=-70 eRPM  I=9.29 A  T=25  err=0
+14:49:58.637  [M1] pos=16.4 deg  spd=-70 eRPM  I=9.23 A  T=25  err=0
+14:49:58.659  [M1] pos=16.3 deg  spd=-70 eRPM  I=9.18 A  T=25  err=0
+14:49:58.673  [M1] pos=16.2 deg  spd=-60 eRPM  I=9.04 A  T=25  err=0
+14:49:58.696  [M1] pos=16.2 deg  spd=-40 eRPM  I=9.02 A  T=25  err=0
+14:49:58.719  [M1] pos=16.1 deg  spd=-40 eRPM  I=9.05 A  T=25  err=0
+14:49:58.733  [M1] pos=16.0 deg  spd=-40 eRPM  I=8.99 A  T=25  err=0
+14:49:58.756  [M1] pos=16.0 deg  spd=-30 eRPM  I=9.05 A  T=25  err=0
+14:49:58.779  [M1] pos=15.9 deg  spd=-30 eRPM  I=9.00 A  T=25  err=0
+14:49:58.793  [M1] pos=15.9 deg  spd=-40 eRPM  I=8.95 A  T=26  err=0
+14:49:58.816  [M1] pos=15.8 deg  spd=-30 eRPM  I=8.90 A  T=26  err=0
+14:49:58.839  [M1] pos=15.8 deg  spd=-20 eRPM  I=8.90 A  T=26  err=0
+14:49:58.853  [M1] pos=15.7 deg  spd=-40 eRPM  I=8.82 A  T=26  err=0
+14:49:58.875  [M1] pos=15.7 deg  spd=-40 eRPM  I=8.77 A  T=26  err=0
+14:49:58.898  [M1] pos=15.6 deg  spd=-30 eRPM  I=8.72 A  T=26  err=0
+14:49:58.921  [M1] pos=15.5 deg  spd=-30 eRPM  I=8.75 A  T=26  err=0
+14:49:58.935  [M1] pos=15.5 deg  spd=-30 eRPM  I=8.69 A  T=26  err=0
+14:49:58.958  [M1] pos=15.5 deg  spd=-30 eRPM  I=8.76 A  T=26  err=0
+14:49:58.981  [M1] pos=15.4 deg  spd=-20 eRPM  I=8.72 A  T=26  err=0
+14:49:58.995  [M1] pos=15.4 deg  spd=-20 eRPM  I=8.63 A  T=25  err=0
+14:49:59.018  [M1] pos=15.4 deg  spd=-20 eRPM  I=8.60 A  T=25  err=0
+14:49:59.041  [M1] pos=15.3 deg  spd=-20 eRPM  I=8.61 A  T=25  err=0
+14:49:59.055  [M1] pos=15.3 deg  spd=-20 eRPM  I=8.63 A  T=25  err=0
+14:49:59.077  [M1] pos=15.3 deg  spd=-20 eRPM  I=8.61 A  T=26  err=0
+14:49:59.100  [M1] pos=15.2 deg  spd=-20 eRPM  I=8.57 A  T=26  err=0
+14:49:59.114  [M1] pos=15.2 deg  spd=-20 eRPM  I=8.55 A  T=26  err=0
+14:49:59.137  [M1] pos=15.2 deg  spd=-20 eRPM  I=8.57 A  T=26  err=0
+14:49:59.160  [M1] pos=15.1 deg  spd=-30 eRPM  I=8.60 A  T=26  err=0
+14:49:59.174  [M1] pos=15.1 deg  spd=-30 eRPM  I=8.52 A  T=26  err=0
+14:49:59.197  [M1] pos=15.0 deg  spd=-40 eRPM  I=8.49 A  T=26  err=0
+14:49:59.220  [M1] pos=15.0 deg  spd=-40 eRPM  I=8.44 A  T=26  err=0
+14:49:59.234  [M1] pos=14.9 deg  spd=-40 eRPM  I=8.40 A  T=26  err=0
+14:49:59.257  [M1] pos=14.8 deg  spd=-40 eRPM  I=8.38 A  T=26  err=0
+14:49:59.279  [M1] pos=14.8 deg  spd=-40 eRPM  I=8.31 A  T=25  err=0
+14:49:59.293  [M1] pos=14.7 deg  spd=-40 eRPM  I=8.31 A  T=25  err=0
+14:49:59.317  [M1] pos=14.6 deg  spd=-30 eRPM  I=8.27 A  T=25  err=0
+14:49:59.339  [M1] pos=14.6 deg  spd=-40 eRPM  I=8.14 A  T=25  err=0
+14:49:59.353  [M1] pos=14.5 deg  spd=-40 eRPM  I=8.18 A  T=25  err=0
+14:49:59.376  [M1] pos=14.5 deg  spd=-40 eRPM  I=8.14 A  T=25  err=0
+14:49:59.399  [M1] pos=14.4 deg  spd=-50 eRPM  I=8.17 A  T=26  err=0
+14:49:59.413  [M1] pos=14.3 deg  spd=-60 eRPM  I=8.08 A  T=26  err=0
+14:49:59.436  [M1] pos=14.2 deg  spd=-70 eRPM  I=7.95 A  T=26  err=0
+14:49:59.459  [M1] pos=14.1 deg  spd=-80 eRPM  I=7.91 A  T=26  err=0
+14:49:59.473  [M1] pos=13.9 deg  spd=-100 eRPM  I=7.86 A  T=26  err=0
+14:49:59.495  [M1] pos=13.8 deg  spd=-90 eRPM  I=7.74 A  T=26  err=0
+14:49:59.518  [M1] pos=13.6 deg  spd=-100 eRPM  I=7.67 A  T=26  err=0
+14:49:59.541  [M1] pos=13.5 deg  spd=-70 eRPM  I=7.55 A  T=26  err=0
+14:49:59.555  [M1] pos=13.5 deg  spd=-30 eRPM  I=7.58 A  T=26  err=0
+14:49:59.578  [M1] pos=13.4 deg  spd=-20 eRPM  I=7.63 A  T=26  err=0
+14:49:59.601  [M1] pos=13.3 deg  spd=-70 eRPM  I=7.52 A  T=26  err=0
+14:49:59.615  [M1] pos=13.2 deg  spd=-40 eRPM  I=7.49 A  T=26  err=0
+14:49:59.638  [M1] pos=13.1 deg  spd=-60 eRPM  I=7.37 A  T=26  err=0
+14:49:59.661  [M1] pos=13.1 deg  spd=-50 eRPM  I=7.33 A  T=26  err=0
+14:49:59.675  [M1] pos=13.0 deg  spd=-50 eRPM  I=7.33 A  T=26  err=0
+14:49:59.697  [M1] pos=12.9 deg  spd=-50 eRPM  I=7.23 A  T=26  err=0
+14:49:59.721  [M1] pos=12.8 deg  spd=-50 eRPM  I=7.25 A  T=26  err=0
+14:49:59.734  [M1] pos=12.7 deg  spd=-80 eRPM  I=7.11 A  T=26  err=0
+14:49:59.757  [M1] pos=12.6 deg  spd=-80 eRPM  I=7.08 A  T=26  err=0
+14:49:59.780  [M1] pos=12.5 deg  spd=-60 eRPM  I=7.07 A  T=26  err=0
+14:49:59.794  [M1] pos=12.4 deg  spd=-60 eRPM  I=6.96 A  T=26  err=0
+14:49:59.817  [M1] pos=12.3 deg  spd=-60 eRPM  I=7.01 A  T=26  err=0
+14:49:59.840  [M1] pos=12.3 deg  spd=-30 eRPM  I=6.92 A  T=26  err=0
+14:49:59.854  [M1] pos=12.2 deg  spd=-40 eRPM  I=6.88 A  T=26  err=0
+14:49:59.877  [M1] pos=12.2 deg  spd=-30 eRPM  I=6.78 A  T=26  err=0
+14:49:59.900  [M1] pos=12.1 deg  spd=-50 eRPM  I=6.87 A  T=26  err=0
+14:49:59.913  [M1] pos=12.1 deg  spd=-20 eRPM  I=6.85 A  T=26  err=0
+14:49:59.936  [M1] pos=12.0 deg  spd=-30 eRPM  I=6.68 A  T=26  err=0
+14:49:59.959  [M1] pos=12.0 deg  spd=-20 eRPM  I=6.76 A  T=26  err=0
+14:49:59.973  [M1] pos=11.9 deg  spd=-20 eRPM  I=6.70 A  T=26  err=0
+14:49:59.996  [M1] pos=11.9 deg  spd=-10 eRPM  I=6.64 A  T=26  err=0
+14:50:00.019  [M1] pos=11.9 deg  spd=-20 eRPM  I=6.71 A  T=26  err=0
+14:50:00.033  [M1] pos=11.9 deg  spd=-30 eRPM  I=6.68 A  T=26  err=0
+14:50:00.056  [M1] pos=11.8 deg  spd=-50 eRPM  I=6.76 A  T=26  err=0
+14:50:00.079  [M1] pos=11.7 deg  spd=-60 eRPM  I=6.66 A  T=26  err=0
+14:50:00.102  [M1] pos=11.5 deg  spd=-100 eRPM  I=6.43 A  T=26  err=0
+14:50:00.115  [M1] pos=11.4 deg  spd=-90 eRPM  I=6.40 A  T=26  err=0
+14:50:00.138  [M1] pos=11.3 deg  spd=-70 eRPM  I=6.41 A  T=26  err=0
+14:50:00.161  [M1] pos=11.2 deg  spd=-70 eRPM  I=6.29 A  T=26  err=0
+14:50:00.175  [M1] pos=11.1 deg  spd=-70 eRPM  I=6.27 A  T=26  err=0
+14:50:00.198  [M1] pos=11.0 deg  spd=-60 eRPM  I=6.18 A  T=26  err=0
+14:50:00.221  [M1] pos=10.9 deg  spd=-60 eRPM  I=6.09 A  T=26  err=0
+14:50:00.235  [M1] pos=10.8 deg  spd=-60 eRPM  I=6.04 A  T=26  err=0
+14:50:00.258  [M1] pos=10.7 deg  spd=-50 eRPM  I=6.04 A  T=26  err=0
+14:50:00.281  [M1] pos=10.6 deg  spd=-40 eRPM  I=5.98 A  T=26  err=0
+14:50:00.295  [M1] pos=10.6 deg  spd=-30 eRPM  I=5.94 A  T=26  err=0
+14:50:00.318  [M1] pos=10.5 deg  spd=-30 eRPM  I=5.94 A  T=26  err=0
+14:50:00.340  [M1] pos=10.5 deg  spd=-10 eRPM  I=5.94 A  T=26  err=0
+14:50:00.354  [M1] pos=10.5 deg  spd=0 eRPM  I=5.95 A  T=26  err=0
+14:50:00.377  [M1] pos=10.5 deg  spd=0 eRPM  I=5.91 A  T=26  err=0
+14:50:00.400  [M1] pos=10.5 deg  spd=0 eRPM  I=5.93 A  T=26  err=0
+14:50:00.414  [M1] pos=10.5 deg  spd=0 eRPM  I=5.96 A  T=26  err=0
+14:50:00.437  [M1] pos=10.5 deg  spd=0 eRPM  I=5.96 A  T=26  err=0
+14:50:00.460  [M1] pos=10.5 deg  spd=0 eRPM  I=5.98 A  T=26  err=0
+14:50:00.474  [M1] pos=10.5 deg  spd=10 eRPM  I=5.98 A  T=26  err=0
+14:50:00.497  [M1] pos=10.6 deg  spd=10 eRPM  I=5.98 A  T=26  err=0
+14:50:00.520  [M1] pos=10.6 deg  spd=10 eRPM  I=6.07 A  T=26  err=0
+14:50:00.533  [M1] pos=10.6 deg  spd=30 eRPM  I=6.07 A  T=26  err=0
+14:50:00.556  [M1] pos=10.7 deg  spd=40 eRPM  I=6.08 A  T=26  err=0
+14:50:00.579  [M1] pos=10.8 deg  spd=50 eRPM  I=6.12 A  T=26  err=0
+14:50:00.593  [M1] pos=10.9 deg  spd=80 eRPM  I=6.23 A  T=26  err=0
+14:50:00.616  [M1] pos=11.0 deg  spd=80 eRPM  I=6.24 A  T=26  err=0
+14:50:00.639  [M1] pos=11.1 deg  spd=100 eRPM  I=6.37 A  T=26  err=0
+14:50:00.653  [M1] pos=11.3 deg  spd=110 eRPM  I=6.36 A  T=26  err=0
+14:50:00.676  [M1] pos=11.4 deg  spd=40 eRPM  I=6.40 A  T=26  err=0
+14:50:00.699  [M1] pos=11.5 deg  spd=40 eRPM  I=6.47 A  T=26  err=0
+14:50:00.721  [M1] pos=11.5 deg  spd=20 eRPM  I=6.57 A  T=26  err=0
+14:50:00.735  [M1] pos=11.6 deg  spd=0 eRPM  I=6.52 A  T=26  err=0
+14:50:00.758  [M1] pos=11.6 deg  spd=0 eRPM  I=6.46 A  T=26  err=0
+14:50:00.781  [M1] pos=11.5 deg  spd=-20 eRPM  I=6.57 A  T=26  err=0
+14:50:00.795  [M1] pos=11.5 deg  spd=-20 eRPM  I=6.35 A  T=26  err=0
+14:50:00.818  [M1] pos=11.5 deg  spd=-10 eRPM  I=6.46 A  T=26  err=0
+14:50:00.841  [M1] pos=11.4 deg  spd=-30 eRPM  I=6.51 A  T=26  err=0
+14:50:00.855  [M1] pos=11.4 deg  spd=-50 eRPM  I=6.46 A  T=26  err=0
+14:50:00.878  [M1] pos=11.2 deg  spd=-70 eRPM  I=6.53 A  T=26  err=0
+14:50:00.901  [M1] pos=11.1 deg  spd=-70 eRPM  I=6.30 A  T=26  err=0
+14:50:00.915  [M1] pos=11.0 deg  spd=-70 eRPM  I=6.19 A  T=26  err=0
+14:50:00.938  [M1] pos=10.9 deg  spd=-50 eRPM  I=6.20 A  T=26  err=0
+14:50:00.960  [M1] pos=10.9 deg  spd=-60 eRPM  I=6.12 A  T=26  err=0
+14:50:00.974  [M1] pos=10.8 deg  spd=-70 eRPM  I=6.09 A  T=26  err=0
+14:50:00.997  [M1] pos=10.7 deg  spd=-60 eRPM  I=6.06 A  T=26  err=0
+14:50:01.020  [M1] pos=10.6 deg  spd=-60 eRPM  I=6.04 A  T=26  err=0
+14:50:01.034  [M1] pos=10.5 deg  spd=-60 eRPM  I=5.94 A  T=26  err=0
+14:50:01.057  [M1] pos=10.4 deg  spd=-50 eRPM  I=5.91 A  T=26  err=0
+14:50:01.080  [M1] pos=10.3 deg  spd=-40 eRPM  I=5.87 A  T=26  err=0
+14:50:01.094  [M1] pos=10.3 deg  spd=-30 eRPM  I=5.83 A  T=26  err=0
+14:50:01.117  [M1] pos=10.2 deg  spd=-30 eRPM  I=5.88 A  T=26  err=0
+14:50:01.140  [M1] pos=10.2 deg  spd=-30 eRPM  I=5.73 A  T=26  err=0
+14:50:01.154  [M1] pos=10.1 deg  spd=-30 eRPM  I=5.81 A  T=26  err=0
+14:50:01.177  [M1] pos=10.1 deg  spd=-30 eRPM  I=5.70 A  T=26  err=0
+14:50:01.199  [M1] pos=10.0 deg  spd=-40 eRPM  I=5.66 A  T=26  err=0
+14:50:01.213  [M1] pos=10.0 deg  spd=-40 eRPM  I=5.57 A  T=26  err=0
+14:50:01.236  [M1] pos=9.9 deg  spd=-40 eRPM  I=5.58 A  T=26  err=0
+14:50:01.259  [M1] pos=9.8 deg  spd=-40 eRPM  I=5.55 A  T=26  err=0
+14:50:01.282  [M1] pos=9.7 deg  spd=-40 eRPM  I=5.52 A  T=26  err=0
+14:50:01.296  [M1] pos=9.7 deg  spd=-30 eRPM  I=5.44 A  T=26  err=0
+14:50:01.319  [M1] pos=9.6 deg  spd=-30 eRPM  I=5.46 A  T=26  err=0
+14:50:01.342  [M1] pos=9.6 deg  spd=-20 eRPM  I=5.46 A  T=26  err=0
+14:50:01.355  [M1] pos=9.6 deg  spd=0 eRPM  I=5.46 A  T=26  err=0
+14:50:01.378  [M1] pos=9.6 deg  spd=-10 eRPM  I=5.63 A  T=26  err=0
+14:50:01.401  [M1] pos=9.5 deg  spd=-10 eRPM  I=5.40 A  T=26  err=0
+14:50:01.415  [M1] pos=9.5 deg  spd=0 eRPM  I=5.36 A  T=26  err=0
+14:50:01.438  [M1] pos=9.5 deg  spd=-10 eRPM  I=5.40 A  T=26  err=0
+14:50:01.461  [M1] pos=9.5 deg  spd=0 eRPM  I=5.42 A  T=26  err=0
+14:50:01.475  [M1] pos=9.5 deg  spd=0 eRPM  I=5.36 A  T=26  err=0
+14:50:01.498  [M1] pos=9.5 deg  spd=0 eRPM  I=5.25 A  T=26  err=0
+14:50:01.521  [M1] pos=9.5 deg  spd=0 eRPM  I=5.42 A  T=26  err=0
+14:50:01.535  [M1] pos=9.5 deg  spd=0 eRPM  I=5.45 A  T=26  err=0
+14:50:01.558  [M1] pos=9.5 deg  spd=0 eRPM  I=5.37 A  T=26  err=0
+14:50:01.580  [M1] pos=9.5 deg  spd=0 eRPM  I=5.40 A  T=26  err=0
+14:50:01.594  [M1] pos=9.6 deg  spd=10 eRPM  I=5.43 A  T=26  err=0
+14:50:01.617  [M1] pos=9.6 deg  spd=10 eRPM  I=5.38 A  T=26  err=0
+14:50:01.640  [M1] pos=9.6 deg  spd=20 eRPM  I=5.47 A  T=26  err=0
+14:50:01.654  [M1] pos=9.6 deg  spd=10 eRPM  I=5.44 A  T=26  err=0
+14:50:01.677  [M1] pos=9.7 deg  spd=20 eRPM  I=5.55 A  T=26  err=0
+14:50:01.700  [M1] pos=9.7 deg  spd=10 eRPM  I=5.54 A  T=26  err=0
+14:50:01.714  [M1] pos=9.7 deg  spd=10 eRPM  I=5.61 A  T=26  err=0
+14:50:01.737  [M1] pos=9.7 deg  spd=20 eRPM  I=5.55 A  T=26  err=0
+14:50:01.760  [M1] pos=9.8 deg  spd=30 eRPM  I=5.53 A  T=26  err=0
+14:50:01.774  [M1] pos=9.8 deg  spd=20 eRPM  I=5.73 A  T=26  err=0
+14:50:01.797  [M1] pos=9.9 deg  spd=20 eRPM  I=5.73 A  T=26  err=0
+14:50:01.820  [M1] pos=9.9 deg  spd=10 eRPM  I=5.67 A  T=26  err=0
+14:50:01.833  [M1] pos=9.9 deg  spd=10 eRPM  I=5.72 A  T=26  err=0
+14:50:01.856  [M1] pos=9.9 deg  spd=0 eRPM  I=5.66 A  T=26  err=0
+14:50:01.879  [M1] pos=9.9 deg  spd=0 eRPM  I=5.59 A  T=26  err=0
+14:50:01.893  [M1] pos=9.9 deg  spd=10 eRPM  I=5.70 A  T=26  err=0
+14:50:01.916  [M1] pos=10.0 deg  spd=20 eRPM  I=5.62 A  T=26  err=0
+14:50:01.939  [M1] pos=10.0 deg  spd=20 eRPM  I=5.72 A  T=26  err=0
+14:50:01.962  [M1] pos=10.1 deg  spd=30 eRPM  I=5.75 A  T=26  err=0
+14:50:01.976  [M1] pos=10.1 deg  spd=20 eRPM  I=5.79 A  T=26  err=0
+14:50:01.999  [M1] pos=10.1 deg  spd=10 eRPM  I=5.84 A  T=26  err=0
+14:50:02.022  [M1] pos=10.2 deg  spd=10 eRPM  I=5.72 A  T=26  err=0
+14:50:02.036  [M1] pos=10.2 deg  spd=0 eRPM  I=5.80 A  T=26  err=0
+14:50:02.059  [M1] pos=10.2 deg  spd=0 eRPM  I=5.79 A  T=26  err=0
+14:50:02.081  [M1] pos=10.2 deg  spd=0 eRPM  I=5.80 A  T=26  err=0
+14:50:02.095  [M1] pos=10.2 deg  spd=0 eRPM  I=5.82 A  T=26  err=0
+14:50:02.118  [M1] pos=10.2 deg  spd=0 eRPM  I=5.80 A  T=26  err=0
+14:50:02.141  [M1] pos=10.2 deg  spd=0 eRPM  I=5.83 A  T=26  err=0
+14:50:02.155  [M1] pos=10.2 deg  spd=0 eRPM  I=5.91 A  T=26  err=0
+14:50:02.178  [M1] pos=10.2 deg  spd=0 eRPM  I=5.81 A  T=26  err=0
+14:50:02.201  [M1] pos=10.2 deg  spd=0 eRPM  I=5.82 A  T=26  err=0
+14:50:02.215  [M1] pos=10.2 deg  spd=0 eRPM  I=5.82 A  T=26  err=0
+14:50:02.238  [M1] pos=10.2 deg  spd=0 eRPM  I=5.83 A  T=26  err=0
+14:50:02.261  [M1] pos=10.2 deg  spd=0 eRPM  I=5.85 A  T=26  err=0
+14:50:02.275  [M1] pos=10.2 deg  spd=0 eRPM  I=5.85 A  T=26  err=0
+14:50:02.298  [M1] pos=10.2 deg  spd=0 eRPM  I=5.85 A  T=26  err=0
+14:50:02.320  [M1] pos=10.2 deg  spd=0 eRPM  I=5.86 A  T=26  err=0
+14:50:02.334  [M1] pos=10.2 deg  spd=0 eRPM  I=5.87 A  T=26  err=0
+14:50:02.358  [M1] pos=10.2 deg  spd=0 eRPM  I=5.90 A  T=26  err=0
+14:50:02.380  [M1] pos=10.2 deg  spd=0 eRPM  I=5.88 A  T=26  err=0
+14:50:02.394  [M1] pos=10.2 deg  spd=0 eRPM  I=5.89 A  T=26  err=0
+14:50:02.417  [M1] pos=10.2 deg  spd=0 eRPM  I=5.89 A  T=26  err=0
+14:50:02.440  [M1] pos=10.2 deg  spd=0 eRPM  I=5.88 A  T=26  err=0
+14:50:02.454  [M1] pos=10.2 deg  spd=0 eRPM  I=5.84 A  T=26  err=0
+14:50:02.477  [M1] pos=10.2 deg  spd=0 eRPM  I=5.89 A  T=26  err=0
+14:50:02.500  [M1] pos=10.2 deg  spd=0 eRPM  I=5.91 A  T=26  err=0
+14:50:02.514  [M1] pos=10.2 deg  spd=0 eRPM  I=5.91 A  T=26  err=0
+14:50:02.536  [M1] pos=10.2 deg  spd=0 eRPM  I=5.90 A  T=26  err=0
+14:50:02.559  [M1] pos=10.2 deg  spd=0 eRPM  I=5.93 A  T=26  err=0
+14:50:02.582  [M1] pos=10.2 deg  spd=0 eRPM  I=5.89 A  T=26  err=0
+14:50:02.596  [M1] pos=10.2 deg  spd=0 eRPM  I=5.90 A  T=26  err=0
+14:50:02.619  [M1] pos=10.2 deg  spd=0 eRPM  I=5.96 A  T=26  err=0
+14:50:02.642  [M1] pos=10.2 deg  spd=-10 eRPM  I=5.78 A  T=26  err=0
+14:50:02.656  [M1] pos=10.1 deg  spd=-10 eRPM  I=5.82 A  T=26  err=0
+14:50:02.679  [M1] pos=10.1 deg  spd=-40 eRPM  I=5.72 A  T=26  err=0
+14:50:02.702  [M1] pos=10.0 deg  spd=-70 eRPM  I=5.63 A  T=26  err=0
+14:50:02.716  [M1] pos=9.9 deg  spd=-70 eRPM  I=5.65 A  T=26  err=0
+14:50:02.739  [M1] pos=9.8 deg  spd=-60 eRPM  I=5.56 A  T=26  err=0
+14:50:02.761  [M1] pos=9.7 deg  spd=-60 eRPM  I=5.49 A  T=26  err=0
+14:50:02.775  [M1] pos=9.6 deg  spd=-50 eRPM  I=5.47 A  T=26  err=0
+14:50:02.798  [M1] pos=9.5 deg  spd=-30 eRPM  I=5.44 A  T=26  err=0
+14:50:02.821  [M1] pos=9.5 deg  spd=-10 eRPM  I=5.49 A  T=26  err=0
+14:50:02.835  [M1] pos=9.5 deg  spd=-10 eRPM  I=5.44 A  T=26  err=0
+14:50:02.858  [M1] pos=9.5 deg  spd=0 eRPM  I=5.58 A  T=26  err=0
+14:50:02.881  [M1] pos=9.5 deg  spd=0 eRPM  I=5.51 A  T=26  err=0
+14:50:02.895  [M1] pos=9.5 deg  spd=0 eRPM  I=5.47 A  T=26  err=0
+14:50:02.918  [M1] pos=9.5 deg  spd=0 eRPM  I=5.57 A  T=26  err=0
+14:50:02.940  [M1] pos=9.5 deg  spd=0 eRPM  I=5.54 A  T=26  err=0
+14:50:02.954  [M1] pos=9.5 deg  spd=0 eRPM  I=5.38 A  T=26  err=0
+14:50:02.977  [M1] pos=9.5 deg  spd=0 eRPM  I=5.49 A  T=26  err=0
+14:50:03.000  [M1] pos=9.5 deg  spd=0 eRPM  I=5.42 A  T=26  err=0
+14:50:03.014  [M1] pos=9.5 deg  spd=0 eRPM  I=5.46 A  T=26  err=0
+14:50:03.037  [M1] pos=9.5 deg  spd=0 eRPM  I=5.43 A  T=26  err=0
+14:50:03.060  [M1] pos=9.5 deg  spd=0 eRPM  I=5.45 A  T=26  err=0
+14:50:03.074  [M1] pos=9.5 deg  spd=0 eRPM  I=5.46 A  T=26  err=0
+14:50:03.097  [M1] pos=9.5 deg  spd=0 eRPM  I=5.51 A  T=26  err=0
+14:50:03.120  [M1] pos=9.5 deg  spd=0 eRPM  I=5.52 A  T=26  err=0
+14:50:03.143  [M1] pos=9.5 deg  spd=0 eRPM  I=5.50 A  T=26  err=0
+14:50:03.156  [M1] pos=9.5 deg  spd=0 eRPM  I=5.53 A  T=26  err=0
+14:50:03.179  [M1] pos=9.5 deg  spd=0 eRPM  I=5.46 A  T=26  err=0
+14:50:03.202  [M1] pos=9.5 deg  spd=10 eRPM  I=5.45 A  T=26  err=0
+14:50:03.216  [M1] pos=9.5 deg  spd=10 eRPM  I=5.55 A  T=26  err=0
+14:50:03.239  [M1] pos=9.5 deg  spd=0 eRPM  I=5.54 A  T=26  err=0
+14:50:03.262  [M1] pos=9.5 deg  spd=0 eRPM  I=5.53 A  T=26  err=0
+14:50:03.276  [M1] pos=9.5 deg  spd=0 eRPM  I=5.45 A  T=26  err=0
+14:50:03.299  [M1] pos=9.5 deg  spd=0 eRPM  I=5.45 A  T=26  err=0
+14:50:03.322  [M1] pos=9.5 deg  spd=0 eRPM  I=5.51 A  T=26  err=0
+14:50:03.336  [M1] pos=9.6 deg  spd=0 eRPM  I=5.48 A  T=26  err=0
+14:50:03.359  [M1] pos=9.6 deg  spd=0 eRPM  I=5.39 A  T=26  err=0
+14:50:03.381  [M1] pos=9.6 deg  spd=0 eRPM  I=5.43 A  T=26  err=0
+14:50:03.395  [M1] pos=9.6 deg  spd=0 eRPM  I=5.59 A  T=26  err=0
+14:50:03.418  [M1] pos=9.6 deg  spd=0 eRPM  I=5.52 A  T=26  err=0
+14:50:03.441  [M1] pos=9.6 deg  spd=0 eRPM  I=5.53 A  T=26  err=0
+14:50:03.455  [M1] pos=9.6 deg  spd=0 eRPM  I=5.63 A  T=26  err=0
+14:50:03.478  [M1] pos=9.6 deg  spd=0 eRPM  I=5.60 A  T=26  err=0
+14:50:03.501  [M1] pos=9.6 deg  spd=0 eRPM  I=5.61 A  T=26  err=0
+14:50:03.515  [M1] pos=9.6 deg  spd=0 eRPM  I=5.59 A  T=26  err=0
+14:50:03.538  [M1] pos=9.5 deg  spd=0 eRPM  I=5.61 A  T=26  err=0
+14:50:03.561  [M1] pos=9.5 deg  spd=0 eRPM  I=5.48 A  T=26  err=0
+14:50:03.575  [M1] pos=9.5 deg  spd=0 eRPM  I=5.48 A  T=26  err=0

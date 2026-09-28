@@ -1,0 +1,1033 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="robot_master">
+  <compiler angle="radian" autolimits="true" />
+  <option integrator="implicitfast" />
+  <visual>
+    <global offwidth="1280" offheight="720" />
+  </visual>
+  <asset>
+    <mesh name="mesh_001" file="assets/001_Hex_nut_grade_A___B_M5x0_8.obj" />
+    <mesh name="mesh_002" file="assets/002_Hex_socket_head_cap_screw_M2_5x0_45_x_8.obj" />
+    <mesh name="mesh_003" file="assets/003_Hex_socket_head_cap_screw_M3x0_50_x_10.obj" />
+    <mesh name="mesh_004" file="assets/004_Hex_socket_head_cap_screw_M3x0_50_x_14.obj" />
+    <mesh name="mesh_005" file="assets/005_Hex_socket_head_cap_screw_M3x0_50_x_20.obj" />
+    <mesh name="mesh_006" file="assets/006_Hex_socket_head_cap_screw_M3x0_50_x_8.obj" />
+    <mesh name="mesh_007" file="assets/007_Hex_socket_head_cap_screw_M4x0_70_x_10.obj" />
+    <mesh name="mesh_008" file="assets/008_Hex_socket_head_cap_screw_M4x0_70_x_14.obj" />
+    <mesh name="mesh_009" file="assets/009_Hex_socket_head_cap_screw_M4x0_70_x_8.obj" />
+    <mesh name="mesh_010" file="assets/010_Hex_socket_head_cap_screw_M5x0_80_x_14.obj" />
+    <mesh name="mesh_011" file="assets/011_Hex_socket_head_cap_screw_M5x0_80_x_22.obj" />
+    <mesh name="mesh_012" file="assets/012_MG995.obj" />
+    <mesh name="mesh_013" file="assets/013_Part_1.obj" />
+    <mesh name="mesh_014" file="assets/014_Part_10.obj" />
+    <mesh name="mesh_015" file="assets/015_Part_11.obj" />
+    <mesh name="mesh_016" file="assets/016_Part_1_1.obj" />
+    <mesh name="mesh_017" file="assets/017_Part_1_10.obj" />
+    <mesh name="mesh_018" file="assets/018_Part_1_11.obj" />
+    <mesh name="mesh_019" file="assets/019_Part_1_12.obj" />
+    <mesh name="mesh_020" file="assets/020_Part_1_13.obj" />
+    <mesh name="mesh_021" file="assets/021_Part_1_14.obj" />
+    <mesh name="mesh_022" file="assets/022_Part_1_15.obj" />
+    <mesh name="mesh_023" file="assets/023_Part_1_16.obj" />
+    <mesh name="mesh_024" file="assets/024_Part_1_17.obj" />
+    <mesh name="mesh_025" file="assets/025_Part_1_18.obj" />
+    <mesh name="mesh_026" file="assets/026_Part_1_19.obj" />
+    <mesh name="mesh_027" file="assets/027_Part_1_2.obj" />
+    <mesh name="mesh_028" file="assets/028_Part_1_20.obj" />
+    <mesh name="mesh_029" file="assets/029_Part_1_21.obj" />
+    <mesh name="mesh_030" file="assets/030_Part_1_22.obj" />
+    <mesh name="mesh_031" file="assets/031_Part_1_23.obj" />
+    <mesh name="mesh_032" file="assets/032_Part_1_3.obj" />
+    <mesh name="mesh_033" file="assets/033_Part_1_4.obj" />
+    <mesh name="mesh_034" file="assets/034_Part_1_5.obj" />
+    <mesh name="mesh_035" file="assets/035_Part_1_6.obj" />
+    <mesh name="mesh_036" file="assets/036_Part_1_7.obj" />
+    <mesh name="mesh_037" file="assets/037_Part_1_8.obj" />
+    <mesh name="mesh_038" file="assets/038_Part_1_9.obj" />
+    <mesh name="mesh_039" file="assets/039_Part_2.obj" />
+    <mesh name="mesh_040" file="assets/040_Part_2_1.obj" />
+    <mesh name="mesh_041" file="assets/041_Part_2_2.obj" />
+    <mesh name="mesh_042" file="assets/042_Part_2_3.obj" />
+    <mesh name="mesh_043" file="assets/043_Part_2_4.obj" />
+    <mesh name="mesh_044" file="assets/044_Part_2_5.obj" />
+    <mesh name="mesh_045" file="assets/045_Part_2_6.obj" />
+    <mesh name="mesh_046" file="assets/046_Part_3.obj" />
+    <mesh name="mesh_047" file="assets/047_Part_3_1.obj" />
+    <mesh name="mesh_048" file="assets/048_Part_4.obj" />
+    <mesh name="mesh_049" file="assets/049_Part_4_1.obj" />
+    <mesh name="mesh_050" file="assets/050_Part_5.obj" />
+    <mesh name="mesh_051" file="assets/051_Part_5_1.obj" />
+    <mesh name="mesh_052" file="assets/052_Part_8.obj" />
+    <mesh name="mesh_053" file="assets/053_Part_8_1.obj" />
+    <mesh name="mesh_054" file="assets/054_Part_9.obj" />
+    <mesh name="mesh_055" file="assets/055_Socket_button_head_screw_M3x0_5_x_12.obj" />
+    <mesh name="mesh_056" file="assets/056_Socket_button_head_screw_M3x0_5_x_16.obj" />
+    <mesh name="mesh_057" file="assets/057_Socket_button_head_screw_M3x0_5_x_8.obj" />
+    <mesh name="mesh_058" file="assets/058_Socket_button_head_screw_M4x0_7_x_16.obj" />
+    <mesh name="mesh_059" file="assets/059_Socket_button_head_screw_M4x0_7_x_8.obj" />
+    <mesh name="mesh_060" file="assets/060_Spur_gear__25_teeth_.obj" />
+    <mesh name="mesh_061" file="assets/061_Spur_gear__36_teeth_.obj" />
+    <mesh name="mesh_062" file="assets/062_Spur_gear__36_teeth__1.obj" />
+    <mesh name="mesh_063" file="assets/063__35T_HTD_Custom_Pulley.obj" />
+    <mesh name="mesh_064" file="assets/064__35T_HTD_Custom_Pulley_1.obj" />
+    <mesh name="mesh_065" file="assets/065__48T_GT2_Custom_Pulley.obj" />
+    <mesh name="mesh_066" file="assets/066_soft_gripper_finger.obj" />
+  </asset>
+  <worldbody>
+    <body name="root">
+      <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+      <body name="part_1_13" pos="6.81692e-18 1.37016e-17 3.82797e-34" quat="1 3.311535e-19 -8.277e-21 3.47745e-18">
+        <inertial pos="4.57236e-09 -4.5476e-09 0.00635" mass="0.00451773" diaginertia="9.83086e-05 0.000182562 0.000280749" quat="1 0 0 0" />
+        <geom type="mesh" mesh="mesh_037" contype="0" conaffinity="0" pos="5.29356e-05 -3.86925e-05 0" quat="1 0 0 0" rgba="0.662745 0.376471 0.00392157 1" />
+        <body name="planar_1_1" pos="0.266664 -0.2555 0.0162" quat="1 -2.7542e-10 8.230700958e-21 -3.47745e-18">
+          <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+          <body name="planar_1" pos="0 0 0" quat="1 0 0 0">
+            <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+            <body name="part_1_12" pos="0 0 0" quat="1 0 0 0">
+              <inertial pos="-3.01829e-09 0.0815645 1.72889e-05" mass="0.000182364" diaginertia="4.0991e-07 4.0991e-07 8.18328e-07" quat="1 0 0 0" />
+              <geom type="mesh" mesh="mesh_036" contype="0" conaffinity="0" pos="0.0351814 0.0933259 0.066128" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+              <body name="part_1_11" pos="-1.19356e-08 0.0815645 0.0035" quat="1 2.7542e-10 1.389890693e-22 -8.50725e-17">
+                <inertial pos="-0.00147799 0 0.0202174" mass="0.0001" diaginertia="1.07545e-07 1.0215e-07 1.6698e-07" quat="1 0 0 0" />
+                <geom type="mesh" mesh="mesh_035" contype="0" conaffinity="0" pos="0.0958287 -0.0622707 -0.0177057" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                <body name="socket_button_head_screw_m4x0_7_x_8_2" pos="0.0131515 0.022779 0.0013" quat="1 1.65577e-19 -8.32335e-21 3.47745e-18">
+                  <inertial pos="1.25799e-18 3.62951e-21 -0.0021626" mass="0.00123814" diaginertia="1.30381e-08 1.30381e-08 4.33707e-09" quat="1 0 0 0" />
+                  <geom type="mesh" mesh="mesh_059" contype="0" conaffinity="0" pos="1.09708e-18 -7.37398e-35 0.0022" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                </body>
+                <body name="socket_button_head_screw_m4x0_7_x_8_1" pos="0.0131515 -0.022779 0.0013" quat="1 1.65577e-19 -8.32335e-21 3.47745e-18">
+                  <inertial pos="1.25799e-18 3.62951e-21 -0.0021626" mass="0.00123814" diaginertia="1.30381e-08 1.30381e-08 4.33707e-09" quat="1 0 0 0" />
+                  <geom type="mesh" mesh="mesh_059" contype="0" conaffinity="0" pos="1.09708e-18 -7.37398e-35 0.0022" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                </body>
+                <body name="part_2_1" pos="5.55112e-17 0 0.0035" quat="9.381839456e-07 0.7071054825 -0.7071080799 -9.381873918e-07">
+                  <inertial pos="1.28216e-05 9.2026e-05 -0.0233902" mass="0.000175826" diaginertia="8.4189e-08 8.45922e-08 1.24362e-07" quat="1 0 0 0" />
+                  <geom type="mesh" mesh="mesh_040" contype="0" conaffinity="0" pos="0.0658684 -0.0271639 -0.0275" quat="1 0 0 0" rgba="0.498039 0.498039 0.498039 1" />
+                  <body name="part_2" pos="7.49401e-16 -1.27676e-15 -0.044" quat="9.381839456e-07 0.7071054825 -0.7071080799 -9.381873918e-07">
+                    <inertial pos="-0.00185088 -0.0115348 0.015924" mass="0.0001" diaginertia="8.58192e-08 8.51438e-08 8.17545e-08" quat="0.9968365736 -1.05173719e-17 -5.73363208e-18 -0.07947858559" />
+                    <joint name="revolute_1" type="hinge" limited="false" axis="-1.32329e-16 -7.21405e-17 -1" />
+                    <geom type="mesh" mesh="mesh_039" contype="0" conaffinity="0" pos="0.084751 -0.0766685 -0.0634057" quat="0.9968365736 -1.05173719e-17 -5.73363208e-18 -0.07947858559" rgba="0.768627 0.886275 0.952941 1" />
+                    <body name="socket_button_head_screw_m3x0_5_x_8_2" pos="0.0024832 0.00968678 0.0045" quat="0.9968365736 -5.631950433e-18 1.87869256e-18 -0.07947858559">
+                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                    <body name="socket_button_head_screw_m3x0_5_x_8" pos="-0.0071474 0.00699391 0.0045" quat="0.9968365736 -5.631950433e-18 1.87869256e-18 -0.07947858559">
+                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                    <body name="socket_button_head_screw_m3x0_5_x_8_4" pos="-0.0096306 -0.00269287 0.0045" quat="0.9968365736 -5.631950433e-18 1.87869256e-18 -0.07947858559">
+                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                    <body name="socket_button_head_screw_m3x0_5_x_8_5" pos="0.0071474 -0.00699391 0.0045" quat="0.9968365736 -5.631950433e-18 1.87869256e-18 -0.07947858559">
+                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                    <body name="socket_button_head_screw_m3x0_5_x_8_3" pos="0.0096306 0.00269287 0.0045" quat="0.9968365736 -5.631950433e-18 1.87869256e-18 -0.07947858559">
+                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                    <body name="part_1_8" pos="0.0190489 0.0335003 0.0065" quat="0.9999995241 -2.75419369e-10 2.686003723e-13 -0.0009755848452">
+                      <inertial pos="-0.0124457 0.00691213 0.023368" mass="0.0001" diaginertia="3.1523e-09 3.34349e-09 1e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_033" contype="0" conaffinity="0" pos="0.0161979 -0.0217761 0.00792795" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                      <body name="part_1_10" pos="-0.0124883 0.00744656 0.054" quat="0.4592029929 0.5377107948 0.4592046796 -0.5377088196">
+                        <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                        <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                        <body name="hex_socket_head_cap_screw_m5x0_80_x_22" pos="0 -1.94289e-15 -0.005" quat="9.381839456e-07 -0.7071054825 -0.7071080799 9.381873918e-07">
+                          <inertial pos="1.2109e-19 -6.89081e-20 -0.00558588" mass="0.0052399" diaginertia="3.65549e-07 3.65549e-07 2.95063e-08" quat="1 0 0 0" />
+                          <geom type="mesh" mesh="mesh_011" contype="0" conaffinity="0" pos="0 0 0.0055533" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                        </body>
+                      </body>
+                      <body name="hex_socket_head_cap_screw_m4x0_70_x_10" pos="1.44329e-15 -2.20374e-12 0.004" quat="1 2.754195e-10 8.76230001e-17 3.80826e-16">
+                        <inertial pos="-8.26755e-19 8.55625e-20 -0.00138785" mass="0.00203235" diaginertia="3.74997e-08 3.74997e-08 9.0462e-09" quat="1 0 0 0" />
+                        <geom type="mesh" mesh="mesh_007" contype="0" conaffinity="0" pos="-6.82301e-19 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                      </body>
+                      <body name="hex_socket_head_cap_screw_m4x0_70_x_10_1" pos="-0.0266672 0.00422625 0.004" quat="1 2.754195e-10 8.76230001e-17 3.80826e-16">
+                        <inertial pos="-8.26755e-19 8.55625e-20 -0.00138785" mass="0.00203235" diaginertia="3.74997e-08 3.74997e-08 9.0462e-09" quat="1 0 0 0" />
+                        <geom type="mesh" mesh="mesh_007" contype="0" conaffinity="0" pos="-6.82301e-19 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                      </body>
+                    </body>
+                    <body name="part_1_9" pos="-0.0054769 -0.0341278 0.0605" quat="8.606527872e-07 0.648670559 -0.7610693174 -1.009782886e-06">
+                      <inertial pos="0.018239 7.04999e-05 -7.04999e-05" mass="0.000271059" diaginertia="2.45267e-07 1.71405e-07 1.71405e-07" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_034" contype="0" conaffinity="0" pos="0.04425 0 0" quat="1 0 0 0" rgba="0.972549 0.529412 0.00392157 1" />
+                      <body name="part_9" pos="-0.006 -3.33067e-16 -1.94289e-16" quat="1.326794897e-06 -1.481408517e-16 -2.372830197e-15 -1">
+                        <inertial pos="0.00663052 -0.0119115 0.003982" mass="0.0001" diaginertia="1.55577e-07 6.17153e-08 9.57232e-08" quat="0.05435452685 0.9985217 0 0" />
+                        <joint name="revolute_2" type="hinge" axis="-1 0 0" range="-6.28319 0.153038" />
+                        <geom type="mesh" mesh="mesh_054" contype="0" conaffinity="0" pos="-0.414 -3.47649e-18 1.41501e-18" quat="0.05435452685 0.9985217 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                        <body name="proximal_limb__1_" pos="2.77556e-16 -5.55112e-17 5.55112e-17" quat="1.324833519e-06 7.211687536e-08 -0.05435420054 -0.9985217178">
+                          <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+                          <geom type="mesh" mesh="mesh_003" contype="0" conaffinity="0" pos="0.252555 -0.149099 0.1277" quat="0.07046093794 -0.498066578 -0.855750495 0.1210620933" rgba="0.603922 0.647059 0.686275 1" />
+                        </body>
+                        <body name="socket_button_head_screw_m4x0_7_x_16" pos="0.00563472 -0.0682132 -0.004295" quat="0.5264362251 0.4720837586 -0.5264396932 -0.4720837586">
+                          <inertial pos="1.30326e-18 1.58924e-20 -0.00593309" mass="0.00201625" diaginertia="6.3587e-08 6.3587e-08 5.89329e-09" quat="1 0 0 0" />
+                          <geom type="mesh" mesh="mesh_058" contype="0" conaffinity="0" pos="1.09708e-18 -7.37398e-35 0.0022" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                        </body>
+                        <body name="socket_button_head_screw_m4x0_7_x_16_2" pos="0.00563472 -0.0661745 0.0143756" quat="0.5264362251 0.4720837586 -0.5264396932 -0.4720837586">
+                          <inertial pos="1.30326e-18 1.58924e-20 -0.00593309" mass="0.00201625" diaginertia="6.3587e-08 6.3587e-08 5.89329e-09" quat="1 0 0 0" />
+                          <geom type="mesh" mesh="mesh_058" contype="0" conaffinity="0" pos="1.09708e-18 -7.37398e-35 0.0022" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                        </body>
+                        <body name="socket_button_head_screw_m4x0_7_x_16_1" pos="0.00563472 -0.064436 0.0302971" quat="0.5264362251 0.4720837586 -0.5264396932 -0.4720837586">
+                          <inertial pos="1.30326e-18 1.58924e-20 -0.00593309" mass="0.00201625" diaginertia="6.3587e-08 6.3587e-08 5.89329e-09" quat="1 0 0 0" />
+                          <geom type="mesh" mesh="mesh_058" contype="0" conaffinity="0" pos="1.09708e-18 -7.37398e-35 0.0022" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                        </body>
+                        <body name="part_8_8" pos="0.01756 -0.0682132 -0.004295" quat="0.05435452685 0.9985217 8.29356033e-16 -2.124017387e-16">
+                          <inertial pos="0.00467775 0.0781291 -0.00429466" mass="0.0001" diaginertia="2.1611e-07 2.42312e-08 1.92715e-07" quat="1 0 0 0" />
+                          <geom type="mesh" mesh="mesh_053" contype="0" conaffinity="0" pos="-0.316 -0.0673439 -0.011674" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                          <body name="part_1_28" pos="0.0081 0.162455 0.0127198" quat="0.4999981634 -0.5 -0.5000018366 0.5">
+                            <inertial pos="-3.06621e-19 1.06026e-19 0.004" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                            <geom type="mesh" mesh="mesh_021" contype="0" conaffinity="0" pos="0 -8.57253e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                          </body>
+                          <body name="socket_button_head_screw_m3x0_5_x_8_11" pos="0.0017 0.0332714 0.0126166" quat="0.4999981634 -0.5 -0.5000018366 0.5">
+                            <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                            <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                          </body>
+                          <body name="socket_button_head_screw_m3x0_5_x_8_22" pos="0.0017 0.09362 0.0213981" quat="0.4999981634 -0.5 -0.5000018366 0.5">
+                            <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                            <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                          </body>
+                          <body name="socket_button_head_screw_m3x0_5_x_8_18" pos="0.0017 0.103719 -0.0210521" quat="0.4999981634 -0.5 -0.5000018366 0.5">
+                            <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                            <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                          </body>
+                          <body name="socket_button_head_screw_m3x0_5_x_8_19" pos="0.0017 0.0319267 -0.0391951" quat="0.4999981634 -0.5 -0.5000018366 0.5">
+                            <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                            <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                          </body>
+                        </body>
+                        <body name="part_1_33" pos="0.01128 0 0" quat="0.05435452685 0.9985217 1.600710565e-15 -6.279924959e-16">
+                          <inertial pos="0.0160613 0.00269021 0.00266981" mass="0.0001" diaginertia="1.98749e-07 1.09775e-07 1.0967e-07" quat="1 0 0 0" />
+                          <geom type="mesh" mesh="mesh_023" contype="0" conaffinity="0" pos="-0.01 0 -3.2147e-18" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                          <body name="part_3_1" pos="0.0360428 5.55112e-17 -5.55112e-17" quat="1 -6.03685e-16 2.88875e-16 1.997505e-16">
+                            <inertial pos="0.00482001 0.0983381 0.00385585" mass="0.0001" diaginertia="6.80173e-07 6.11003e-08 6.20296e-07" quat="1 0 0 0" />
+                            <geom type="mesh" mesh="mesh_047" contype="0" conaffinity="0" pos="-0.108043 0 -1.60754e-17" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                            <body name="part_1_34" pos="0.00523722 5.55112e-17 0" quat="8.704571075e-07 -1.001343658e-06 0.7547087054 -0.6560600354">
+                              <inertial pos="0.018239 7.04999e-05 -7.04999e-05" mass="0.000271059" diaginertia="2.45267e-07 1.71405e-07 1.71405e-07" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_034" contype="0" conaffinity="0" pos="0.04425 0 -2.72484e-18" quat="1 0 0 0" rgba="0.972549 0.529412 0.00392157 1" />
+                              <body name="35t_htd_custom_pulley" pos="-0.006 -2.77556e-17 5.55112e-17" quat="0.7071054825 -0.7071080799 -5.250906498e-17 -1.802419685e-16">
+                                <inertial pos="-0.00579734 -2.72708e-18 3.69482e-18" mass="0.0287454" diaginertia="1.05029e-05 5.57509e-06 5.57509e-06" quat="1 0 0 0" />
+                                <geom type="mesh" mesh="mesh_063" contype="0" conaffinity="0" pos="-0.00575 0 0" quat="1 0 0 0" rgba="0.298039 0.298039 0.298039 1" />
+                              </body>
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_17" pos="0.00923722 0.0187515 -0.0452701" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="part_1_31" pos="0.00923722 0.0854483 0.0035658" quat="9.381839456e-07 0.7071080799 9.381873918e-07 -0.7071054825">
+                              <inertial pos="3.83612e-20 1.74771e-19 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -2.10333e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                              <body name="part_1_30" pos="-1.38778e-17 2.77556e-17 -0.005" quat="1 6.89095e-16 -4.499065e-16 4.44089e-16">
+                                <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                <body name="part_1_27" pos="1.38778e-17 -2.77556e-17 -0.005" quat="1 -7.65685e-16 -2.406775e-16 -3.365365e-16">
+                                  <inertial pos="-1.38778e-16 -2.08167e-17 -0.0015" mass="0.00111036" diaginertia="3.58784e-08 3.58784e-08 7.00913e-08" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_020" contype="0" conaffinity="0" pos="-0.103821 0.0246799 -0.0248032" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                  <body name="hex_socket_head_cap_screw_m5x0_80_x_22_1" pos="-2.77556e-17 2.77556e-17 -0.003" quat="1.326794897e-06 -1 -3.157191583e-16 2.575454189e-16">
+                                    <inertial pos="1.2109e-19 -6.89081e-20 -0.00558588" mass="0.0052399" diaginertia="3.65549e-07 3.65549e-07 2.95063e-08" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_011" contype="0" conaffinity="0" pos="0 0 0.0055533" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    <body name="hex_nut_grade_a___b_m5x0_8" pos="2.77556e-17 -2.77556e-17 -0.0202137" quat="6.633946396e-07 -0.4999978793 -0.8660266282 1.149039708e-06">
+                                      <inertial pos="4.92594e-09 -2.21911e-19 0.00235" mass="0.00148447" diaginertia="1.08872e-08 1.08872e-08 1.65485e-08" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_001" contype="0" conaffinity="0" pos="0 0 0.00235" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                  </body>
+                                </body>
+                              </body>
+                            </body>
+                            <body name="part_1_32" pos="0.00123722 0.229799 0.0243938" quat="0.7071054825 2.334337013e-16 0.7071080799 -2.334328439e-16">
+                              <inertial pos="-3.06621e-19 1.06026e-19 0.004" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_021" contype="0" conaffinity="0" pos="0 -8.57253e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                            </body>
+                            <body name="part_1_29" pos="8.32667e-17 0.100615 0.0242905" quat="0.6640583239 -0.04125987009 -0.04629570838 -0.7451046054">
+                              <inertial pos="-0.029209 -0.0136804 0.00840343" mass="0.0001" diaginertia="1e-09 1.88526e-09 1.95808e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_022" contype="0" conaffinity="0" pos="-0.159966 -0.0156031 -0.10317" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_8" pos="0.00923722 -0.0293449 0.0293449" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_10" pos="0.00753722 0.100615 0.0242905" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_20" pos="0.00753722 0.160964 0.0330721" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_7" pos="0.00753722 0.0992706 -0.0275211" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_14" pos="0.00753722 0.171063 -0.00937813" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_13" pos="0.00923722 0.0293449 -0.0293449" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="part_2_7" pos="6.93889e-17 0.0992706 -0.0275211" quat="0.6642021209 0.03887895605 0.04362424659 -0.7452656536">
+                              <inertial pos="-0.0327305 -0.0140868 0.00568999" mass="0.0001" diaginertia="1e-09 2.75289e-09 2.9233e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_045" contype="0" conaffinity="0" pos="-0.152225 -0.0147097 -0.0602365" quat="1 0 0 0" rgba="0.647059 0.647059 0.647059 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_21" pos="0.00923722 0.0293449 0.0293449" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_15" pos="0.00923722 -0.0293449 -0.0293449" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_9" pos="0.00923722 -0.0187515 0.0452701" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_16" pos="0.00923722 -0.0452701 -0.0187515" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_12" pos="0.00923722 0.0452701 0.0187515" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="socket_button_head_screw_m3x0_5_x_8_6" pos="0.00923722 0.0452701 -0.0187515" quat="0.4999981634 0.5 0.5000018366 0.5">
+                              <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                              <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                            </body>
+                            <body name="35t_htd_custom_pulley_1" pos="0.00923722 0.229799 0.0243938" quat="0.7071054825 -0.7071080799 -3.056923495e-15 1.026190173e-15">
+                              <inertial pos="0.0060875 3.76464e-06 9.62032e-06" mass="0.0300241" diaginertia="1.13138e-05 6.04637e-06 6.04518e-06" quat="0.9826590397 -0.1854217131 0 0" />
+                              <joint name="revolute_3" type="hinge" limited="false" axis="-1 0 0" />
+                              <geom type="mesh" mesh="mesh_064" contype="0" conaffinity="0" pos="-0.0469125 0.218841 -0.085637" quat="0.9826590397 -0.1854217131 0 0" rgba="0.298039 0.298039 0.298039 1" />
+                              <body name="part_4_1" pos="0.012175 1.83187e-15 -2.13718e-15" quat="0.5840389122 0.3986186633 -0.5840418406 -0.3986186633">
+                                <inertial pos="0.0644137 1.33444e-05 -0.00280036" mass="0.0001" diaginertia="6.26072e-09 1.02123e-07 1.08173e-07" quat="1 0 0 0" />
+                                <geom type="mesh" mesh="mesh_049" contype="0" conaffinity="0" pos="-0.026 -0.128 -0.005" quat="1 0 0 0" rgba="0.34902 0.376471 0.4 1" />
+                                <body name="socket_button_head_screw_m3x0_5_x_8_36" pos="0.0861288 -0.00296767 -0.0033" quat="1.326794897e-06 1 4.718458163e-16 -6.15234374e-16">
+                                  <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                </body>
+                                <body name="socket_button_head_screw_m3x0_5_x_8_24" pos="0.0534338 -0.00270697 -0.0033" quat="1.326794897e-06 1 4.718458163e-16 -6.15234374e-16">
+                                  <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                </body>
+                                <body name="socket_button_head_screw_m3x0_5_x_8_25" pos="0.143086 -0.0191673 -0.005" quat="1.326794897e-06 1 4.718458163e-16 -6.15234374e-16">
+                                  <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                </body>
+                                <body name="socket_button_head_screw_m3x0_5_x_8_38" pos="0.105086 -0.0193166 -0.005" quat="1.326794897e-06 1 4.718458163e-16 -6.15234374e-16">
+                                  <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                </body>
+                                <body name="socket_button_head_screw_m3x0_5_x_8_34" pos="0.143086 0.0191673 -0.005" quat="1.326794897e-06 1 4.718458163e-16 -6.15234374e-16">
+                                  <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                </body>
+                                <body name="socket_button_head_screw_m3x0_5_x_8_30" pos="0.105086 0.0193166 -0.005" quat="1.326794897e-06 1 4.718458163e-16 -6.15234374e-16">
+                                  <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                </body>
+                                <body name="part_1_49" pos="0.0534338 -0.00270697 -2.77556e-16" quat="0.5524033145 0.6146903243 0.3495105424 0.4414167692">
+                                  <inertial pos="0.00699907 0.024876 0.0170778" mass="0.0001" diaginertia="4.7607e-09 2.7469e-09 2.91705e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_025" contype="0" conaffinity="0" pos="0.285129 -0.0167089 0.0612769" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                  <body name="part_5_1" pos="0.00721498 0.0247634 0.0169728" quat="0.1816992396 0.962062134 -0.03777131881 -0.1999879101">
+                                    <inertial pos="-0.0085 6.34663e-12 2.26722e-10" mass="0.0001" diaginertia="2.0911e-09 1.16139e-09 1.16139e-09" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_051" contype="0" conaffinity="0" pos="-0.0085 0 -1.216e-18" quat="1 0 0 0" rgba="0.231373 0.380392 0.705882 1" />
+                                  </body>
+                                  <body name="part_5" pos="0.00801031 0.0505442 2.78378e-11" quat="0.5524033145 -0.6146903243 -0.3495089209 -0.441418053">
+                                    <inertial pos="0.0109798 0.00272031 0.00280036" mass="0.0001" diaginertia="6.26072e-09 1.02123e-07 1.08173e-07" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_050" contype="0" conaffinity="0" pos="-0.0794338 -0.125293 -0.005" quat="1 0 0 0" rgba="0.34902 0.376471 0.4 1" />
+                                    <body name="socket_button_head_screw_m3x0_5_x_8_32" pos="0.032695 -0.000260702 0.0033" quat="1 -6.45455e-17 7.30015e-17 -2.77556e-17">
+                                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="socket_button_head_screw_m3x0_5_x_8_35" pos="0.0516523 -0.0166097 0.005" quat="1 -6.45455e-17 7.30015e-17 -2.77556e-17">
+                                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="socket_button_head_screw_m3x0_5_x_8_29" pos="0.089652 -0.0164604 0.005" quat="1 -6.45455e-17 7.30015e-17 -2.77556e-17">
+                                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="part_1_52" pos="0.0516523 0.0220236 1.19349e-15" quat="0.6433968049 0.5937565476 0.3839986708 0.2933236004">
+                                      <inertial pos="0.0125551 -0.0233443 0.0142642" mass="0.0001" diaginertia="3.15041e-09 1.62678e-09 2.53243e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_028" contype="0" conaffinity="0" pos="-0.223223 -0.0669258 -0.183662" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                    </body>
+                                    <body name="socket_button_head_screw_m3x0_5_x_8_33" pos="0.0516523 0.0220236 0.005" quat="1 -1.47812e-16 2.44291e-17 6.9389e-17">
+                                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="socket_button_head_screw_m3x0_5_x_8_27" pos="0.089652 0.0218743 0.005" quat="1 -1.47812e-16 2.44291e-17 6.9389e-17">
+                                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="socket_button_head_screw_m3x0_5_x_8_26" pos="0.107171 0.0164225 0.005" quat="1 4.27262e-16 -2.97607e-16 -1.38778e-16">
+                                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="socket_button_head_screw_m3x0_5_x_8_31" pos="0.107171 -0.0110085 0.005" quat="1 5.72545e-16 -4.20302e-16 -2.220445e-16">
+                                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="socket_button_head_screw_m3x0_5_x_8_28" pos="2.08167e-15 3.60822e-16 0.0033" quat="1 -6.45455e-17 7.30015e-17 -2.77556e-17">
+                                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                  </body>
+                                  <body name="part_1_55" pos="0.00722395 0.0246698 0.0170317" quat="0.4516821393 0.4163003799 -0.3757067541 -0.6939176275">
+                                    <inertial pos="1.21148e-18 1.13038e-18 -0.0188808" mass="0.0001" diaginertia="2.27663e-08 2.27663e-08 2.80082e-08" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_030" contype="0" conaffinity="0" pos="0 -4.89859e-19 -0.037" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                  </body>
+                                </body>
+                                <body name="part_1_57" pos="0.160605 -0.0137155 -9.71445e-17" quat="0.236816838 0.2197411129 0.6720979685 0.6662701774">
+                                  <inertial pos="-0.013127 0.0252626 0.0268339" mass="0.0001" diaginertia="3.25524e-08 2.62923e-08 3.24747e-08" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_031" contype="0" conaffinity="0" pos="-0.0169952 0.027943 -0.198324" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                  <body name="part_1_54" pos="-0.00886835 0.000361347 0.0516012" quat="0.6669853976 -0.234794896 0.2216129997 -0.671483071">
+                                    <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                    <body name="hex_socket_head_cap_screw_m4x0_70_x_8_12" pos="-1.54043e-14 -1.23235e-14 1.48492e-15" quat="1 -8.47935e-15 -6.1149e-17 -3.3455e-14">
+                                      <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                  </body>
+                                  <body name="part_1_51" pos="-0.01327 0.0502653 0.0476986" quat="0.2216110137 -0.6714809918 -0.6669882569 0.234794594">
+                                    <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                    <body name="hex_socket_head_cap_screw_m4x0_70_x_8_15" pos="1.66533e-14 -9.04832e-15 -0.005" quat="1.326794897e-06 -1 -3.299094634e-14 2.758253772e-15">
+                                      <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="part_8_4" pos="1.11022e-16 5.55112e-17 0" quat="0.9544525576 -0.06500491386 0.2905222314 0.01978660173">
+                                      <inertial pos="-0.00108108 -0.0498195 -0.00512504" mass="0.0334429" diaginertia="4.86661e-05 5.29468e-06 4.95397e-05" quat="0.7885780546 -0.3426110999 -0.06923698336 0.5059333218" />
+                                      <joint name="revolute_5" type="hinge" axis="0.557152 0.112592 -0.822742" range="-1.55519 0.0156052" />
+                                      <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="0.0767652 -0.21877 -0.178253" quat="0.7885780546 -0.3426110999 -0.06923698336 0.5059333218" rgba="0.34902 0.376471 0.4 1" />
+                                      <body name="hex_socket_head_cap_screw_m3x0_50_x_8_6" pos="0.000473976 -0.0872287 -0.0116162" quat="0.1273897962 0.7648301958 0.5713197988 0.2690730365">
+                                        <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                      </body>
+                                      <body name="hex_socket_head_cap_screw_m3x0_50_x_8_9" pos="6.46331e-05 -0.0118948 -0.00158403" quat="0.1273897962 0.7648301958 0.5713197988 0.2690730365">
+                                        <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                      </body>
+                                      <body name="hex_socket_head_cap_screw_m3x0_50_x_8_8" pos="-6.46331e-05 0.0118948 0.00158403" quat="0.1273897962 0.7648301958 0.5713197988 0.2690730365">
+                                        <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                      </body>
+                                      <body name="spur_gear__25_teeth__4" pos="-0.00222304 -0.000449241 0.00328274" quat="0.4507381075 -0.6308950364 -0.5942475816 0.2137204323">
+                                        <inertial pos="-1.46309e-10 -0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_060" contype="0" conaffinity="0" pos="0 -0.0482904 -3.64757e-19" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                      </body>
+                                      <body name="small_link_2__1_" pos="-1.12681e-12 2.46542e-12 1.51104e-12" quat="0.1675973195 -0.8663065212 0.02591303211 0.4698432341">
+                                        <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+                                      </body>
+                                      <body name="hex_socket_head_cap_screw_m3x0_50_x_8_5" pos="0.000603242 -0.111018 -0.0147843" quat="0.1273897962 0.7648301958 0.5713197988 0.2690730365">
+                                        <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                      </body>
+                                      <body name="part_11_2" pos="-0.0159682 -0.0676535 -0.0152222" quat="0.7885780546 -0.3426110999 -0.06923698336 0.5059333218">
+                                        <inertial pos="0.00808514 0.00186291 0.0213907" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_015" contype="0" conaffinity="0" pos="-0.0391184 -0.0235599 -0.239713" quat="1 0 0 0" rgba="0.498039 0.498039 0.498039 1" />
+                                        <body name="part_8_5" pos="-0.0143574 -0.0029014 0.0212014" quat="1 -2.674945e-14 1.646255e-14 7.7924e-15">
+                                          <inertial pos="0.0175787 -0.0132679 0.0125133" mass="0.0334429" diaginertia="2.10021e-05 4.60441e-05 3.64543e-05" quat="1 0 0 0" />
+                                          <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="-0.0468861 -0.00880729 -0.233255" quat="1 0 0 0" rgba="0.34902 0.376471 0.4 1" />
+                                          <body name="48t_gt2_custom_pulley" pos="0.0589951 -0.00458821 0.039323" quat="-0.3093547067 -0.3545758324 0.6648822569 -0.5800924314">
+                                            <inertial pos="-0.00714375 0 -1.38989e-17" mass="0.0258764" diaginertia="6.45837e-06 3.69827e-06 3.67484e-06" quat="1 0 0 0" />
+                                            <geom type="mesh" mesh="mesh_065" contype="0" conaffinity="0" pos="-0.00714375 0.129709 -6.245e-17" quat="1 0 0 0" rgba="0.298039 0.298039 0.298039 1" />
+                                          </body>
+                                          <body name="hex_socket_head_cap_screw_m3x0_50_x_8_7" pos="0.0664206 -0.00294287 0.0494262" quat="0.9544525635 0.0650050798 -0.290522167 -0.01978671524">
+                                            <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                            <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                          </body>
+                                          <body name="hex_socket_head_cap_screw_m3x0_50_x_8_4" pos="0.0471236 -0.00713203 0.0357852" quat="0.9544525635 0.0650050798 -0.290522167 -0.01978671524">
+                                            <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                            <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                          </body>
+                                          <body name="part_10_2" pos="0.00681155 -0.0281958 0.000754131" quat="1.772173068e-06 -0.557150383 -0.1125914683 0.8227433451">
+                                            <inertial pos="-0.00729407 -0.00169117 -0.0208314" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                            <geom type="mesh" mesh="mesh_014" contype="0" conaffinity="0" pos="-0.0484771 -0.0554814 -0.28174" quat="1 0 0 0" rgba="0.972549 0.529412 0.00392157 1" />
+                                          </body>
+                                          <body name="part_1_45" pos="-0.0236321 -0.0224923 -0.0142318" quat="0.4885459126 -0.4861361777 -0.09824080694 0.7178741198">
+                                            <inertial pos="0.00644862 0.0293586 -0.011932" mass="0.0001" diaginertia="1.82135e-08 1.41553e-08 1.75435e-08" quat="1 0 0 0" />
+                                            <joint name="revolute_7" type="hinge" axis="0.557152 0.112592 -0.822742" range="-0.0260089 1.59715" />
+                                            <geom type="mesh" mesh="mesh_024" contype="0" conaffinity="0" pos="-0.0395529 -0.166114 -0.295212" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                            <body name="part_1_43" pos="0.0316544 0.0496152 -0.0124076" quat="0.2905223057 0.01978768949 0.9544524135 0.06500636529">
+                                              <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                              <body name="hex_socket_head_cap_screw_m4x0_70_x_8_11" pos="1.73472e-18 -5.55112e-17 0.005" quat="1 5.5511e-17 -2.77556e-16 1.665335e-16">
+                                                <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                              </body>
+                                            </body>
+                                            <body name="part_1_42" pos="0.018626 0.00376403 -0.0275049" quat="0.2905223057 0.01978768949 0.9544524135 0.06500636529">
+                                              <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                              <body name="hex_socket_head_cap_screw_m4x0_70_x_8_10" pos="-1.73472e-18 0 0.005" quat="1 -1.44329e-15 -2.70617e-16 -1.13104e-15">
+                                                <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                              </body>
+                                            </body>
+                                            <body name="part_1_44" pos="0.0130283 0.0458512 0.0150973" quat="0.1594645879 0.6888898501 0.6609098186 0.2513961641">
+                                              <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                              <body name="hex_socket_head_cap_screw_m4x0_70_x_8_8" pos="0 2.34188e-17 -0.005" quat="1.326794897e-06 1 2.955970331e-15 -2.49796078e-16">
+                                                <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                              </body>
+                                            </body>
+                                            <body name="part_1_41" pos="-5.55112e-17 1.11022e-16 5.55112e-17" quat="0.2905223057 0.01978768949 0.9544524135 0.06500636529">
+                                              <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                              <body name="hex_socket_head_cap_screw_m4x0_70_x_8_9" pos="-5.89806e-17 0 -0.005" quat="1.326794897e-06 1 -5.20414779e-16 -1.665341905e-16">
+                                                <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                              </body>
+                                            </body>
+                                            <body name="part_1_46" pos="-0.00869427 0.0367068 -0.0211811" quat="0.08358004596 0.7021488004 -0.4977732731 -0.5022182858">
+                                              <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                            </body>
+                                            <body name="part_1_3" pos="-0.00869427 0.0367068 -0.0211811" quat="0.8092801766 -0.3906423651 0.1907098837 0.3950871785">
+                                              <inertial pos="6.08186e-11 0.0127377 1.6567e-10" mass="0.005708" diaginertia="3.97763e-07 5.13279e-07 3.97763e-07" quat="0.9893261203 0 0.1457183163 0" />
+                                              <geom type="mesh" mesh="mesh_032" contype="0" conaffinity="0" pos="0.248895 -0.0630211 -0.14703" quat="0.9893261203 0 0.1457183163 0" rgba="0.615686 0.811765 0.929412 1" />
+                                              <body name="part_1_2" pos="1.38778e-17 0.014 1.66533e-16" quat="1.312632847e-06 -0.9893261203 1.933383176e-07 0.1457183163">
+                                                <inertial pos="-3.1233e-09 0.005 3.12891e-09" mass="0.000110689" diaginertia="1.01422e-07 2.00709e-07 1.01422e-07" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_027" contype="0" conaffinity="0" pos="0.00210838 -0.00113083 0.00135417" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                              </body>
+                                              <body name="part_1_1" pos="1.66533e-16 0.0095 1.11022e-16" quat="0.7001482542 -0.698891721 0.09549842614 0.110556931">
+                                                <inertial pos="-0.000263436 1.661e-05 -0.0123498" mass="0.00123741" diaginertia="6.47366e-08 6.47643e-08 3.68131e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_016" contype="0" conaffinity="0" pos="-0.418331 0.367211 -0.0752639" quat="1 0 0 0" rgba="0.917647 0.917647 0.917647 1" />
+                                                <body name="part_1" pos="-0.000526872 3.322e-05 -0.0246996" quat="0.0006711356039 -0.9999429153 -7.185121981e-06 0.01066375511">
+                                                  <inertial pos="3.83612e-20 2.36004e-19 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -1.49101e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                                </body>
+                                              </body>
+                                              <body name="hex_socket_head_cap_screw_m4x0_70_x_14_1" pos="-0.0108332 0.018 0.00326204" quat="0.6995579237 -0.6995604933 0.1030382204 0.1030385988">
+                                                <inertial pos="-8.47817e-19 8.84372e-20 -0.00308214" mass="0.0024214" diaginertia="7.47225e-08 7.47225e-08 9.82431e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_008" contype="0" conaffinity="0" pos="-6.82301e-19 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                              </body>
+                                              <body name="hex_socket_head_cap_screw_m4x0_70_x_14_2" pos="0.0108332 0.018 -0.00326204" quat="0.6995579237 -0.6995604933 0.1030382204 0.1030385988">
+                                                <inertial pos="-8.47817e-19 8.84372e-20 -0.00308214" mass="0.0024214" diaginertia="7.47225e-08 7.47225e-08 9.82431e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_008" contype="0" conaffinity="0" pos="-6.82301e-19 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                              </body>
+                                              <body name="hex_socket_head_cap_screw_m4x0_70_x_14" pos="0.00326204 0.018 0.0108332" quat="0.6995579237 -0.6995604933 0.1030382204 0.1030385988">
+                                                <inertial pos="-8.47817e-19 8.84372e-20 -0.00308214" mass="0.0024214" diaginertia="7.47225e-08 7.47225e-08 9.82431e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_008" contype="0" conaffinity="0" pos="-6.82301e-19 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                              </body>
+                                            </body>
+                                            <body name="part_8_1" pos="0.0130283 0.0458512 0.0150973" quat="1.772173068e-06 -0.557150383 -0.1125914683 0.8227433451">
+                                              <inertial pos="-0.0116309 -0.0458205 -0.0165716" mass="0.0334429" diaginertia="4.60005e-05 1.09489e-05 4.65511e-05" quat="0.8746196022 -0.2701127198 -0.0545857197 0.3988735004" />
+                                              <joint name="revolute_9" type="hinge" axis="-0.557152 -0.112592 0.822742" range="-1.62316 4.44089e-15" />
+                                              <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="0.0182457 -0.195731 -0.219579" quat="0.8746196022 -0.2701127198 -0.0545857197 0.3988735004" rgba="0.34902 0.376471 0.4 1" />
+                                              <body name="spur_gear__25_teeth__1" pos="-0.0272306 -0.0926553 -0.0262583" quat="0.6192640977 -0.6661067815 -0.4156998968 -0.002707158591">
+                                                <inertial pos="-1.46309e-10 -0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_060" contype="0" conaffinity="0" pos="0 -0.0482904 -3.64757e-19" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                                <body name="hex_socket_head_cap_screw_m3x0_50_x_20_1" pos="0.0119318 -0.00705959 0.00127752" quat="0.7071054825 0.7071080799 -1.674484482e-12 5.140909185e-13">
+                                                  <inertial pos="5.83505e-19 1.69939e-20 -0.00643513" mass="0.00158663" diaginertia="8.21367e-08 8.21367e-08 3.25931e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_005" contype="0" conaffinity="0" pos="5.12091e-19 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                </body>
+                                                <body name="hex_socket_head_cap_screw_m3x0_50_x_20" pos="-0.0119318 -0.00705959 -0.00127752" quat="0.7071054825 0.7071080799 -1.674484482e-12 5.140909185e-13">
+                                                  <inertial pos="5.83505e-19 1.69939e-20 -0.00643513" mass="0.00158663" diaginertia="8.21367e-08 8.21367e-08 3.25931e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_005" contype="0" conaffinity="0" pos="5.12091e-19 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                </body>
+                                              </body>
+                                              <body name="part_11" pos="-0.0284863 -0.0568615 -0.0319217" quat="0.8746196022 -0.2701127198 -0.0545857197 0.3988735004">
+                                                <inertial pos="0.0224425 0.0047643 0.000189251" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_015" contype="0" conaffinity="0" pos="-0.024761 -0.0206585 -0.260914" quat="1 0 0 0" rgba="0.498039 0.498039 0.498039 1" />
+                                                <body name="part_8" pos="0.0143574 0.0029014 -0.0212014" quat="1 5.60315e-15 -3.01148e-15 -1.481455e-14">
+                                                  <inertial pos="0.0198018 -0.0128186 0.00923051" mass="0.0334429" diaginertia="2.10021e-05 4.60441e-05 3.64543e-05" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="-0.044663 -0.00835805 -0.236538" quat="1 0 0 0" rgba="0.34902 0.376471 0.4 1" />
+                                                  <body name="hex_socket_head_cap_screw_m3x0_50_x_8" pos="0.0515697 -0.00623355 0.0292197" quat="0.06500682339 -0.9544524447 0.01978618452 -0.2905222032">
+                                                    <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                  <body name="hex_socket_head_cap_screw_m3x0_50_x_8_1" pos="0.0708667 -0.00204439 0.0428607" quat="0.06500682339 -0.9544524447 0.01978618452 -0.2905222032">
+                                                    <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                  <body name="spur_gear__25_teeth_" pos="0.0589951 -0.00458821 0.039323" quat="0.7208645721 -0.6289353107 -0.1914385806 -0.2194217708">
+                                                    <inertial pos="-1.46309e-10 -0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_060" contype="0" conaffinity="0" pos="0 -0.0482904 -3.64757e-19" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                                  </body>
+                                                  <body name="small_link_3__1_" pos="0.0612182 -0.00413897 0.0360402" quat="0.6648836743 -0.5800909841 0.3093562368 0.3545742074">
+                                                    <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+                                                  </body>
+                                                </body>
+                                              </body>
+                                              <body name="part_10" pos="-0.00527579 -0.0666941 -0.0175494" quat="0.4848097449 0.4872959263 0.09847473619 -0.7195866298">
+                                                <inertial pos="-0.00729407 -0.00169117 -0.0208314" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_014" contype="0" conaffinity="0" pos="-0.0484771 -0.0554814 -0.28174" quat="1 0 0 0" rgba="0.972549 0.529412 0.00392157 1" />
+                                              </body>
+                                              <body name="part_3__1__loop_closure" pos="-0.025002 -0.0922049 -0.0295493" quat="0.4848097449 0.4872959263 0.09847473619 -0.7195866298">
+                                                <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                <joint name="revolute_14_loop_closure" type="hinge" axis="0.557152 0.112592 -0.822742" range="-1.64347 0.0145913" />
+                                              </body>
+                                            </body>
+                                          </body>
+                                        </body>
+                                      </body>
+                                      <body name="spur_gear__25_teeth__5" pos="-0.00168443 -0.0995727 -0.0099175" quat="0.6308956345 0.4507372705 0.2137196438 0.5942478652">
+                                        <inertial pos="-1.46309e-10 0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_060" contype="0" conaffinity="0" pos="0 -0.0412308 -3.64757e-19" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                      </body>
+                                    </body>
+                                  </body>
+                                  <body name="hex_socket_head_cap_screw_m3x0_50_x_10_1" pos="-0.011021 0.0395757 -0.00238002" quat="0.009323285796 0.9464401686 -0.003178013744 -0.3227289635">
+                                    <inertial pos="6.33582e-19 1.18412e-20 -0.00195154" mass="0.00103952" diaginertia="1.66639e-08 1.66639e-08 2.64382e-09" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_003" contype="0" conaffinity="0" pos="5.12091e-19 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                  </body>
+                                  <body name="hex_socket_head_cap_screw_m3x0_50_x_10_2" pos="0.0144742 0.0402264 0.0306507" quat="0.9464401856 -0.009321556844 0.3227289577 -0.003178603304">
+                                    <inertial pos="6.33582e-19 1.18412e-20 -0.00195154" mass="0.00103952" diaginertia="1.66639e-08 1.66639e-08 2.64382e-09" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_003" contype="0" conaffinity="0" pos="5.12091e-19 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                  </body>
+                                  <body name="part_1_53" pos="0.01368 0.0402061 0.0296217" quat="0.629548778 0.3096398164 -0.314179994 -0.6395955375">
+                                    <inertial pos="0.000469723 -0.0184041 6.38378e-16" mass="0.00307558" diaginertia="3.58518e-07 2.27513e-08 3.58737e-07" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_029" contype="0" conaffinity="0" pos="-0.0673443 -0.0146755 -0.208595" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                  </body>
+                                  <body name="part_1_48" pos="-0.0323475 -0.000237904 0.0211825" quat="0.2216110137 -0.6714809918 -0.6669882569 0.234794594">
+                                    <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                    <body name="hex_socket_head_cap_screw_m4x0_70_x_8_14" pos="1.6806e-14 -9.21485e-15 0.005" quat="1 1.10467e-14 -1.97711e-14 5.69875e-14">
+                                      <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                  </body>
+                                  <body name="part_1_47" pos="-0.0336945 0.049744 0.0212375" quat="0.2216110137 -0.6714809918 -0.6669882569 0.234794594">
+                                    <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                    <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                    <body name="hex_socket_head_cap_screw_m4x0_70_x_8_13" pos="1.54043e-14 -4.16334e-15 0.005" quat="1 8.53485e-15 -2.36356e-16 3.354955e-14">
+                                      <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                  </body>
+                                  <body name="part_8_7" pos="-0.0119231 0.000283382 0.0476436" quat="0.5702475187 -0.06799328485 0.4535886665 -0.6815071549">
+                                    <inertial pos="0.00210282 -0.0494435 -0.00776712" mass="0.0334429" diaginertia="4.86408e-05 5.1825e-06 4.96772e-05" quat="0.7814175472 -0.3476670768 -0.07025845246 0.5133984519" />
+                                    <joint name="revolute_4" type="hinge" axis="-0.557152 -0.112592 0.822742" range="-0.00381777 1.54953" />
+                                    <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="0.0836171 -0.219093 -0.178507" quat="0.7814175472 -0.3476670768 -0.07025845246 0.5133984519" rgba="0.34902 0.376471 0.4 1" />
+                                    <body name="spur_gear__25_teeth__7" pos="0.00222304 0.000449241 -0.00328274" quat="0.4438377691 -0.6283804817 -0.5994205073 0.2210001367">
+                                      <inertial pos="-1.46309e-10 0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_060" contype="0" conaffinity="0" pos="0 -0.0412308 -3.64757e-19" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                    </body>
+                                    <body name="hex_socket_head_cap_screw_m3x0_50_x_8_15" pos="-0.000294971 0.0119108 0.00143024" quat="0.75817284 -0.1304911483 -0.2675834149 0.5801250909">
+                                      <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="part_11_3" pos="-0.0101921 -0.0672368 -0.0209529" quat="0.7814175472 -0.3476670768 -0.07025845246 0.5133984519">
+                                      <inertial pos="0.0224425 0.0047643 0.000189251" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_015" contype="0" conaffinity="0" pos="-0.024761 -0.0206585 -0.260914" quat="1 0 0 0" rgba="0.498039 0.498039 0.498039 1" />
+                                      <body name="part_8_6" pos="0.0143574 0.0029014 -0.0212014" quat="1 2.00881e-15 5.71765e-15 -5.68815e-15">
+                                        <inertial pos="0.0198018 -0.0128186 0.00923051" mass="0.0334429" diaginertia="2.10021e-05 4.60441e-05 3.64543e-05" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="-0.044663 -0.00835805 -0.236538" quat="1 0 0 0" rgba="0.34902 0.376471 0.4 1" />
+                                        <body name="hex_socket_head_cap_screw_m3x0_50_x_8_14" pos="-0.00953748 -0.0194992 -0.0139768" quat="0.06500682339 -0.9544524447 0.01978618452 -0.2905222032">
+                                          <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                          <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                        </body>
+                                        <body name="small_link_1__1_" pos="0.0612182 -0.00413897 0.0360402" quat="0.6888899022 -0.1594643628 -0.2513959482 0.6609099007">
+                                          <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+                                        </body>
+                                        <body name="hex_socket_head_cap_screw_m3x0_50_x_8_16" pos="-0.0288345 -0.0236884 -0.0276178" quat="0.06500682339 -0.9544524447 0.01978618452 -0.2905222032">
+                                          <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                          <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                        </body>
+                                        <body name="spur_gear__25_teeth__6" pos="-0.021409 -0.022043 -0.0175145" quat="0.6289326629 0.7208668823 -0.2194210676 0.1914393866">
+                                          <inertial pos="-1.46309e-10 0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
+                                          <geom type="mesh" mesh="mesh_060" contype="0" conaffinity="0" pos="0 -0.0412308 -3.64757e-19" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                        </body>
+                                      </body>
+                                    </body>
+                                    <body name="hex_socket_head_cap_screw_m3x0_50_x_8_17" pos="0.000294971 -0.0119108 -0.00143024" quat="0.75817284 -0.1304911483 -0.2675834149 0.5801250909">
+                                      <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                    </body>
+                                    <body name="part_10_3" pos="0.0138551 -0.0675995 -0.00471807" quat="0.6240060042 0.4353689554 0.08798040662 -0.6429073242">
+                                      <inertial pos="-0.00729407 -0.00169117 -0.0208314" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                      <geom type="mesh" mesh="mesh_014" contype="0" conaffinity="0" pos="-0.0484771 -0.0554814 -0.28174" quat="1 0 0 0" rgba="0.972549 0.529412 0.00392157 1" />
+                                    </body>
+                                    <body name="part_1_35" pos="0.00245809 -0.0992568 -0.0119186" quat="0.1258999232 -0.2814816109 -0.09693830881 0.9463193311">
+                                      <inertial pos="-5.87843e-20 -2.31762e-19 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="0.04361748467 0 0 0.9990483047" />
+                                      <joint name="revolute_6" type="hinge" axis="0 0 -1" range="-8.58291e-12 1.5708" />
+                                      <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="1.2995e-20 1.48533e-19 0" quat="0.04361748467 0 0 0.9990483047" rgba="0.713726 0.760784 0.8 1" />
+                                      <body name="part_1_39" pos="-5.55112e-17 2.22045e-16 -9.71445e-17" quat="0.07761480936 0.9526811019 -0.06140022943 0.2874102839">
+                                        <inertial pos="-0.0252057 -0.0202566 0.000475555" mass="0.0001" diaginertia="1.82135e-08 1.41553e-08 1.75435e-08" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_024" contype="0" conaffinity="0" pos="-0.0712072 -0.21573 -0.282805" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                        <body name="part_1_37" pos="-0.0130283 -0.0458512 -0.0150973" quat="0.2905223057 0.01978768949 0.9544524135 0.06500636529">
+                                          <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                          <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                          <body name="hex_socket_head_cap_screw_m4x0_70_x_8_5" pos="0 1.11022e-16 0.005" quat="1 -9.15935e-16 -1.18655e-15 1.665335e-16">
+                                            <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                            <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                          </body>
+                                        </body>
+                                        <body name="part_1_36" pos="-0.018626 -0.00376403 0.0275049" quat="0.1594645879 0.6888898501 0.6609098186 0.2513961641">
+                                          <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                          <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                          <body name="hex_socket_head_cap_screw_m4x0_70_x_8_7" pos="0 -2.77556e-17 -0.005" quat="1.326794897e-06 -1 -1.373901399e-15 -1.054708177e-15">
+                                            <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                            <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                          </body>
+                                        </body>
+                                        <body name="part_1_38" pos="-0.0316544 -0.0496152 0.0124076" quat="0.2905223057 0.01978768949 0.9544524135 0.06500636529">
+                                          <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                          <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                          <body name="hex_socket_head_cap_screw_m4x0_70_x_8_6" pos="-2.77556e-17 0 -0.005" quat="1.326794897e-06 -1 6.245034064e-17 2.567389171e-16">
+                                            <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                            <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                          </body>
+                                        </body>
+                                        <body name="part_1_40" pos="-0.0403486 -0.0129085 -0.00877347" quat="0.08358004596 0.7021488004 -0.4977732731 -0.5022182858">
+                                          <inertial pos="3.83612e-20 4.83266e-20 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                          <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                          <body name="part_1_5" pos="-1.11022e-16 0 6.93889e-18" quat="0.7071054825 0.7071080799 1.004123046e-14 -4.122129242e-15">
+                                            <inertial pos="-7.20043e-11 0.0127377 1.61124e-10" mass="0.005708" diaginertia="3.97763e-07 5.13279e-07 3.97763e-07" quat="0.9713834771 0 -0.2375166108 0" />
+                                            <geom type="mesh" mesh="mesh_032" contype="0" conaffinity="0" pos="0.280894 -0.0630211 0.0682987" quat="0.9713834771 0 -0.2375166108 0" rgba="0.615686 0.811765 0.929412 1" />
+                                            <body name="part_1_7" pos="1.11022e-16 0.014 -5.55112e-17" quat="1.28882664e-06 -0.9713834771 -3.151358265e-07 -0.2375166108">
+                                              <inertial pos="-3.1233e-09 0.005 3.12891e-09" mass="0.000110689" diaginertia="1.01422e-07 2.00709e-07 1.01422e-07" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_027" contype="0" conaffinity="0" pos="0.00210838 -0.00113083 0.00135417" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                            </body>
+                                            <body name="part_1_4" pos="1.66533e-16 0.0095 -1.11022e-16" quat="0.6845797209 -0.6890832631 -0.175156665 -0.1607327126">
+                                              <inertial pos="-0.000263436 1.661e-05 -0.0123498" mass="0.00123741" diaginertia="6.47366e-08 6.47643e-08 3.68131e-09" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_016" contype="0" conaffinity="0" pos="-0.418331 0.367211 -0.0752639" quat="1 0 0 0" rgba="0.917647 0.917647 0.917647 1" />
+                                              <body name="part_1_6" pos="-0.000526872 3.322e-05 -0.0246996" quat="0.0006711356039 -0.9999429153 -7.185121981e-06 0.01066375511">
+                                                <inertial pos="3.83612e-20 2.36004e-19 -0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -1.49101e-19 -0.005" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                              </body>
+                                            </body>
+                                            <body name="hex_socket_head_cap_screw_m4x0_70_x_14_4" pos="-0.0100372 0.018 -0.00522059" quat="0.6868705823 -0.6868731053 -0.1679492977 -0.1679499146">
+                                              <inertial pos="-8.47817e-19 8.84372e-20 -0.00308214" mass="0.0024214" diaginertia="7.47225e-08 7.47225e-08 9.82431e-09" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_008" contype="0" conaffinity="0" pos="-6.82301e-19 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                            </body>
+                                            <body name="hex_socket_head_cap_screw_m4x0_70_x_14_3" pos="0.0100372 0.018 0.00522059" quat="0.6868705823 -0.6868731053 -0.1679492977 -0.1679499146">
+                                              <inertial pos="-8.47817e-19 8.84372e-20 -0.00308214" mass="0.0024214" diaginertia="7.47225e-08 7.47225e-08 9.82431e-09" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_008" contype="0" conaffinity="0" pos="-6.82301e-19 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                            </body>
+                                            <body name="hex_socket_head_cap_screw_m4x0_70_x_14_5" pos="-0.00522059 0.018 0.0100372" quat="0.6868705823 -0.6868731053 -0.1679492977 -0.1679499146">
+                                              <inertial pos="-8.47817e-19 8.84372e-20 -0.00308214" mass="0.0024214" diaginertia="7.47225e-08 7.47225e-08 9.82431e-09" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_008" contype="0" conaffinity="0" pos="-6.82301e-19 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                            </body>
+                                          </body>
+                                        </body>
+                                        <body name="part_8_2" pos="-0.0130283 -0.0458512 -0.0150973" quat="3.841415711e-08 -0.5871877651 0.7539938818 -0.294455013">
+                                          <inertial pos="0.0411285 0.00999492 0.0267948" mass="0.0334429" diaginertia="2.14058e-05 4.56213e-05 3.64735e-05" quat="-0.01345064988 -0.5571006199 -0.1125822144 0.8226683562" />
+                                          <joint name="revolute_8" type="hinge" axis="-0.557152 -0.112592 0.822742" range="-1.5977 0.0603653" />
+                                          <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="0.290745 0.0481972 -0.00166371" quat="-0.01345064988 -0.5571006199 -0.1125822144 0.8226683562" rgba="0.34902 0.376471 0.4 1" />
+                                          <body name="part_11_1" pos="0.0611793 -0.00224244 0.0362734" quat="-0.01345064988 -0.5571006199 -0.1125822144 0.8226683562">
+                                            <inertial pos="0.0224425 0.0047643 0.000189251" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                            <geom type="mesh" mesh="mesh_015" contype="0" conaffinity="0" pos="-0.024761 -0.0206585 -0.260914" quat="1 0 0 0" rgba="0.498039 0.498039 0.498039 1" />
+                                            <body name="part_8_3" pos="0.0143574 0.0029014 -0.0212014" quat="1 1.58276e-14 3.969045e-15 -2.17569e-14">
+                                              <inertial pos="0.0198018 -0.0128186 0.00923051" mass="0.0334429" diaginertia="2.10021e-05 4.60441e-05 3.64543e-05" quat="1 0 0 0" />
+                                              <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="-0.044663 -0.00835805 -0.236538" quat="1 0 0 0" rgba="0.34902 0.376471 0.4 1" />
+                                              <body name="hex_socket_head_cap_screw_m3x0_50_x_8_2" pos="0.0515697 -0.00623355 0.0292197" quat="0.06500682339 -0.9544524447 0.01978618452 -0.2905222032">
+                                                <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                              </body>
+                                              <body name="hex_socket_head_cap_screw_m3x0_50_x_8_3" pos="0.0708667 -0.00204439 0.0428607" quat="0.06500682339 -0.9544524447 0.01978618452 -0.2905222032">
+                                                <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                              </body>
+                                              <body name="spur_gear__25_teeth__2" pos="0.0589951 -0.00458821 0.039323" quat="0.7208645721 -0.6289353107 -0.1914385806 -0.2194217708">
+                                                <inertial pos="-1.46309e-10 -0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_060" contype="0" conaffinity="0" pos="0 -0.0482904 -3.64757e-19" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                              </body>
+                                              <body name="small_link_4__1_" pos="0.0612182 -0.00413897 0.0360402" quat="0.6648836743 -0.5800909841 0.3093562368 0.3545742074">
+                                                <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+                                              </body>
+                                              <body name="spur_gear__25_teeth__3" pos="-0.0169574 -0.0211434 -0.0240882" quat="0.6120955803 0.7324640524 -0.2627591193 0.1406878027">
+                                                <inertial pos="-1.46309e-10 -0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
+                                                <geom type="mesh" mesh="mesh_060" contype="0" conaffinity="0" pos="0 -0.0482904 -3.64757e-19" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                                <body name="hex_socket_head_cap_screw_m3x0_50_x_20_3" pos="0.0119318 -0.00705959 0.00127752" quat="0.7071054825 0.7071080799 5.81915484e-13 -8.871114998e-14">
+                                                  <inertial pos="5.83505e-19 1.69939e-20 -0.00643513" mass="0.00158663" diaginertia="8.21367e-08 8.21367e-08 3.25931e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_005" contype="0" conaffinity="0" pos="5.12091e-19 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                </body>
+                                                <body name="hex_socket_head_cap_screw_m3x0_50_x_20_2" pos="-0.0119318 -0.00705959 -0.00127752" quat="0.7071054825 0.7071080799 5.81915484e-13 -8.871114998e-14">
+                                                  <inertial pos="5.83505e-19 1.69939e-20 -0.00643513" mass="0.00158663" diaginertia="8.21367e-08 8.21367e-08 3.25931e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_005" contype="0" conaffinity="0" pos="5.12091e-19 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                </body>
+                                              </body>
+                                              <body name="part_3" pos="-0.019186 -0.0215938 -0.0207973" quat="3.841415711e-08 -0.5871877651 0.7539938818 -0.294455013">
+                                                <inertial pos="-0.00979545 0.0100184 -0.0256425" mass="0.0001" diaginertia="1.3976e-08 1.47494e-08 1.56853e-08" quat="0.7071055555 -0.3939657464 -0.07961521157 0.5817681171" />
+                                                <joint name="revolute_13" type="hinge" axis="0.557152 0.112592 -0.822742" range="-1.12799e-12 1.5708" />
+                                                <geom type="mesh" mesh="mesh_046" contype="0" conaffinity="0" pos="0.373214 -0.0977024 -0.182786" quat="0.7071055555 -0.3939657464 -0.07961521157 0.5817681171" rgba="0.615686 0.811765 0.929412 1" />
+                                                <body name="mg995_1" pos="-0.00930102 -0.0275212 -0.0228224" quat="0.5760402522 -0.1915780617 0.4717061489 -0.6395066717">
+                                                  <inertial pos="-0.0246017 0.00587003 0.0112967" mass="0.0001" diaginertia="5.17538e-09 8.68555e-09 5.61733e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_012" contype="0" conaffinity="0" pos="-0.0244 0.00587 0" quat="1 0 0 0" rgba="0.980392 0.713726 0.00392157 1" />
+                                                  <body name="hex_socket_head_cap_screw_m3x0_50_x_8_10" pos="0 0.0117445 0.00238" quat="1 3.43421e-16 3.935655e-16 -5.5511e-17">
+                                                    <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 0 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                  <body name="hex_socket_head_cap_screw_m3x0_50_x_8_13" pos="0 -4.16334e-17 0.00238" quat="1 2.87476e-16 3.36645e-16 -5.5511e-17">
+                                                    <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 0 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                  <body name="hex_socket_head_cap_screw_m3x0_50_x_8_12" pos="-0.0488 0.0117445 0.00238" quat="1 -2.325615e-16 1.30657e-15 -1.235125e-15">
+                                                    <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 0 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                  <body name="hex_socket_head_cap_screw_m3x0_50_x_8_11" pos="-0.0488 -1.94289e-16 0.00238" quat="1 -3.180505e-16 1.55724e-15 -1.56819e-15">
+                                                    <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_006" contype="0" conaffinity="0" pos="0 0 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                  <body name="part_1_19" pos="-0.0345778 0.00587 -0.01493" quat="-0.3234507424 -1.684625843e-06 0.9462450091 -1.684625843e-06">
+                                                    <inertial pos="1.39286e-05 -1.01997e-09 -1.79943e-05" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="0.2170354076 0.5975367026 -5.682329395e-07 -0.7719103063" />
+                                                    <joint name="revolute_12" type="hinge" axis="0.612127 6.84004e-18 -0.790759" range="-1.79646 0.489918" />
+                                                    <geom type="mesh" mesh="mesh_019" contype="0" conaffinity="0" pos="0.0100923 0.0627482 0.032653" quat="0.2170354076 0.5975367026 -5.682329395e-07 -0.7719103063" rgba="0.713726 0.760784 0.8 1" />
+                                                    <body name="part_4" pos="-0.000918191 -1.33809e-09 0.00118614" quat="0.7332088752 0.4779269432 -0.2271830496 0.4270578933">
+                                                      <inertial pos="0.0168273 -0.003186 -0.00104884" mass="0.0001" diaginertia="1e-09 1.24212e-09 1.27648e-09" quat="1 0 0 0" />
+                                                      <geom type="mesh" mesh="mesh_048" contype="0" conaffinity="0" pos="0.0770924 -0.189982 -0.375872" quat="1 0 0 0" rgba="0.647059 0.647059 0.647059 1" />
+                                                      <body name="part_2_5" pos="0.0346826 0.00420514 0.00559617" quat="0.3568539209 0.493200395 -0.4650591974 -0.6427508012">
+                                                        <inertial pos="0.0162231 0.00162229 -0.0312643" mass="0.0001" diaginertia="1.3853e-08 3.39505e-08 2.10412e-08" quat="1 0 0 0" />
+                                                        <geom type="mesh" mesh="mesh_043" contype="0" conaffinity="0" pos="-0.0118169 0.00414 -0.0724654" quat="1 0 0 0" rgba="0.811765 0.858824 0.898039 1" />
+                                                        <body name="part_2_3" pos="0.0262831 -0.00655 -0.0629404" quat="0.9426415592 2.928256238e-14 0.3338066668 -7.42590437e-14">
+                                                          <inertial pos="0.0254 0.003 -1.41789e-10" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                          <geom type="mesh" mesh="mesh_042" contype="0" conaffinity="0" pos="-0.0047625 -0.001 -0.00476255" quat="1 0 0 0" rgba="0.498039 0.498039 0.498039 1" />
+                                                        </body>
+                                                        <body name="mg995" pos="0.0183566 0.00827 -0.0134165" quat="0.8219329244 4.308034078e-14 0.5695842938 -6.716142805e-14">
+                                                          <inertial pos="0.0241983 0.00587003 0.00891667" mass="0.0001" diaginertia="5.17538e-09 8.68555e-09 5.61733e-09" quat="1 0 0 0" />
+                                                          <geom type="mesh" mesh="mesh_012" contype="0" conaffinity="0" pos="0.0244 0.00587 -0.00238" quat="1 0 0 0" rgba="0.980392 0.713726 0.00392157 1" />
+                                                          <body name="part_1_20" pos="0.0142222 0.00587 -0.01831" quat="1.255473054e-06 -0.9462450091 -4.291528092e-07 -0.3234507424">
+                                                            <inertial pos="1.39299e-05 6.42047e-10 -1.79933e-05" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                            <geom type="mesh" mesh="mesh_019" contype="0" conaffinity="0" pos="-0.0530815 -0.0449856 -0.0162498" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                                            <body name="part_1_16" pos="-0.00091819 -1.88738e-15 0.00118614" quat="0.9462450091 -1.261290066e-14 -0.3234507424 2.191126356e-14">
+                                                              <inertial pos="6.59464e-12 9.46508e-11 0.00257513" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                              <geom type="mesh" mesh="mesh_017" contype="0" conaffinity="0" pos="0 0 0.002" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                                            </body>
+                                                          </body>
+                                                        </body>
+                                                        <body name="part_2_6" pos="0.00876398 -0.008 -0.0699835" quat="1.326794897e-06 1.927116416e-14 -1.067197443e-14 -1">
+                                                          <inertial pos="-0.00481909 0.00201533 0.0364568" mass="0.0001" diaginertia="1.00275e-08 2.58276e-08 1.58846e-08" quat="1 0 0 0" />
+                                                          <geom type="mesh" mesh="mesh_044" contype="0" conaffinity="0" pos="-0.0302191 0.00414 -0.00248186" quat="1 0 0 0" rgba="0.811765 0.858824 0.898039 1" />
+                                                          <body name="spur_gear__36_teeth_" pos="-0.0238691 8.88178e-15 0.0324431" quat="0.8569030085 -2.450343768e-14 0.5154776756 3.842532194e-14">
+                                                            <inertial pos="-0.000173783 -0.00401832 -0.0152324" mass="0.0001" diaginertia="1.76259e-09 1.86348e-09 1e-09" quat="1 0 0 0" />
+                                                            <geom type="mesh" mesh="mesh_061" contype="0" conaffinity="0" pos="0.0201022 -0.0008 -0.0567911" quat="1 0 0 0" rgba="0.647059 0.647059 0.647059 1" />
+                                                            <body name="part_1_18" pos="0.00189384 -0.001 -0.0512858" quat="0.2016903146 0.5652731693 0.4911969468 0.6312787186">
+                                                              <inertial pos="-0.00787077 0.00561001 0.0256834" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                              <geom type="mesh" mesh="mesh_038" contype="0" conaffinity="0" pos="0.0611597 0.0548293 -0.0882701" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                                            </body>
+                                                            <body name="part_1_14" pos="0.00189384 -0.009 -0.0512858" quat="0.201699822 0.5652616453 0.4911934248 0.6312887403">
+                                                              <inertial pos="-0.00989569 0.00670025 0.0247031" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                              <geom type="mesh" mesh="mesh_038" contype="0" conaffinity="0" pos="0.0591348 0.0559195 -0.0892505" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                                              <body name="hex_socket_head_cap_screw_m5x0_80_x_14_1" pos="-0.0138479 0.00700689 0.0300197" quat="0.3625214509 -0.8135204921 -0.1850847183 0.4153387215">
+                                                                <inertial pos="-3.44539e-19 -5.36033e-20 -0.00257703" mass="0.0040241" diaginertia="1.37079e-07 1.37079e-07 2.57069e-08" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_010" contype="0" conaffinity="0" pos="-4.54356e-19 1.18929e-34 0.005" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="hex_socket_head_cap_screw_m5x0_80_x_14_2" pos="-0.00202492 0.00109023 -0.000980355" quat="0.3625214509 -0.8135204921 -0.1850847183 0.4153387215">
+                                                                <inertial pos="-3.44539e-19 -5.36033e-20 -0.00257703" mass="0.0040241" diaginertia="1.37079e-07 1.37079e-07 2.57069e-08" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_010" contype="0" conaffinity="0" pos="-4.54356e-19 1.18929e-34 0.005" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="hex_socket_head_cap_screw_m2_5x0_45_x_8_3" pos="-0.0228301 0.00721067 0.048799" quat="0.3625214509 -0.8135204921 -0.1850847183 0.4153387215">
+                                                                <inertial pos="8.93381e-20 -1.68087e-20 -0.00152008" mass="0.000581203" diaginertia="6.04786e-09 6.04786e-09 1e-09" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_002" contype="0" conaffinity="0" pos="0 6.70384e-35 0.0025" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="hex_socket_head_cap_screw_m2_5x0_45_x_8" pos="-0.0186203 0.00510395 0.037761" quat="0.3625214509 -0.8135204921 -0.1850847183 0.4153387215">
+                                                                <inertial pos="8.93381e-20 -1.68087e-20 -0.00152008" mass="0.000581203" diaginertia="6.04786e-09 6.04786e-09 1e-09" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_002" contype="0" conaffinity="0" pos="0 6.70384e-35 0.0025" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="hex_socket_head_cap_screw_m2_5x0_45_x_8_5" pos="-0.00851572 0.0240801 0.0379929" quat="0.3625214509 -0.8135204921 -0.1850847183 0.4153387215">
+                                                                <inertial pos="8.93381e-20 -1.68087e-20 -0.00152008" mass="0.000581203" diaginertia="6.04786e-09 6.04786e-09 1e-09" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_002" contype="0" conaffinity="0" pos="0 6.70384e-35 0.0025" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="soft_gripper_finger_1" pos="-0.0208052 0.00612044 0.0497794" quat="0.1094648145 -0.5038138423 0.8402760303 -0.167705872">
+                                                                <inertial pos="-0.0134304 -0.004 -0.0136049" mass="0.0001" diaginertia="2.41382e-09 2.73677e-09 1e-09" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_066" contype="0" conaffinity="0" pos="-0.0245 0 0.015" quat="1 0 0 0" rgba="0.231373 0.380392 0.705882 1" />
+                                                              </body>
+                                                            </body>
+                                                          </body>
+                                                          <body name="claw_flexible_small_servo_motor_copy_1__1_" pos="-0.00481909 0.00414 0.0366829" quat="0.4999981634 0.5000018366 -0.5 0.5">
+                                                            <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+                                                          </body>
+                                                          <body name="spur_gear__36_teeth__1" pos="0.0142309 -2.498e-15 0.0324431" quat="0.8660247916 -9.739779452e-14 -0.5000010604 -3.725001224e-15">
+                                                            <inertial pos="0.000157203 -0.00429955 -0.0143659" mass="0.0001" diaginertia="1.85858e-09 1.95845e-09 1e-09" quat="1 0 0 0" />
+                                                            <geom type="mesh" mesh="mesh_062" contype="0" conaffinity="0" pos="-0.0201022 -0.0008 -0.0567911" quat="1 0 0 0" rgba="0.647059 0.647059 0.647059 1" />
+                                                            <body name="part_2_2" pos="6.27276e-15 -0.00934848 2.9865e-14" quat="0.3826833569 7.180563654e-07 0.9238795638 7.180563654e-07">
+                                                              <inertial pos="1.70831e-18 -0.00237225 1.73472e-18" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                              <geom type="mesh" mesh="mesh_041" contype="0" conaffinity="0" pos="0 -0.0127915 -0.00996745" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                                            </body>
+                                                            <body name="part_1_21" pos="-0.00189384 -0.001 -0.0512858" quat="0.623323568 0.493966846 -0.5740325074 -0.1948105875">
+                                                              <inertial pos="-0.00989569 0.00670025 0.0247031" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                              <geom type="mesh" mesh="mesh_038" contype="0" conaffinity="0" pos="0.0591348 0.0559195 -0.0892505" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                                            </body>
+                                                            <body name="part_1_15" pos="-0.00189384 -0.009 -0.0512858" quat="0.6234542072 0.4939202554 -0.5738916828 -0.1949255479">
+                                                              <inertial pos="-0.00787077 0.00561001 0.0256834" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                              <geom type="mesh" mesh="mesh_038" contype="0" conaffinity="0" pos="0.0611597 0.0548293 -0.0882701" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                                              <body name="hex_socket_head_cap_screw_m5x0_80_x_14" pos="-0.00979803 0.00482642 0.0319804" quat="0.8135191605 0.3625244391 0.4153394014 0.1850831926">
+                                                                <inertial pos="-3.44539e-19 -5.36033e-20 -0.00257703" mass="0.0040241" diaginertia="1.37079e-07 1.37079e-07 2.57069e-08" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_010" contype="0" conaffinity="0" pos="-4.54356e-19 1.18929e-34 0.005" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="hex_socket_head_cap_screw_m5x0_80_x_14_3" pos="0.00202492 -0.00109023 0.000980355" quat="0.8135191605 0.3625244391 0.4153394014 0.1850831926">
+                                                                <inertial pos="-3.44539e-19 -5.36033e-20 -0.00257703" mass="0.0040241" diaginertia="1.37079e-07 1.37079e-07 2.57069e-08" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_010" contype="0" conaffinity="0" pos="-4.54356e-19 1.18929e-34 0.005" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="hex_socket_head_cap_screw_m2_5x0_45_x_8_1" pos="-0.0187803 0.00503021 0.0507598" quat="0.8135191605 0.3625244391 0.4153394014 0.1850831926">
+                                                                <inertial pos="8.93381e-20 -1.68087e-20 -0.00152008" mass="0.000581203" diaginertia="6.04786e-09 6.04786e-09 1e-09" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_002" contype="0" conaffinity="0" pos="0 6.70384e-35 0.0025" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="hex_socket_head_cap_screw_m2_5x0_45_x_8_4" pos="-0.00446589 0.0218996 0.0399536" quat="0.8135191605 0.3625244391 0.4153394014 0.1850831926">
+                                                                <inertial pos="8.93381e-20 -1.68087e-20 -0.00152008" mass="0.000581203" diaginertia="6.04786e-09 6.04786e-09 1e-09" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_002" contype="0" conaffinity="0" pos="0 6.70384e-35 0.0025" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="hex_socket_head_cap_screw_m2_5x0_45_x_8_2" pos="-0.0145705 0.00292348 0.0397217" quat="0.8135191605 0.3625244391 0.4153394014 0.1850831926">
+                                                                <inertial pos="8.93381e-20 -1.68087e-20 -0.00152008" mass="0.000581203" diaginertia="6.04786e-09 6.04786e-09 1e-09" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_002" contype="0" conaffinity="0" pos="0 6.70384e-35 0.0025" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                              </body>
+                                                              <body name="soft_gripper_finger" pos="-0.0064908 0.0229898 0.0389733" quat="0.1072655425 -0.5033700406 0.8405608611 -0.1690270523">
+                                                                <inertial pos="0.00806962 0.004 -0.0256049" mass="0.0001" diaginertia="2.41382e-09 2.73677e-09 1e-09" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_066" contype="0" conaffinity="0" pos="-0.003 0.008 0.003" quat="1 0 0 0" rgba="0.231373 0.380392 0.705882 1" />
+                                                              </body>
+                                                              <body name="part_2_4" pos="-0.0126329 0.00635275 0.0306079" quat="0.8461541453 -0.2567121555 0.04549531768 0.4648141647">
+                                                                <inertial pos="0.0254 0.003 -1.41789e-10" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                                <geom type="mesh" mesh="mesh_042" contype="0" conaffinity="0" pos="-0.0047625 -0.001 -0.00476255" quat="1 0 0 0" rgba="0.498039 0.498039 0.498039 1" />
+                                                              </body>
+                                                            </body>
+                                                          </body>
+                                                        </body>
+                                                        <body name="part_1_17" pos="0.0135831 0.00414 -0.0724654" quat="0.4375029539 -0.7977670475 0.08298523745 -0.4065370261">
+                                                          <inertial pos="0.0145196 -0.038958 -0.00115159" mass="0.0001" diaginertia="2.36558e-08 2.79815e-08 2.50271e-08" quat="1 0 0 0" />
+                                                          <geom type="mesh" mesh="mesh_018" contype="0" conaffinity="0" pos="-0.0200807 -0.110005 -0.0601331" quat="1 0 0 0" rgba="0.647059 0.647059 0.647059 1" />
+                                                        </body>
+                                                      </body>
+                                                    </body>
+                                                  </body>
+                                                </body>
+                                                <body name="part_1_25" pos="-0.0394236 0.0191305 -0.0240792" quat="0.6888899022 -0.1594643628 -0.2513959482 0.6609099007">
+                                                  <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                                  <body name="hex_socket_head_cap_screw_m4x0_70_x_8_3" pos="-1.11022e-16 1.04083e-17 0.005" quat="1 -4.857225e-17 -1.38778e-17 -6.9389e-17">
+                                                    <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                </body>
+                                                <body name="part_1_26" pos="2.02963e-16 3.33067e-16 3.88578e-16" quat="0.6888899022 -0.1594643628 -0.2513959482 0.6609099007">
+                                                  <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                                  <body name="hex_socket_head_cap_screw_m4x0_70_x_8" pos="0 4.16334e-17 0.005" quat="1 5.27355e-16 3.33067e-16 8.8124e-16">
+                                                    <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                </body>
+                                                <body name="part_1_22" pos="-0.0207975 0.0228945 -0.0515841" quat="0.1594645879 0.6888898501 0.6609098186 0.2513961641">
+                                                  <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                                  <body name="hex_socket_head_cap_screw_m4x0_70_x_8_1" pos="1.11022e-16 3.1225e-17 0.005" quat="1 -6.9389e-18 8.32665e-17 -1.17961e-16">
+                                                    <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                </body>
+                                                <body name="part_1_24" pos="0.018626 0.00376403 -0.0275049" quat="0.1594645879 0.6888898501 0.6609098186 0.2513961641">
+                                                  <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                                  <body name="hex_socket_head_cap_screw_m4x0_70_x_8_2" pos="1.11022e-16 1.38778e-17 0.005" quat="1 1.31839e-16 -8.32665e-17 -6.59195e-16">
+                                                    <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                </body>
+                                                <body name="part_1_23" pos="-0.0126839 0.0125561 -0.0271878" quat="0.5068670382 -0.3012644802 -0.8062464779 -0.04787625277">
+                                                  <inertial pos="3.83612e-20 4.83266e-20 0.0025" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                                  <geom type="mesh" mesh="mesh_013" contype="0" conaffinity="0" pos="0 -3.36778e-19 0" quat="1 0 0 0" rgba="0.713726 0.760784 0.8 1" />
+                                                  <body name="hex_socket_head_cap_screw_m3x0_50_x_14" pos="-1.11022e-16 5.55112e-17 0.005" quat="1 -1.492945e-16 -7.893e-17 5.5511e-16">
+                                                    <inertial pos="6.39162e-19 1.59927e-20 -0.00369109" mass="0.00125837" diaginertia="3.51679e-08 3.51679e-08 2.89002e-09" quat="1 0 0 0" />
+                                                    <geom type="mesh" mesh="mesh_004" contype="0" conaffinity="0" pos="5.12091e-19 7.11336e-35 0.003" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                                  </body>
+                                                </body>
+                                              </body>
+                                            </body>
+                                          </body>
+                                          <body name="part_10_1" pos="0.0537485 0.0257811 0.0350764" quat="0.9999095419 -0.007493806482 -0.001514381878 0.01106605098">
+                                            <inertial pos="-0.00729407 -0.00169117 -0.0208314" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="1 0 0 0" />
+                                            <geom type="mesh" mesh="mesh_014" contype="0" conaffinity="0" pos="-0.0484771 -0.0554814 -0.28174" quat="1 0 0 0" rgba="0.972549 0.529412 0.00392157 1" />
+                                          </body>
+                                        </body>
+                                      </body>
+                                      <body name="hex_socket_head_cap_screw_m4x0_70_x_8_4" pos="-2.77556e-17 5.55112e-17 0.005" quat="0.04361748467 -9.376306987e-17 -5.834205293e-16 0.9990483047">
+                                        <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
+                                        <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                      </body>
+                                    </body>
+                                  </body>
+                                </body>
+                                <body name="socket_button_head_screw_m3x0_5_x_8_23" pos="0.160605 0.0137155 -0.005" quat="1.326794897e-06 1 -4.163330228e-16 -3.596890524e-16">
+                                  <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                </body>
+                                <body name="socket_button_head_screw_m3x0_5_x_8_37" pos="0.160605 -0.0137155 -0.005" quat="1.326794897e-06 1 -4.163330228e-16 -3.596890524e-16">
+                                  <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                                </body>
+                                <body name="part_1_50" pos="-6.52256e-16 1.63758e-15 -0.016" quat="9.381839541e-07 -0.7071054825 0.7071080799 -9.381873833e-07">
+                                  <inertial pos="-1.11767e-19 -0.000161829 -0.0438" mass="0.0752855" diaginertia="4.8464e-05 4.85293e-05 1.31754e-06" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_026" contype="0" conaffinity="0" pos="4.33681e-19 1.0842e-18 -0.0776" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                </body>
+                                <body name="part_1_56" pos="0.143086 -0.0191673 -8.32667e-17" quat="0.6418524466 0.5917381877 0.3871017104 0.296687748">
+                                  <inertial pos="-0.0150392 0.0243167 -0.0178273" mass="0.0001" diaginertia="3.15041e-09 1.62678e-09 2.53243e-09" quat="1 0 0 0" />
+                                  <geom type="mesh" mesh="mesh_028" contype="0" conaffinity="0" pos="-0.250818 -0.0192648 -0.215753" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
+                                </body>
+                                <body name="distal_limb__1_" pos="0.0736321 3.23773e-05 -0.005" quat="0.4999981634 0.5 0.5000018366 0.5">
+                                  <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                    <body name="socket_button_head_screw_m3x0_5_x_12_3" pos="-0.0109895 -0.0320278 0.101596" quat="0.7048686063 -0.7048711955 0.05619995005 -0.05619974361">
+                      <inertial pos="7.1673e-19 1.52646e-20 -0.00453295" mass="0.000838393" diaginertia="1.47084e-08 1.47084e-08 1.3639e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_055" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                    <body name="socket_button_head_screw_m3x0_5_x_12" pos="0.000415956 -0.0338582 0.0194039" quat="0.7048686063 -0.7048711955 0.05619995005 -0.05619974361">
+                      <inertial pos="7.1673e-19 1.52646e-20 -0.00453295" mass="0.000838393" diaginertia="1.47084e-08 1.47084e-08 1.3639e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_055" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                    <body name="socket_button_head_screw_m3x0_5_x_12_1" pos="0.0352902 -0.0394549 0.0662757" quat="0.7048686063 -0.7048711955 0.05619995005 -0.05619974361">
+                      <inertial pos="7.1673e-19 1.52646e-20 -0.00453295" mass="0.000838393" diaginertia="1.47084e-08 1.47084e-08 1.3639e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_055" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                    <body name="socket_button_head_screw_m3x0_5_x_12_2" pos="-0.0458637 -0.0264311 0.0547243" quat="0.7048686063 -0.7048711955 0.05619995005 -0.05619974361">
+                      <inertial pos="7.1673e-19 1.52646e-20 -0.00453295" mass="0.000838393" diaginertia="1.47084e-08 1.47084e-08 1.3639e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_055" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                    <body name="socket_button_head_screw_m3x0_5_x_8_1" pos="-0.0024832 -0.00968678 0.0045" quat="0.9968365736 -5.631950433e-18 1.87869256e-18 -0.07947858559">
+                      <inertial pos="6.93083e-19 2.18391e-20 -0.00261804" mass="0.00061955" diaginertia="5.58869e-09 5.58869e-09 1.1177e-09" quat="1 0 0 0" />
+                      <geom type="mesh" mesh="mesh_057" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                    </body>
+                  </body>
+                </body>
+                <body name="socket_button_head_screw_m3x0_5_x_16_2" pos="0.00210526 -0.0339348 0.00167" quat="1.326794897e-06 -1 -6.954900022e-18 -1.649847227e-20">
+                  <inertial pos="7.30032e-19 1.56162e-20 -0.00648309" mass="0.00105724" diaginertia="3.05281e-08 3.05281e-08 1.6101e-09" quat="1 0 0 0" />
+                  <geom type="mesh" mesh="mesh_056" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                </body>
+                <body name="socket_button_head_screw_m3x0_5_x_16_3" pos="-0.00210526 0.0339348 0.00167" quat="1.326794897e-06 -1 -6.954900022e-18 -1.649847227e-20">
+                  <inertial pos="7.30032e-19 1.56162e-20 -0.00648309" mass="0.00105724" diaginertia="3.05281e-08 3.05281e-08 1.6101e-09" quat="1 0 0 0" />
+                  <geom type="mesh" mesh="mesh_056" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                </body>
+                <body name="socket_button_head_screw_m3x0_5_x_16" pos="-0.0283357 -0.0187906 0.00167" quat="1.326794897e-06 -1 -6.954900022e-18 -1.649847227e-20">
+                  <inertial pos="7.30032e-19 1.56162e-20 -0.00648309" mass="0.00105724" diaginertia="3.05281e-08 3.05281e-08 1.6101e-09" quat="1 0 0 0" />
+                  <geom type="mesh" mesh="mesh_056" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                </body>
+                <body name="socket_button_head_screw_m3x0_5_x_16_1" pos="0.0283357 0.0187906 0.00167" quat="1.326794897e-06 -1 -6.954900022e-18 -1.649847227e-20">
+                  <inertial pos="7.30032e-19 1.56162e-20 -0.00648309" mass="0.00105724" diaginertia="3.05281e-08 3.05281e-08 1.6101e-09" quat="1 0 0 0" />
+                  <geom type="mesh" mesh="mesh_056" contype="0" conaffinity="0" pos="5.68017e-19 -5.28847e-35 0.00165" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                </body>
+                <body name="socket_button_head_screw_m4x0_7_x_8_3" pos="-0.0131515 0.022779 0.0013" quat="1 1.65577e-19 -8.32335e-21 3.47745e-18">
+                  <inertial pos="1.25799e-18 3.62951e-21 -0.0021626" mass="0.00123814" diaginertia="1.30381e-08 1.30381e-08 4.33707e-09" quat="1 0 0 0" />
+                  <geom type="mesh" mesh="mesh_059" contype="0" conaffinity="0" pos="1.09708e-18 -7.37398e-35 0.0022" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                </body>
+                <body name="socket_button_head_screw_m4x0_7_x_8" pos="-0.0131515 -0.022779 0.0013" quat="1 1.65577e-19 -8.32335e-21 3.47745e-18">
+                  <inertial pos="1.25799e-18 3.62951e-21 -0.0021626" mass="0.00123814" diaginertia="1.30381e-08 1.30381e-08 4.33707e-09" quat="1 0 0 0" />
+                  <geom type="mesh" mesh="mesh_059" contype="0" conaffinity="0" pos="1.09708e-18 -7.37398e-35 0.0022" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
+                </body>
+              </body>
+              <body name="base__1_" pos="-1.21784e-08 0.0815645 -0.0035" quat="1 2.7542e-10 9.266756933e-23 -8.50725e-17">
+                <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <equality>
+    <weld name="revolute_14_closed_loop" body1="part_3" body2="part_3__1__loop_closure" solref="0.004 1" solimp="0.999 0.999 0.001" torquescale="0.05" />
+    <joint name="revolute_9_opposes_revolute_7" joint1="revolute_9" joint2="revolute_7" polycoef="0 -1 0 0 0" solref="0.004 1" solimp="0.999 0.999 0.001" />
+    <joint name="revolute_6_opposes_revolute_8" joint1="revolute_6" joint2="revolute_8" polycoef="0 -1 0 0 0" solref="0.004 1" solimp="0.999 0.999 0.001" />
+    <joint name="revolute_5_opposes_revolute_4" joint1="revolute_5" joint2="revolute_4" polycoef="0 -1 0 0 0" solref="0.004 1" solimp="0.999 0.999 0.001" />
+    <joint name="revolute_13_opposes_revolute_8" joint1="revolute_13" joint2="revolute_8" polycoef="0 -1 0 0 0" solref="0.004 1" solimp="0.999 0.999 0.001" />
+    <joint name="revolute_14_opposes_revolute_8" joint1="revolute_14_loop_closure" joint2="revolute_8" polycoef="0 -1 0 0 0" solref="0.004 1" solimp="0.999 0.999 0.001" />
+  </equality>
+  <actuator>
+    <position name="ak60_revolute_1" joint="revolute_1" gear="1" kp="9" dampratio="1" forcelimited="true" forcerange="-9 9" />
+    <position name="ak70_revolute_2" joint="revolute_2" gear="1" kp="24.8" dampratio="1" ctrllimited="true" ctrlrange="-6.28319 0.153038" forcelimited="true" forcerange="-24.8 24.8" />
+    <position name="ak70_revolute_3" joint="revolute_3" gear="1" kp="24.8" dampratio="1" forcelimited="true" forcerange="-24.8 24.8" />
+    <position name="ak40_revolute_4" joint="revolute_4" gear="1" kp="4.1" dampratio="1" ctrllimited="true" ctrlrange="-0.00381777 1.54953" forcelimited="true" forcerange="-4.1 4.1" />
+  </actuator>
+</mujoco>
