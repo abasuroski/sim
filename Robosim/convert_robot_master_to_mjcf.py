@@ -12,6 +12,13 @@ from pathlib import Path
 
 import mujoco
 
+from robot_master_configuration import (
+    HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
+    HARDWARE_ZERO_KEYFRAME_NAME,
+    JOINT_RANGE_OVERRIDES_RAD,
+    hardware_zero_joint_positions,
+)
+
 
 ROOT = Path(__file__).resolve().parent
 URDF = ROOT / "robot_master" / "urdf" / "robot_master.urdf"
@@ -24,18 +31,68 @@ MJCF = OUTPUT_DIR / "robot_master.xml"
 # body receives an inertia safely above MuJoCo's minimum thresholds.
 MIN_MASS = 1e-4
 MIN_INERTIA = 1e-9
+HARDWARE_ZERO_SETTLE_TIME_S = 10.0
 
 # Direct-drive output-stage torque limits for the selected CubeMars modules.
-# These values are peak torques, in N*m at the actuator output.
+# These values are peak torques, in N*m at the motor actuator output.
 AK60_6_PEAK_TORQUE_NM = 9.0
 AK70_10_PEAK_TORQUE_NM = 24.8
 AK40_10_PEAK_TORQUE_NM = 4.1
 
+# The AK40 drives a 60-tooth output gear from a 48-tooth motor pinion.  Its
+# motor-to-joint reduction is therefore 60 / 48 = 1.25.  The position actuator
+# uses motor-side coordinates and torque, while its joint-space output torque
+# is multiplied by this ratio (ignoring gearbox losses).
+AK40_10_REDUCTION = 60.0 / 48.0
+AK40_10_OUTPUT_PEAK_TORQUE_NM = AK40_10_PEAK_TORQUE_NM * AK40_10_REDUCTION
+AK40_10_JOINT_RANGE_RAD = JOINT_RANGE_OVERRIDES_RAD["revolute_4"]
+
 # Position-control stiffnesses.  At a 1-radian tracking error, each servo
-# requests its respective actuator's peak output torque before saturation.
+# requests its respective joint-output peak torque before saturation.  MuJoCo
+# scales position-actuator stiffness by gear squared at the joint, so the AK40
+# motor-side gain is adjusted to retain those joint-space units.
 AK60_6_POSITION_KP = AK60_6_PEAK_TORQUE_NM
 AK70_10_POSITION_KP = AK70_10_PEAK_TORQUE_NM
-AK40_10_POSITION_KP = AK40_10_PEAK_TORQUE_NM
+AK40_10_POSITION_KP = AK40_10_OUTPUT_PEAK_TORQUE_NM
+AK40_10_ACTUATOR_POSITION_KP = AK40_10_POSITION_KP / AK40_10_REDUCTION**2
+
+# MuJoCo's interactive viewer uses ``ctrlrange`` to size a control slider even
+# when ``ctrllimited`` is false.  Give continuous joints a two-turn-wide
+# (-2*pi to +2*pi) slider without clamping their actual controller inputs.
+CONTINUOUS_JOINT_SLIDER_RANGE = "-6.283185307 6.283185307"
+
+# The source URDF only contains visual meshes.  MuJoCo treats a collidable mesh
+# as a convex hull, which makes its gears, bolts, and nested hardware collide
+# with one another rather than representing usable link clearance.  Keep those
+# meshes visual-only and add explicit capsules along the articulated linkage
+# centerlines instead.  The 15 mm radius is deliberately conservative: it is
+# large enough to prevent two link bars from passing through one another but
+# does not turn the CAD assembly's internal hardware into collision obstacles.
+VISUAL_COLLISION_TYPE = "0"
+COLLISION_PROXY_TYPE = "2"
+COLLISION_PROXY_RADIUS_M = 0.015
+
+# (geom name, owning body, endpoint in that body's local frame).  Every
+# capsule begins at its owning joint-frame origin.  The endpoints were measured
+# from the URDF reference pose at the next linkage pivot.
+COLLISION_CAPSULES = (
+    ("collision_revolute_3_to_4", "35t_htd_custom_pulley_1", "0 0 0 0.01158696 -0.17936519 0.08813909"),
+    ("collision_revolute_4_to_6", "part_8_7", "0 0 0 0.00245809 -0.0992568 -0.0119186"),
+    ("collision_revolute_6_to_8", "part_1_35", "0 0 0 -0.01149162 0.04866149 0"),
+    ("collision_revolute_5_to_7", "part_8_4", "0 0 0 -0.01826471 -0.10292344 0.01456664"),
+    ("collision_revolute_7_to_9", "part_1_45", "0 0 0 0.0130283 0.0458512 0.0150973"),
+)
+
+# Neighboring links meet at their hinge pivots, so their overlapping capsule
+# ends are mechanical joints rather than collisions.  Other proxy pairs remain
+# collidable and become normal MuJoCo contact constraints.
+COLLISION_EXCLUDE_PAIRS = (
+    ("35t_htd_custom_pulley_1", "part_8_7"),
+    ("part_8_7", "part_1_35"),
+    ("part_1_35", "part_8_2"),
+    ("part_8_4", "part_1_45"),
+    ("part_1_45", "part_8_1"),
+)
 
 # The CAD exporter represents the table-to-robot fastening as a planar mate:
 # two ±10 km slide joints plus a hinge.  In simulation that leaves the bottom
@@ -226,8 +283,11 @@ def joint_element(joint: ET.Element) -> ET.Element:
     axis = joint.find("axis")
     if axis is not None:
         attributes["axis"] = axis.attrib["xyz"]
+    override_range = JOINT_RANGE_OVERRIDES_RAD.get(joint.attrib["name"])
     limit = joint.find("limit")
-    if limit is not None and joint_type != "continuous":
+    if override_range is not None:
+        attributes["range"] = format_values(list(override_range))
+    elif limit is not None and joint_type != "continuous":
         attributes["range"] = f"{limit.attrib['lower']} {limit.attrib['upper']}"
     return ET.Element("joint", attributes)
 
@@ -274,6 +334,9 @@ def main() -> None:
 
     worldbody = ET.SubElement(mujoco_xml, "worldbody")
 
+    body_elements: dict[str, ET.Element] = {}
+    model_joint_names: list[str] = []
+
     def add_body(link_name: str, parent: ET.Element) -> None:
         link = links[link_name]
         attributes = {"name": link_name}
@@ -281,6 +344,7 @@ def main() -> None:
         if parent_joint is not None:
             attributes.update(origin_attributes(parent_joint.find("origin")))
         body = ET.SubElement(parent, "body", attributes)
+        body_elements[link_name] = body
         ET.SubElement(body, "inertial", inertial_attributes(link))
         if (
             parent_joint is not None
@@ -288,6 +352,7 @@ def main() -> None:
             and parent_joint.attrib["name"] not in LOCKED_JOINTS
         ):
             body.append(joint_element(parent_joint))
+            model_joint_names.append(parent_joint.attrib["name"])
 
         for visual_element in link.findall("visual"):
             mesh = visual_element.find("geometry/mesh")
@@ -295,7 +360,12 @@ def main() -> None:
                 continue
             source_name = Path(mesh.attrib["filename"].removeprefix("package://robot_master/meshes/")).name
             asset_name, _, _, _ = mesh_assets[source_name]
-            geom_attributes = {"type": "mesh", "mesh": asset_name, "contype": "0", "conaffinity": "0"}
+            geom_attributes = {
+                "type": "mesh",
+                "mesh": asset_name,
+                "contype": VISUAL_COLLISION_TYPE,
+                "conaffinity": VISUAL_COLLISION_TYPE,
+            }
             geom_attributes.update(origin_attributes(visual_element.find("origin")))
             # All source visuals use unit scale.  Mesh scaling belongs on the
             # MJCF asset (not on a geom), so no per-geom scale is required.
@@ -308,6 +378,24 @@ def main() -> None:
             add_body(child_joint.find("child").attrib["link"], body)
 
     add_body(root_links[0], worldbody)
+
+    for geom_name, body_name, fromto in COLLISION_CAPSULES:
+        ET.SubElement(
+            body_elements[body_name],
+            "geom",
+            name=geom_name,
+            type="capsule",
+            fromto=fromto,
+            size=f"{COLLISION_PROXY_RADIUS_M:g}",
+            contype=COLLISION_PROXY_TYPE,
+            conaffinity=COLLISION_PROXY_TYPE,
+            group="3",
+            rgba="0.2 0.8 0.2 0.18",
+        )
+
+    contact = ET.SubElement(mujoco_xml, "contact")
+    for body1, body2 in COLLISION_EXCLUDE_PAIRS:
+        ET.SubElement(contact, "exclude", body1=body1, body2=body2)
 
     # Joint equality uses joint1 = a0 + a1 * joint2 around the model's
     # reference pose.  Each paired joint below uses a 1:1 inverse gear ratio.
@@ -376,9 +464,15 @@ def main() -> None:
         solimp="0.999 0.999 0.001",
     )
 
-    # Position servo controls are target angles in radians because gear=1.  A
-    # critically damped servo requests kp * (target - position), and forcerange
-    # guarantees that applied torque stays within the motor's output rating.
+    # Position servo controls use radians. A limited actuator's control range
+    # matches the driven joint's physical range, after transmission scaling,
+    # rejecting an unreachable target before it drives into a hard stop.
+    # Continuous joints remain unclamped and use ctrlrange only to provide a
+    # useful +/- 2*pi interactive-viewer slider.  A full-turn motion of a
+    # continuous hinge must follow a continuous reference trajectory rather
+    # than use one static 2*pi step.  A critically damped servo requests kp *
+    # (target - position), while forcerange guarantees that motor torque stays
+    # within the motor's output rating.
     actuators = ET.SubElement(mujoco_xml, "actuator")
     ET.SubElement(
         actuators,
@@ -388,6 +482,8 @@ def main() -> None:
         gear="1",
         kp=f"{AK60_6_POSITION_KP:g}",
         dampratio="1",
+        ctrllimited="false",
+        ctrlrange=CONTINUOUS_JOINT_SLIDER_RANGE,
         forcelimited="true",
         forcerange=f"{-AK60_6_PEAK_TORQUE_NM:g} {AK60_6_PEAK_TORQUE_NM:g}",
     )
@@ -412,6 +508,8 @@ def main() -> None:
         gear="1",
         kp=f"{AK70_10_POSITION_KP:g}",
         dampratio="1",
+        ctrllimited="false",
+        ctrlrange=CONTINUOUS_JOINT_SLIDER_RANGE,
         forcelimited="true",
         forcerange=f"{-AK70_10_PEAK_TORQUE_NM:g} {AK70_10_PEAK_TORQUE_NM:g}",
     )
@@ -420,30 +518,69 @@ def main() -> None:
         "position",
         name="ak40_revolute_4",
         joint="revolute_4",
-        gear="1",
-        kp=f"{AK40_10_POSITION_KP:g}",
+        gear=f"{AK40_10_REDUCTION:g}",
+        kp=f"{AK40_10_ACTUATOR_POSITION_KP:g}",
         dampratio="1",
         ctrllimited="true",
-        ctrlrange="-0.00381777 1.54953",
+        ctrlrange=format_values([value * AK40_10_REDUCTION for value in AK40_10_JOINT_RANGE_RAD]),
         forcelimited="true",
         forcerange=f"{-AK40_10_PEAK_TORQUE_NM:g} {AK40_10_PEAK_TORQUE_NM:g}",
+    )
+
+    # The real arm's repeatable zero configuration. The position-actuator
+    # controls are included so the viewer holds this pose if simulation is
+    # running, including the AK40's motor-side transmission conversion.
+    keyframe = ET.SubElement(mujoco_xml, "keyframe")
+    hardware_zero_ctrl = [
+        HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak60_revolute_1"],
+        HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak70_revolute_2"],
+        HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak70_revolute_3"],
+        HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak40_revolute_4"],
+    ]
+    hardware_zero_key = ET.SubElement(
+        keyframe,
+        "key",
+        name=HARDWARE_ZERO_KEYFRAME_NAME,
+        qpos=format_values(hardware_zero_joint_positions(model_joint_names)),
+        ctrl=format_values(hardware_zero_ctrl),
     )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     ET.indent(mujoco_xml, space="  ")
     ET.ElementTree(mujoco_xml).write(MJCF, encoding="utf-8", xml_declaration=True)
 
-    # Validate the persisted MJCF including all OBJ assets.
+    # Solve the passive four-bar joints for the requested actuator home references.
     model = mujoco.MjModel.from_xml_path(str(MJCF))
     data = mujoco.MjData(model)
+    data.ctrl[:] = hardware_zero_ctrl
+    mujoco.mj_forward(model, data)
+    for _ in range(round(HARDWARE_ZERO_SETTLE_TIME_S / model.opt.timestep)):
+        mujoco.mj_step(model, data)
+    if not all(math.isfinite(value) for value in data.qpos) or not all(math.isfinite(value) for value in data.qvel):
+        raise RuntimeError("The hardware_zero keyframe solve became non-finite")
+    hardware_zero_key.set("qpos", format_values([float(value) for value in data.qpos]))
+    ET.indent(mujoco_xml, space="  ")
+    ET.ElementTree(mujoco_xml).write(MJCF, encoding="utf-8", xml_declaration=True)
+
+    # Validate the persisted MJCF including its solved keyframe and all OBJ assets.
+    model = mujoco.MjModel.from_xml_path(str(MJCF))
+    data = mujoco.MjData(model)
+    keyframe_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_KEY, HARDWARE_ZERO_KEYFRAME_NAME)
+    if keyframe_id < 0:
+        raise RuntimeError(f"Generated MJCF is missing the {HARDWARE_ZERO_KEYFRAME_NAME!r} keyframe")
+    mujoco.mj_resetDataKeyframe(model, data, keyframe_id)
     mujoco.mj_forward(model, data)
     total_vertices = sum(item[2] for item in mesh_assets.values())
     total_faces = sum(item[3] for item in mesh_assets.values())
     visual_count = sum(len(link.findall("visual")) for link in links.values())
     print(f"Wrote: {MJCF}")
     print(f"Converted {len(mesh_assets)} GLTF files to OBJ ({total_vertices} vertices, {total_faces} triangles).")
-    print(f"Validated MJCF: {model.nbody} bodies, {model.njnt} joints, {model.ngeom} visual geoms, {model.nmesh} meshes.")
-    print(f"Mapped {visual_count} URDF visual elements; collision is disabled on visual-only geoms.")
+    print(f"Validated MJCF: {model.nbody} bodies, {model.njnt} joints, {model.ngeom} geoms, {model.nmesh} meshes.")
+    print(f"Solved {HARDWARE_ZERO_KEYFRAME_NAME!r} over {HARDWARE_ZERO_SETTLE_TIME_S:g} s of constrained dynamics.")
+    print(
+        f"Mapped {visual_count} URDF visual elements plus {len(COLLISION_CAPSULES)} linkage collision capsules "
+        f"and {len(COLLISION_EXCLUDE_PAIRS)} hinge-pair exclusions."
+    )
 
 
 if __name__ == "__main__":

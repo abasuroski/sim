@@ -6,22 +6,24 @@ Reads motor feedback from the STM32 over serial (same format as motor_gui.py)
 and drives the MuJoCo sim joints directly via qpos. Moving motors by hand
 shows up in the sim immediately.
 
+The editable ``HARDWARE_ZERO_ENCODER_RAD`` configuration maps raw
+encoder positions into the named ``hardware_zero`` model keyframe:
+``sim_joint = MOTOR_SCALE * (encoder_position - hardware_zero)``.
+
 Usage:
     python3 sync_hardware.py /dev/ttyACM0
 
 Startup workflow:
     1. Viewer opens in SETUP MODE — sim is draggable (Ctrl+drag a body in the viewer).
-    2. Drag the sim joints to match the physical arm's current pose.
-    3. Type  s  and press Enter to lock that pose as the baseline and start live sync.
-       From that point, the sim tracks the *change* in encoder position from the
-       hardware's position when you pressed 's' — the raw encoder zero doesn't matter.
+    2. Type  s  and press Enter to start calibrated live sync.
+       The sim then maps raw encoder values into the shared hardware_zero keyframe.
 
 Commands (type in terminal while viewer is open, press Enter):
-    s        — lock current sim pose as baseline and start live sync
-    z        — re-zero encoder baseline to current arm position (re-snap mid-session)
+    s        — start calibrated live sync
+    z        — print current encoder readings as a copyable keyframe block
     e        — start passive feedback on M2, M3, M4 (no torque resistance)
     2/3/4    — start passive feedback on individual motor
-    p        — freeze sim at REFERENCE_POSE (for old calibration workflow)
+    p        — freeze sim at the hardware_zero keyframe
     r        — unfreeze sim
     q        — quit
 
@@ -37,7 +39,12 @@ from pathlib import Path
 
 import mujoco
 import mujoco.viewer
-import serial
+try:
+    import serial
+except ModuleNotFoundError:
+    serial = None
+
+from robot_master_configuration import HARDWARE_ZERO_ENCODER_RAD, HARDWARE_ZERO_KEYFRAME_NAME
 
 MODEL_PATH = Path(__file__).parent / "robot_master" / "mjcf" / "robot_master.xml"
 BAUD_RATE  = 115200
@@ -50,26 +57,13 @@ MOTOR_TO_JOINT = {
     4: "revolute_4",
 }
 
-MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0}
+MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0 / 1.25}
 
-# Viewer opens at this pose so you have a reasonable starting point to drag from.
-# Adjust to roughly match your arm's resting position before you start dragging.
-SIM_INIT_POS = {
-    "revolute_1": 0.0,
-    "revolute_2": 0.5,   # ~28 deg
-    "revolute_3": 0.4,   # ~23 deg
-    "revolute_4": 0.7,   # ~40 deg
-    "revolute_5": -0.7,  # constrained: -revolute_4
-}
 
-# Pose shown when you type 'p' (legacy calibration workflow).
-REFERENCE_POSE = {
-    "revolute_1": 0.0,
-    "revolute_2": 0.0,
-    "revolute_3": 0.0,
-    "revolute_4": 0.0,
-    "revolute_5": 0.0,
-}
+def encoder_to_sim_angle(motor: int, encoder_angle_rad: float, keyframe_joint_angle_rad: float) -> float:
+    """Map encoder delta from home onto the solved hardware_zero keyframe."""
+    joint = MOTOR_TO_JOINT[motor]
+    return keyframe_joint_angle_rad + (encoder_angle_rad - HARDWARE_ZERO_ENCODER_RAD[joint]) * MOTOR_SCALE[motor]
 
 # revolute_5 = -revolute_4 (XML polycoef="0 -1 0 0 0")
 CONSTRAINED_JOINTS = {
@@ -83,17 +77,11 @@ _fb_lock      = threading.Lock()
 _motor_pos    = {1: None, 2: None, 3: None, 4: None}
 _motor_vel    = {1: 0.0,  2: 0.0,  3: 0.0,  4: 0.0}
 
-# Set once when live sync starts: encoder reading at that moment per motor.
-_encoder_baseline = {1: None, 2: None, 3: None, 4: None}
-
-# Set once when live sync starts: sim joint angle at that moment per joint.
-_sim_baseline = {}
-
 # State flags — written by terminal thread, read by main loop.
 _sync_active   = False   # True once user presses 's'
 _request_start = False   # set by 's', cleared by main loop after it handles it
 _request_rezero = False  # set by 'z', cleared by main loop
-_paused        = False   # True = show REFERENCE_POSE
+_paused        = False   # True = hold the hardware_zero keyframe
 
 _POS_RE = re.compile(r'pos=(-?\d+\.?\d*)\s*(rad|deg)')
 _VEL_RE = re.compile(r'\bvel=(-?\d+\.?\d*)')
@@ -150,7 +138,11 @@ def _serial_reader():
 
 def main():
     global _ser, _sync_active, _request_start, _request_rezero, _paused
-    global _encoder_baseline, _sim_baseline
+
+    if serial is None:
+        print("[sync] Missing pyserial. Install the project dependencies with:")
+        print("       & .\\.venv\\Scripts\\python.exe -m pip install -r .\\requirements.txt")
+        sys.exit(1)
 
     if len(sys.argv) < 2:
         print("Usage: python3 sync_hardware.py <serial_port>")
@@ -168,6 +160,9 @@ def main():
 
     model = mujoco.MjModel.from_xml_path(str(MODEL_PATH))
     data  = mujoco.MjData(model)
+    keyframe_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_KEY, HARDWARE_ZERO_KEYFRAME_NAME)
+    if keyframe_id < 0:
+        raise RuntimeError(f"MJCF has no {HARDWARE_ZERO_KEYFRAME_NAME!r} keyframe; regenerate it first.")
 
     # Build joint index maps.
     qpos_idx = {}
@@ -181,21 +176,25 @@ def main():
     for motor, jname in MOTOR_TO_JOINT.items():
         if jname not in qpos_idx:
             print(f"[sync] WARNING: joint '{jname}' (M{motor}) not found in model")
+    keyframe_joint_angles = {
+        jname: float(model.key_qpos[keyframe_id, qpos_idx[jname]])
+        for jname in MOTOR_TO_JOINT.values()
+        if jname in qpos_idx
+    }
 
-    # Apply starting pose so viewer opens at a reasonable position.
-    for jname, angle in SIM_INIT_POS.items():
-        if jname in qpos_idx:
-            data.qpos[qpos_idx[jname]] = angle
+    # Both the visual viewer and the live hardware synchronizer begin at the
+    # same named arm configuration.
+    mujoco.mj_resetDataKeyframe(model, data, keyframe_id)
     mujoco.mj_forward(model, data)
 
     print()
-    print("[sync] *** SETUP MODE — drag the sim to match the physical arm ***")
-    print("[sync]     Ctrl+drag a body in the viewer to move joints.")
-    print("[sync]     When the sim matches the arm, type  s  and press Enter.")
+    print(f"[sync] *** SETUP MODE — the viewer starts at {HARDWARE_ZERO_KEYFRAME_NAME!r} ***")
+    print("[sync]     Ctrl+drag a body to inspect the mechanism before live sync.")
+    print("[sync]     Type  s  and press Enter to begin live hardware synchronization.")
     print()
     print("[sync] Commands:")
-    print("         s        — start live sync (lock current sim pose as baseline)")
-    print("         z        — re-zero encoder baseline to current arm position")
+    print("         s        — start calibrated live sync")
+    print("         z        — print current readings for the hardware-zero keyframe block")
     print("         e        — passive feedback on M2, M3, M4 (no resistance)")
     print("         2/3/4    — passive feedback on individual motor")
     print("         p        — freeze sim at reference pose")
@@ -212,20 +211,20 @@ def main():
                 break
             if cmd == "s":
                 if _sync_active:
-                    print("[sync] Already syncing — use 'z' to re-zero the baseline")
+                    print("[sync] Already syncing — use 'z' to show the current raw encoder readings")
                 else:
                     _request_start = True
-                    print("[sync] Starting live sync...")
+                    print("[sync] Starting live sync from the hardware_zero keyframe...")
             elif cmd == "z":
                 _request_rezero = True
-                print("[sync] Re-zeroing encoder baseline...")
+                print("[sync] Printing hardware-zero keyframe readings...")
             elif cmd == "e":
                 threading.Thread(target=_enable_motors, args=([2, 3, 4],), daemon=True).start()
             elif cmd in ("2", "3", "4"):
                 threading.Thread(target=_enable_motors, args=([int(cmd)],), daemon=True).start()
             elif cmd == "p":
                 _paused = True
-                print("[sync] Sim frozen at reference pose")
+                print("[sync] Sim frozen at the hardware_zero keyframe")
             elif cmd == "r":
                 _paused = False
                 print("[sync] Sim unfrozen")
@@ -244,41 +243,31 @@ def main():
 
             # --- Handle deferred commands from terminal thread ---
             if _request_start and not _sync_active:
-                # Snapshot current sim qpos as our sim baseline.
-                _sim_baseline = {
-                    jname: data.qpos[qpos_idx[jname]]
-                    for jname in list(MOTOR_TO_JOINT.values()) + list(CONSTRAINED_JOINTS.keys())
-                    if jname in qpos_idx
-                }
-                # Snapshot current encoder readings as hardware baseline.
-                with _fb_lock:
-                    for m in [1, 2, 3, 4]:
-                        _encoder_baseline[m] = _motor_pos[m]
                 _sync_active = True
                 _request_start = False
-                missing = [m for m in [1, 2, 3, 4] if _encoder_baseline[m] is None]
+                with _fb_lock:
+                    missing = [m for m in [1, 2, 3, 4] if _motor_pos[m] is None]
                 if missing:
                     print(f"[sync] WARNING: no feedback yet from motors {missing} — they'll start tracking when feedback arrives")
-                sim_angles = ", ".join(
-                    f"{jname}={_sim_baseline.get(jname, 0):.3f}"
+                hardware_zeroes = ", ".join(
+                    f"{jname}={HARDWARE_ZERO_ENCODER_RAD[jname]:.3f}"
                     for jname in MOTOR_TO_JOINT.values()
                 )
-                print(f"[sync] Baseline locked. Sim: {sim_angles}")
+                print(f"[sync] Hardware-zero keyframe: {hardware_zeroes}")
                 print("[sync] Live sync active.")
 
             if _request_rezero:
                 with _fb_lock:
-                    for m in [1, 2, 3, 4]:
-                        if _motor_pos[m] is not None:
-                            _encoder_baseline[m] = _motor_pos[m]
-                # Also re-snap sim baseline from current qpos.
-                _sim_baseline = {
-                    jname: data.qpos[qpos_idx[jname]]
-                    for jname in list(MOTOR_TO_JOINT.values()) + list(CONSTRAINED_JOINTS.keys())
-                    if jname in qpos_idx
-                }
+                    readings = dict(_motor_pos)
                 _request_rezero = False
-                print("[sync] Baseline re-zeroed.")
+                print("[sync] Current encoder positions; copy a known arm-zero pose into HARDWARE_ZERO_ENCODER_RAD:")
+                for motor, jname in MOTOR_TO_JOINT.items():
+                    value = readings[motor]
+                    if value is None:
+                        print(f"    {jname!r}: no feedback")
+                    else:
+                        print(f"    {jname!r}: {value:.6f},")
+                print("[sync] The keyframe was not changed for this session.")
 
             # --- Drive sim ---
             with _fb_lock:
@@ -293,21 +282,16 @@ def main():
                 print(f"[sync/{status}] " + (", ".join(parts) if parts else "no feedback yet"))
 
             if _paused:
-                for jname, angle in REFERENCE_POSE.items():
-                    if jname in qpos_idx:
-                        data.qpos[qpos_idx[jname]] = angle
-                        data.qvel[qvel_idx[jname]] = 0.0
+                mujoco.mj_resetDataKeyframe(model, data, keyframe_id)
 
             elif _sync_active:
                 driven_qpos = {}
                 for motor, jname in MOTOR_TO_JOINT.items():
                     pos  = pos_snap[motor]
-                    enc0 = _encoder_baseline[motor]
-                    if pos is None or enc0 is None or jname not in qpos_idx:
+                    if pos is None or jname not in qpos_idx:
                         continue
-                    scale    = MOTOR_SCALE[motor]
-                    sim_init = _sim_baseline.get(jname, 0.0)
-                    driven   = sim_init + (pos - enc0) * scale
+                    scale = MOTOR_SCALE[motor]
+                    driven = encoder_to_sim_angle(motor, pos, keyframe_joint_angles[jname])
                     data.qpos[qpos_idx[jname]] = driven
                     data.qvel[qvel_idx[jname]] = vel_snap[motor] * scale
                     driven_qpos[jname] = driven

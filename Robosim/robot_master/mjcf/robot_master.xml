@@ -392,7 +392,7 @@
                                     </body>
                                     <body name="part_8_4" pos="1.11022e-16 5.55112e-17 0" quat="0.9544525576 -0.06500491386 0.2905222314 0.01978660173">
                                       <inertial pos="-0.00108108 -0.0498195 -0.00512504" mass="0.0334429" diaginertia="4.86661e-05 5.29468e-06 4.95397e-05" quat="0.7885780546 -0.3426110999 -0.06923698336 0.5059333218" />
-                                      <joint name="revolute_5" type="hinge" axis="0.557152 0.112592 -0.822742" range="-1.55519 0.0156052" />
+                                      <joint name="revolute_5" type="hinge" axis="0.557152 0.112592 -0.822742" range="-1.552 0.0156052" />
                                       <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="0.0767652 -0.21877 -0.178253" quat="0.7885780546 -0.3426110999 -0.06923698336 0.5059333218" rgba="0.34902 0.376471 0.4 1" />
                                       <body name="hex_socket_head_cap_screw_m3x0_50_x_8_6" pos="0.000473976 -0.0872287 -0.0116162" quat="0.1273897962 0.7648301958 0.5713197988 0.2690730365">
                                         <inertial pos="1.18031e-19 6.30205e-21 -0.00112773" mass="0.000930103" diaginertia="1.05684e-08 1.05684e-08 2.52072e-09" quat="1 0 0 0" />
@@ -555,6 +555,7 @@
                                                 <joint name="revolute_14_loop_closure" type="hinge" axis="0.557152 0.112592 -0.822742" range="-1.64347 0.0145913" />
                                               </body>
                                             </body>
+                                            <geom name="collision_revolute_7_to_9" type="capsule" fromto="0 0 0 0.0130283 0.0458512 0.0150973" size="0.015" contype="2" conaffinity="2" group="3" rgba="0.2 0.8 0.2 0.18" />
                                           </body>
                                         </body>
                                       </body>
@@ -562,6 +563,7 @@
                                         <inertial pos="-1.46309e-10 0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
                                         <geom type="mesh" mesh="mesh_060" contype="0" conaffinity="0" pos="0 -0.0412308 -3.64757e-19" quat="1 0 0 0" rgba="0.615686 0.811765 0.929412 1" />
                                       </body>
+                                      <geom name="collision_revolute_5_to_7" type="capsule" fromto="0 0 0 -0.01826471 -0.10292344 0.01456664" size="0.015" contype="2" conaffinity="2" group="3" rgba="0.2 0.8 0.2 0.18" />
                                     </body>
                                   </body>
                                   <body name="hex_socket_head_cap_screw_m3x0_50_x_10_1" pos="-0.011021 0.0395757 -0.00238002" quat="0.009323285796 0.9464401686 -0.003178013744 -0.3227289635">
@@ -594,7 +596,7 @@
                                   </body>
                                   <body name="part_8_7" pos="-0.0119231 0.000283382 0.0476436" quat="0.5702475187 -0.06799328485 0.4535886665 -0.6815071549">
                                     <inertial pos="0.00210282 -0.0494435 -0.00776712" mass="0.0334429" diaginertia="4.86408e-05 5.1825e-06 4.96772e-05" quat="0.7814175472 -0.3476670768 -0.07025845246 0.5133984519" />
-                                    <joint name="revolute_4" type="hinge" axis="-0.557152 -0.112592 0.822742" range="-0.00381777 1.54953" />
+                                    <joint name="revolute_4" type="hinge" axis="-0.557152 -0.112592 0.822742" range="-0.00381777 1.552" />
                                     <geom type="mesh" mesh="mesh_052" contype="0" conaffinity="0" pos="0.0836171 -0.219093 -0.178507" quat="0.7814175472 -0.3476670768 -0.07025845246 0.5133984519" rgba="0.34902 0.376471 0.4 1" />
                                     <body name="spur_gear__25_teeth__7" pos="0.00222304 0.000449241 -0.00328274" quat="0.4438377691 -0.6283804817 -0.5994205073 0.2210001367">
                                       <inertial pos="-1.46309e-10 0.0035298 -2.12524e-13" mass="0.0001" diaginertia="2.19494e-09 4.27228e-09 2.18357e-09" quat="1 0 0 0" />
@@ -932,7 +934,9 @@
                                         <inertial pos="-1.50677e-18 8.68581e-20 -0.000589247" mass="0.00183782" diaginertia="2.49921e-08 2.49921e-08 8.65714e-09" quat="1 0 0 0" />
                                         <geom type="mesh" mesh="mesh_009" contype="0" conaffinity="0" pos="-1.3646e-18 1.00372e-34 0.004" quat="1 0 0 0" rgba="0.603922 0.647059 0.686275 1" />
                                       </body>
+                                      <geom name="collision_revolute_6_to_8" type="capsule" fromto="0 0 0 -0.01149162 0.04866149 0" size="0.015" contype="2" conaffinity="2" group="3" rgba="0.2 0.8 0.2 0.18" />
                                     </body>
+                                    <geom name="collision_revolute_4_to_6" type="capsule" fromto="0 0 0 0.00245809 -0.0992568 -0.0119186" size="0.015" contype="2" conaffinity="2" group="3" rgba="0.2 0.8 0.2 0.18" />
                                   </body>
                                 </body>
                                 <body name="socket_button_head_screw_m3x0_5_x_8_23" pos="0.160605 0.0137155 -0.005" quat="1.326794897e-06 1 -4.163330228e-16 -3.596890524e-16">
@@ -955,6 +959,7 @@
                                   <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
                                 </body>
                               </body>
+                              <geom name="collision_revolute_3_to_4" type="capsule" fromto="0 0 0 0.01158696 -0.17936519 0.08813909" size="0.015" contype="2" conaffinity="2" group="3" rgba="0.2 0.8 0.2 0.18" />
                             </body>
                           </body>
                         </body>
@@ -1016,6 +1021,13 @@
       </body>
     </body>
   </worldbody>
+  <contact>
+    <exclude body1="35t_htd_custom_pulley_1" body2="part_8_7" />
+    <exclude body1="part_8_7" body2="part_1_35" />
+    <exclude body1="part_1_35" body2="part_8_2" />
+    <exclude body1="part_8_4" body2="part_1_45" />
+    <exclude body1="part_1_45" body2="part_8_1" />
+  </contact>
   <equality>
     <weld name="revolute_14_closed_loop" body1="part_3" body2="part_3__1__loop_closure" solref="0.004 1" solimp="0.999 0.999 0.001" torquescale="0.05" />
     <joint name="revolute_9_opposes_revolute_7" joint1="revolute_9" joint2="revolute_7" polycoef="0 -1 0 0 0" solref="0.004 1" solimp="0.999 0.999 0.001" />
@@ -1025,9 +1037,12 @@
     <joint name="revolute_14_opposes_revolute_8" joint1="revolute_14_loop_closure" joint2="revolute_8" polycoef="0 -1 0 0 0" solref="0.004 1" solimp="0.999 0.999 0.001" />
   </equality>
   <actuator>
-    <position name="ak60_revolute_1" joint="revolute_1" gear="1" kp="9" dampratio="1" forcelimited="true" forcerange="-9 9" />
+    <position name="ak60_revolute_1" joint="revolute_1" gear="1" kp="9" dampratio="1" ctrllimited="false" ctrlrange="-6.283185307 6.283185307" forcelimited="true" forcerange="-9 9" />
     <position name="ak70_revolute_2" joint="revolute_2" gear="1" kp="24.8" dampratio="1" ctrllimited="true" ctrlrange="-6.28319 0.153038" forcelimited="true" forcerange="-24.8 24.8" />
-    <position name="ak70_revolute_3" joint="revolute_3" gear="1" kp="24.8" dampratio="1" forcelimited="true" forcerange="-24.8 24.8" />
-    <position name="ak40_revolute_4" joint="revolute_4" gear="1" kp="4.1" dampratio="1" ctrllimited="true" ctrlrange="-0.00381777 1.54953" forcelimited="true" forcerange="-4.1 4.1" />
+    <position name="ak70_revolute_3" joint="revolute_3" gear="1" kp="24.8" dampratio="1" ctrllimited="false" ctrlrange="-6.283185307 6.283185307" forcelimited="true" forcerange="-24.8 24.8" />
+    <position name="ak40_revolute_4" joint="revolute_4" gear="1.25" kp="3.28" dampratio="1" ctrllimited="true" ctrlrange="-0.0047722125 1.94" forcelimited="true" forcerange="-4.1 4.1" />
   </actuator>
+  <keyframe>
+    <key name="hardware_zero" qpos="1.450000154 0.1387150103 -1.312360264 -1.560619574 1.568504788 -1.568543691 1.545295464 1.560617289 1.546544617 -1.5465837 1.546586033 -1.79835218" ctrl="1.45 0.113 -1.29 1.94" />
+  </keyframe>
 </mujoco>
