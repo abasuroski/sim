@@ -57,19 +57,27 @@ MOTOR_TO_JOINT = {
     4: "revolute_4",
 }
 
-MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0 / 1.25}
+MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: -1.0 / 1.25}
 
 
-def encoder_to_sim_angle(motor: int, encoder_angle_rad: float, keyframe_joint_angle_rad: float) -> float:
-    """Map encoder delta from home onto the solved hardware_zero keyframe."""
-    joint = MOTOR_TO_JOINT[motor]
-    return keyframe_joint_angle_rad + (encoder_angle_rad - HARDWARE_ZERO_ENCODER_RAD[joint]) * MOTOR_SCALE[motor]
+def encoder_to_sim_angle(motor: int, encoder_angle_rad: float, sim_angle_at_sync_rad: float, encoder_angle_at_sync_rad: float) -> float:
+    """Map encoder delta from the sync snapshot onto the sim pose at sync time.
+
+    The sim stays exactly where it is when 's' is pressed; subsequent encoder
+    changes are applied as deltas from that snapshot.
+    """
+    return sim_angle_at_sync_rad + (encoder_angle_rad - encoder_angle_at_sync_rad) * MOTOR_SCALE[motor]
 
 # revolute_5 = -revolute_4 (XML polycoef="0 -1 0 0 0")
 CONSTRAINED_JOINTS = {
-    "revolute_5": ("revolute_4", -1.0),
+    "revolute_5":               ("revolute_4", -1.0), # D NOT CHANGE
+    "revolute_7":               ("revolute_4",  1.0),  # same direction as M4, 
+    "revolute_8":               ("revolute_4",  -1.0),  # same direction as M4, 
+    "revolute_9":               ("revolute_4", -1.0),  # = -revolute_7 = -revolute_4 D NOT CHANGE
+    "revolute_6":               ("revolute_4",  1.0),  # = -revolute_8 = -revolute_4 D NOT CHANGE
+    "revolute_13":              ("revolute_4", 1.0),  # = -revolute_8 = -revolute_4
+    #"revolute_14_loop_closure": ("revolute_4", -1.0),  # = -revolute_8 = -revolute_4
 }
-
 _ser      = None
 _ser_lock = threading.Lock()
 
@@ -82,6 +90,12 @@ _sync_active   = False   # True once user presses 's'
 _request_start = False   # set by 's', cleared by main loop after it handles it
 _request_rezero = False  # set by 'z', cleared by main loop
 _paused        = False   # True = hold the hardware_zero keyframe
+
+# Snapshots captured at the moment live sync starts.
+# encoder: raw encoder values (rad) at that instant.
+# sim:     qpos values the sim had at that instant.
+_encoder_at_sync = {}    # {motor: float}
+_sim_at_sync     = {}    # {joint_name: float}
 
 _POS_RE = re.compile(r'pos=(-?\d+\.?\d*)\s*(rad|deg)')
 _VEL_RE = re.compile(r'\bvel=(-?\d+\.?\d*)')
@@ -247,14 +261,22 @@ def main():
                 _request_start = False
                 with _fb_lock:
                     missing = [m for m in [1, 2, 3, 4] if _motor_pos[m] is None]
+                    # Snapshot encoder values right now.
+                    for motor in MOTOR_TO_JOINT:
+                        _encoder_at_sync[motor] = _motor_pos[motor] if _motor_pos[motor] is not None else 0.0
+                # Snapshot current sim qpos so the sim doesn't jump —
+                # capture both driven joints and constrained followers.
+                for motor, jname in MOTOR_TO_JOINT.items():
+                    if jname in qpos_idx:
+                        _sim_at_sync[jname] = float(data.qpos[qpos_idx[jname]])
+                for follower, (source, _) in CONSTRAINED_JOINTS.items():
+                    if follower in qpos_idx:
+                        _sim_at_sync[follower] = float(data.qpos[qpos_idx[follower]])
                 if missing:
-                    print(f"[sync] WARNING: no feedback yet from motors {missing} — they'll start tracking when feedback arrives")
-                hardware_zeroes = ", ".join(
-                    f"{jname}={HARDWARE_ZERO_ENCODER_RAD[jname]:.3f}"
-                    for jname in MOTOR_TO_JOINT.values()
-                )
-                print(f"[sync] Hardware-zero keyframe: {hardware_zeroes}")
-                print("[sync] Live sync active.")
+                    print(f"[sync] WARNING: no feedback yet from motors {missing} — defaulting their encoder snapshot to 0")
+                snap_str = ", ".join(f"M{m}={_encoder_at_sync[m]:.3f}" for m in MOTOR_TO_JOINT)
+                print(f"[sync] Encoder snapshot at sync: {snap_str}")
+                print("[sync] Live sync active — sim will move relative to this position.")
 
             if _request_rezero:
                 with _fb_lock:
@@ -291,14 +313,19 @@ def main():
                     if pos is None or jname not in qpos_idx:
                         continue
                     scale = MOTOR_SCALE[motor]
-                    driven = encoder_to_sim_angle(motor, pos, keyframe_joint_angles[jname])
+                    driven = encoder_to_sim_angle(motor, pos, _sim_at_sync.get(jname, keyframe_joint_angles[jname]), _encoder_at_sync.get(motor, 0.0))
                     data.qpos[qpos_idx[jname]] = driven
                     data.qvel[qvel_idx[jname]] = vel_snap[motor] * scale
                     driven_qpos[jname] = driven
 
                 for follower, (source, fscale) in CONSTRAINED_JOINTS.items():
                     if source in driven_qpos and follower in qpos_idx:
-                        data.qpos[qpos_idx[follower]] = driven_qpos[source] * fscale
+                        # Compute delta from the source's sync snapshot, scale it,
+                        # then apply from the follower's own sync snapshot.
+                        source_sim_at_sync    = _sim_at_sync.get(source, keyframe_joint_angles.get(source, 0.0))
+                        follower_sim_at_sync  = _sim_at_sync.get(follower, float(model.key_qpos[keyframe_id, qpos_idx[follower]]))
+                        delta = driven_qpos[source] - source_sim_at_sync
+                        data.qpos[qpos_idx[follower]] = follower_sim_at_sync + delta * fscale
                         if follower in qvel_idx and source in qvel_idx:
                             data.qvel[qvel_idx[follower]] = data.qvel[qvel_idx[source]] * fscale
 

@@ -229,3 +229,40 @@ If the URDF or GLTF assets change, regenerate and validate the MJCF with:
 The converter adds the closed-loop constraints and the four actuator limits.
 Review those constants whenever the physical transmission or motor selection
 changes.
+
+## Current state:
+
+```MuJoCo sim mirrors real arm via serial encoder feedback (sync_hardware.py)
+4 driven joints (revolute 1-4) tracked via encoders
+Passive joints (revolute 5,6,7,8,9,13) derived via CONSTRAINED_JOINTS deltas
+revolute_14_loop_closure left out, to be handled by weld constraint in full sim
+Serial-to-CAN bridge on STM32 at ~84Hz
+Motors accept MIT control mode: (q_ref, v_ref, Kp, Kd, tau_ff)```
+
+## Architecture plan:
+
+PC runs all heavy computation, STM32 is purely a serial-to-CAN bridge
+Motors driven via MIT control mode frames
+
+## Control stack (bottom to top):
+
+FOC — onboard motor driver, already handled
+Onboard PD — low gains, just for stability, part of MIT control mode
+Computed torque / inverse dynamics — mj_inverse on PC, outputs tau_ff
+MPC outer loop — runs trajectory optimization, outputs q_des, qd_des, qadd_des
+
+## State estimation:
+
+Predict: mj_step forward between encoder packets
+Update: replace driven joint qpos with real encoder values when packet arrives
+Passive joints computed from driven joints via kinematic constraints
+Velocity: finite difference or velocity observer (encoders give position + velocity already)
+
+## TODO:
+
+Finish and validate kinematic mirror (sync_hardware.py)
+Implement serial command sender for MIT control frames
+Validate computed torque with mj_inverse in open loop
+Add state estimator
+Implement MPC/iLQR on top
+Switch from mj_forward to mj_step for full simulation mode
