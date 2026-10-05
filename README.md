@@ -123,12 +123,12 @@ changes.
 
 ## Current state:
 
-MuJoCo sim mirrors real arm via serial encoder feedback (sync_hardware.py)
+```MuJoCo sim mirrors real arm via serial encoder feedback (sync_hardware.py)
 4 driven joints (revolute 1-4) tracked via encoders
 Passive joints (revolute 5,6,7,8,9,13) derived via CONSTRAINED_JOINTS deltas
 revolute_14_loop_closure left out, to be handled by weld constraint in full sim
 Serial-to-CAN bridge on STM32 at ~84Hz
-Motors accept MIT control mode: (q_ref, v_ref, Kp, Kd, tau_ff)
+Motors accept MIT control mode: (q_ref, v_ref, Kp, Kd, tau_ff)```
 
 ## Architecture plan:
 
