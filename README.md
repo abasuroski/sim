@@ -29,6 +29,28 @@ For a visual-only model inspection, run:
 & .\Robosim\.venv\Scripts\python.exe .\Robosim\launch_robot_master_mujoco.py
 ```
 
+That viewer now runs the trained scheduled-PD callback. Use MuJoCo's built-in
+**Control** panel sliders to set position targets directly. The callback turns
+each slider change into a rate-limited reference, then updates `kp`/`kd`
+before every physics step. The PowerShell window reports the requested target,
+reference, actual joint angle, `kp`, `kd`, and scheduled `omega_n` every 0.25
+simulation seconds. Use
+`--gain-report-period 0` to silence it.
+
+Control-panel target changes pass through a trapezoidal joint-space reference:
+all joints are limited to 1 rad/s and 2 rad/s² by default. Edit
+`TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S` and
+`TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2` in
+`robot_master_configuration.py` to change those limits. The terminal reports
+the requested target, velocity-limited reference, and actual joint angle.
+
+The scheduled gains are torque-aware. MuJoCo always enforces each actuator's
+`forcerange`; additionally, the controller caps output gains using the values
+in `robot_master_configuration.py`. With the default one-radian position and
+one-rad/s velocity errors, the caps are AK60: 9 N m/rad and 9 N m s/rad; each
+AK70: 24.8 N m/rad and 24.8 N m s/rad; AK40 output: 5.125 N m/rad and 5.125
+N m s/rad. The live report prints `applied/cap` for both gains.
+
 ## Hardware zero alignment
 
 `Robosim/robot_master_configuration.py` is the single place to change the
@@ -99,6 +121,93 @@ not a replacement for manufacturing-grade collision geometry.
 
 Each tuner trial reports the peak number of collision contacts. Add
 `--show-contacts` to list the body pairs that made contact during the trial.
+
+## Train a position-scheduled PD controller
+
+The single-joint tuner is useful for manual experiments. To train a controller
+whose gains and requested local poles change with the measured joint position,
+run:
+
+```powershell
+& .\Robosim\.venv\Scripts\python.exe .\Robosim\train_master_controller.py
+```
+
+This creates `Robosim/master_controller_schedule.json`. For each driven joint,
+the trainer performs positive and negative step trials around the
+`hardware_zero` keyframe and searches for a smooth schedule of low-position
+and high-position natural frequencies plus a damping ratio. By default it
+requires a modest 1.25:1 endpoint-frequency change, so the resulting poles
+really are position-dependent; pass `--minimum-frequency-ratio 1` only if you
+intend to allow the optimizer to select static poles. Its runtime
+controller is `Robosim/master_controller.py`:
+
+```text
+omega_n(q) = smooth interpolation across the trained joint-position range
+kp(q)      = I_eff(q) * omega_n(q)^2
+kd(q)      = 2 * I_eff(q) * zeta * omega_n(q)
+```
+
+It calls `mj_fullM` every control update to obtain `I_eff(q)` from MuJoCo's
+mass matrix, then updates each position actuator immediately before `mj_step`.
+`omega_n(q)` is interpolated in log space, so the requested continuous-time
+poles move smoothly as the actual joint angle changes. The output JSON records
+the position range, requested pole schedule, validation trials, and torque
+saturation metrics. To train a smaller range or a single actuator, for example:
+
+```powershell
+& .\Robosim\.venv\Scripts\python.exe .\Robosim\train_master_controller.py --actuators ak60_revolute_1 --motion 0.10 --iterations 6
+```
+
+To watch the saved schedule move the arm, run:
+
+```powershell
+& .\Robosim\.venv\Scripts\python.exe .\Robosim\run_master_controller_mujoco.py
+```
+
+The viewer begins at `hardware_zero` and cycles one actuator at a time through
+its trained range. A multi-DOF-trained schedule instead cycles its accepted
+collision-screened all-joint trajectories. Close the viewer window when
+finished.
+
+For manual testing, open the slider panel and MuJoCo viewer together:
+
+```powershell
+& .\Robosim\.venv\Scripts\python.exe .\Robosim\interactive_master_controller_mujoco.py
+```
+
+The sliders are joint-output position targets in radians. Their commands use
+the same 1 rad/s, 2 rad/s^2 trapezoid as the native Control panel, and the
+panel displays each requested target, reference, and current scheduled `kp`/
+`kd`. It starts at `hardware_zero`; **Reset to hardware zero** returns there.
+If MuJoCo reports a collision contact, the tester restores the last
+collision-free state and pauses. This is simulation protection only, not a
+physical-arm safety system.
+
+### Full-window, multi-DOF training
+
+To train all four schedules on simultaneous motions instead of isolated steps,
+use:
+
+```powershell
+& .\Robosim\.venv\Scripts\python.exe .\Robosim\train_multidof_master_controller.py
+```
+
+It first tests the 16 combinations of all configured control-window extremes,
+then additional low-discrepancy multi-joint targets. Every candidate follows a
+1 rad/s, 2 rad/s^2 trapezoid from `hardware_zero` (long moves automatically
+take longer); any path with a collision constraint, non-finite state, or final
+tracking error above the selected tolerance is excluded. It jointly tunes all
+four gain schedules on a diverse subset of the accepted trajectories and
+writes the safe target set into `master_controller_schedule.json`. For
+continuous joints, the modelled full range is the explicit `-2*pi` to `+2*pi`
+control window; it is not a substitute for validated physical hard stops.
+
+This is diagonal gain scheduling, not full coupled-arm pole placement. The
+linkage constraints and gravity mean its reported poles are the desired local
+second-order poles for each joint coordinate, rather than guaranteed poles of
+the entire nonlinear four-motor mechanism. Keep the existing actuator force
+limits enabled, and validate encoder signs, payload, friction, and collision
+behavior before using any schedule on hardware.
 
 The present model is fixed-base, and its CAD visual meshes intentionally have
 collision disabled.  It is therefore appropriate for actuator/trajectory

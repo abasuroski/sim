@@ -24,6 +24,24 @@ HARDWARE_ZERO_ENCODER_RAD = {
     "revolute_4": HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak40_revolute_4"],
 }
 
+# Scheduled PD safety limits.  ``SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_RAD``
+# converts each actuator's output-torque limit into a maximum usable position
+# stiffness: kp_max = torque_limit / position_error.  This prevents a large
+# configuration-dependent inertia estimate from producing impractically high
+# stiffness requests (for example, 200+ N m/rad on the 9 N m AK60).
+# A gain is a torque-per-angle value, so comparing it directly to a motor's
+# torque limit is not dimensionally meaningful.  By selecting one radian here,
+# each position-gain cap numerically equals that actuator's output torque limit
+# in N m/rad.  The MuJoCo force range remains the non-negotiable torque cap.
+SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_RAD = 1.0
+SCHEDULED_PD_VELOCITY_ERROR_FOR_FULL_TORQUE_RAD_S = 1.0
+
+# Native MuJoCo Control-panel commands pass through a joint-space trapezoidal
+# reference generator before reaching the position actuators.  These values
+# are deliberately easy to tune without changing controller source code.
+TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S = 1.0
+TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2 = 2.0
+
 # Permit the requested 1.94 rad AK40 motor reference: 1.94 / 1.25 = 1.552 rad
 # at the joint. The coupled follower gets the matching lower bound.
 JOINT_RANGE_OVERRIDES_RAD = {

@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "controller": "position_scheduled_pd",
+  "units": {
+    "position": "rad",
+    "natural_frequency": "rad/s",
+    "kp_output": "N m/rad",
+    "kd_output": "N m s/rad"
+  },
+  "safety_limits": {
+    "position_error_for_full_torque_rad": 1.0,
+    "velocity_error_for_full_torque_rad_s": 1.0
+  },
+  "actuators": {
+    "ak60_revolute_1": {
+      "joint": "revolute_1",
+      "position_range_rad": [
+        -6.283185307,
+        6.283185307
+      ],
+      "natural_frequency_rad_s": [
+        44.449093240903075,
+        35.55927459272245
+      ],
+      "damping_ratio": 0.6909424824795377
+    },
+    "ak70_revolute_2": {
+      "joint": "revolute_2",
+      "position_range_rad": [
+        -6.28319,
+        0.153038
+      ],
+      "natural_frequency_rad_s": [
+        59.999999999999986,
+        47.999999999999986
+      ],
+      "damping_ratio": 0.6540748334220114
+    },
+    "ak70_revolute_3": {
+      "joint": "revolute_3",
+      "position_range_rad": [
+        -6.283185307,
+        6.283185307
+      ],
+      "natural_frequency_rad_s": [
+        59.999999999999986,
+        47.999999999999986
+      ],
+      "damping_ratio": 0.5349325588775868
+    },
+    "ak40_revolute_4": {
+      "joint": "revolute_4",
+      "position_range_rad": [
+        -0.0038177700000000003,
+        1.560617289
+      ],
+      "natural_frequency_rad_s": [
+        47.999999999999986,
+        59.99999999999999
+      ],
+      "damping_ratio": 1.0498132473334663
+    }
+  },
+  "model": "robot_master",
+  "reference_keyframe": "hardware_zero",
+  "training": {
+    "mode": "multi_dof_collision_screened",
+    "actuator_order": [
+      "ak60_revolute_1",
+      "ak70_revolute_2",
+      "ak70_revolute_3",
+      "ak40_revolute_4"
+    ],
+    "modelled_command_ranges_joint_rad": [
+      [
+        -6.283185307,
+        6.283185307
+      ],
+      [
+        -6.28319,
+        0.153038
+      ],
+      [
+        -6.283185307,
+        6.283185307
+      ],
+      [
+        -0.0038177700000000003,
+        1.552
+      ]
+    ],
+    "screened_candidates": 40,
+    "collision_free_reachable_candidates": 39,
+    "rejected_for_collision": 0,
+    "rejected_as_unreachable": 1,
+    "safe_targets_joint_rad": [
+      [
+        -6.283185307,
+        -6.28319,
+        6.283185307,
+        -0.0038177700000000003
+      ],
+      [
+        6.283185307,
+        0.153038,
+        -6.283185307,
+        1.552
+      ],
+      [
+        6.283185307,
+        -6.28319,
+        -6.283185307,
+        -0.0038177700000000003
+      ],
+      [
+        -6.283185307,
+        0.153038,
+        -6.283185307,
+        -0.0038177700000000003
+      ]
+    ],
+    "screen_duration_s": 1.5,
+    "trial_duration_s": 1.5,
+    "settle_duration_s": 0.5,
+    "motion_profile": {
+      "type": "trapezoidal",
+      "max_joint_velocity_rad_s": 1.0,
+      "max_joint_acceleration_rad_s2": 2.0
+    },
+    "reach_tolerance_rad": 0.35,
+    "pattern_search_iterations": 1,
+    "combined_validation_mean_cost": 0.23111605466885163,
+    "validation": [
+      {
+        "safe": true,
+        "cost": 0.18427304048343937,
+        "rms_error_rad": 0.14525003579627363,
+        "max_error_rad": 0.42817958884903495,
+        "peak_contacts": 0,
+        "peak_saturation_percent": 0.0
+      },
+      {
+        "safe": true,
+        "cost": 0.10243894156631898,
+        "rms_error_rad": 0.13073128885609725,
+        "max_error_rad": 0.4877918667873562,
+        "peak_contacts": 0,
+        "peak_saturation_percent": 0.0
+      },
+      {
+        "safe": true,
+        "cost": 0.1935375319156693,
+        "rms_error_rad": 0.16175153583141355,
+        "max_error_rad": 0.5238807637997089,
+        "peak_contacts": 0,
+        "peak_saturation_percent": 0.0
+      },
+      {
+        "safe": true,
+        "cost": 0.44421470470997887,
+        "rms_error_rad": 0.2255304643816526,
+        "max_error_rad": 0.722001502212509,
+        "peak_contacts": 0,
+        "peak_saturation_percent": 0.0
+      }
+    ]
+  }
+}
