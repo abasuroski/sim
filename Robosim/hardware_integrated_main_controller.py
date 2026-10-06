@@ -320,9 +320,11 @@ def main() -> None:
             qpos_idx[name] = model.jnt_qposadr[i]
             qvel_idx[name] = model.jnt_dofadr[i]
 
+    # Include both driven and constrained joints so fallback pose is correct.
+    _all_keyframe_joints = list(MOTOR_TO_JOINT.values()) + list(CONSTRAINED_JOINTS.keys())
     keyframe_qpos = {
         jname: float(model.key_qpos[keyframe_id, qpos_idx[jname]])
-        for jname in MOTOR_TO_JOINT.values()
+        for jname in _all_keyframe_joints
         if jname in qpos_idx
     }
 
@@ -343,9 +345,9 @@ def main() -> None:
 
     # --- Trapezoidal reference ---
     limiter = TrapezoidalReferenceLimiter(model, controller)
-    limiter.reset(data)
 
-    # Initialise ctrl to hardware_zero.
+    # Initialise ctrl to hardware_zero BEFORE resetting the limiter so that
+    # the limiter seeds its internal reference from the correct pose, not zeros.
     for actuator, ctrl_val in HARDWARE_ZERO_ACTUATOR_CTRL_RAD.items():
         actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
         if actuator_id >= 0:
