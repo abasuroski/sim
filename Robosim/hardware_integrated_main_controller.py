@@ -76,13 +76,21 @@ import serial_interface as si
 MODEL_PATH = Path(__file__).parent / "robot_master" / "mjcf" / "robot_master.xml"
 SCHEDULE_PATH = Path(__file__).parent / "master_controller_schedule.json"
 
-UPDATE_HZ  = 50   # control loop rate (Hz)
+UPDATE_HZ  = 84   # control loop rate (Hz)
 SEND_EVERY = 1    # send commands every N control ticks (1 = every tick)
 
 # Set to False to run open-loop: the sim tracks the reference trajectory
 # instead of encoder feedback. Commands still go to the real motors.
 # Use this first to verify commands are sensible before enabling feedback.
-CLOSED_LOOP = True
+CLOSED_LOOP = False
+
+# Print every MIT frame sent to the STM32 (once per second per motor).
+# Toggle at runtime by typing 'd' in the terminal.
+DEBUG_COMMANDS = True
+
+# Set to True to send zero torque feedforward to all motors.
+# Useful for initial testing before verifying TFF sign and magnitude.
+ZERO_TFF = False
 
 # Motor index → joint name (driven joints only)
 MOTOR_TO_JOINT = {
@@ -164,23 +172,11 @@ def _apply_encoder_state(
     pos_snap: dict[int, float | None],
     vel_snap: dict[int, float],
 ) -> None:
-    """Write encoder feedback into MuJoCo qpos/qvel using delta-from-snapshot math.
-
-    The sim stays exactly where it was when 's' was pressed.  Only the *change*
-    in encoder value since that moment is applied, scaled and added to the sim
-    qpos that existed at sync time.  This eliminates any constant offset between
-    encoder zero and MuJoCo joint zero so the PD controller sees no bias torque
-    at rest.
-
-    Before 's' is pressed (_encoder_at_sync is empty) the joints are held at
-    the keyframe pose.
-    """
     driven_qpos: dict[str, float] = {}
 
     for motor, jname in MOTOR_TO_JOINT.items():
         pos = pos_snap[motor]
         if pos is None or jname not in qpos_idx or motor not in _encoder_at_sync:
-            # No snapshot yet — hold keyframe position.
             driven_qpos[jname] = keyframe_qpos.get(jname, 0.0)
             continue
 
@@ -191,7 +187,6 @@ def _apply_encoder_state(
         data.qvel[qvel_idx[jname]] = vel_snap[motor] * scale
         driven_qpos[jname] = joint_pos
 
-    # Propagate to passive constrained joints using the same delta approach.
     for follower, (source, fscale) in CONSTRAINED_JOINTS.items():
         if source in driven_qpos and follower in qpos_idx:
             source_sim_at_sync   = _sim_at_sync.get(source,   keyframe_qpos.get(source,   0.0))
@@ -209,12 +204,6 @@ def _apply_reference_state(
     keyframe_qpos: dict[str, float],
     limiter: "TrapezoidalReferenceLimiter",
 ) -> None:
-    """Write the trapezoidal reference into qpos/qvel (open-loop mode).
-
-    The sim always shows the intended reference trajectory. Gravity compensation
-    and gain scheduling use the reference pose, not the measured encoder pose.
-    Constrained joints propagate from the reference using keyframe as the base.
-    """
     driven_qpos: dict[str, float] = {}
     for actuator, motor in ACTUATOR_TO_MOTOR.items():
         jname = MOTOR_TO_JOINT[motor]
@@ -239,12 +228,6 @@ def _compute_tau_ff(
     qpos_idx: dict[str, int],
     qvel_idx: dict[str, int],
 ) -> dict[int, float]:
-    """Compute gravity-compensation feedforward torques via mj_inverse.
-
-    Sets qacc=0 (quasi-static), runs inverse dynamics, returns motor-side
-    torques keyed by motor index.
-    """
-    # Zero accelerations → pure gravity + Coriolis compensation.
     data.qacc[:] = 0.0
     mujoco.mj_inverse(model, data)
 
@@ -254,7 +237,6 @@ def _compute_tau_ff(
             tau_ff[motor] = 0.0
             continue
         dof = qvel_idx[jname]
-        # qfrc_inverse is joint-side; scale to motor side.
         tau_ff[motor] = float(data.qfrc_inverse[dof]) * TORQUE_FF_SCALE[motor]
     return tau_ff
 
@@ -263,14 +245,9 @@ def _compute_tau_ff(
 # ---------------------------------------------------------------------------
 
 def _build_default_controller() -> MasterController:
-    """Build a flat (non-scheduled) PD controller from DEFAULT_GAINS."""
     schedules = []
     for actuator, (kp, kd) in DEFAULT_GAINS.items():
         joint = MOTOR_TO_JOINT[ACTUATOR_TO_MOTOR[actuator]]
-        # Use a flat schedule: same natural frequency across the full range.
-        # omega_n = sqrt(kp / I_eff); we approximate I_eff ≈ 0.1 kg·m² here
-        # so the controller will be overridden by the inertia-scaled update()
-        # anyway — the important thing is kp/kd are capped correctly.
         omega_n = math.sqrt(max(kp, 1e-3) / 0.1)
         schedules.append(
             PositionSchedule(
@@ -371,90 +348,125 @@ def main() -> None:
     print("         p            — pause control loop")
     print("         r            — resume control loop")
     print("         z            — print current encoder readings")
+    print("         d            — toggle command debug printout")
     print("         q            — quit")
     print()
 
-    # --- Terminal input thread ---
-    def _terminal_input() -> None:
+    # --- Shared command handler (used by both stdin and named pipe) ---
+    def _handle_command(raw: str) -> None:
         global _control_active, _request_start, _request_pause
         global _paused, _request_goal, _request_home, _request_rezero
+        global DEBUG_COMMANDS
 
+        if not raw:
+            return
+        cmd = raw.lower()
+
+        if cmd == "a":
+            threading.Thread(
+                target=si.enable_motors, args=([1, 2, 3, 4],), daemon=True
+            ).start()
+
+        elif cmd == "s":
+            if _control_active:
+                print("[ctrl] Already running — use 'p' to pause")
+            else:
+                _request_start = True
+                print("[ctrl] Starting control loop...")
+
+        elif cmd.startswith("g "):
+            parts = raw.split()
+            if len(parts) != 3:
+                print("[ctrl] Usage: g <joint 1-4> <pos>  e.g.  g 4 20deg  g 4 +20deg  g 4 0.35")
+                return
+            try:
+                j = int(parts[1])
+                val_str = parts[2].lower().strip()
+                relative = val_str.startswith('+')
+                if relative:
+                    val_str = val_str[1:]
+                in_deg = val_str.endswith('deg') or val_str.endswith('d')
+                if val_str.endswith('deg'):
+                    val_str = val_str[:-3]
+                elif val_str.endswith('d'):
+                    val_str = val_str[:-1]
+                value = float(val_str)
+                if in_deg:
+                    value = math.radians(value)
+            except ValueError:
+                print("[ctrl] Usage: g <joint 1-4> <pos>  e.g.  g 4 20deg  g 4 +20deg  g 4 0.35")
+                return
+            if j not in ACTUATOR_TO_MOTOR.values():
+                print("[ctrl] Joint must be 1-4")
+                return
+            actuator = next(a for a, m in ACTUATOR_TO_MOTOR.items() if m == j)
+            if relative:
+                current = limiter.reference_position(actuator)
+                target_rad = current + value
+            else:
+                target_rad = value
+            unit_str = f"{math.degrees(value):+.1f}°" if in_deg else f"{value:+.4f} rad"
+            _request_goal = {actuator: target_rad}
+            print(f"[ctrl] Goal: {actuator} → {target_rad:.4f} rad  ({'relative ' + unit_str if relative else unit_str})")
+
+        elif cmd == "h":
+            _request_home = True
+            print("[ctrl] Going to hardware_zero pose...")
+
+        elif cmd == "p":
+            _paused = True
+            print("[ctrl] Control paused — no commands being sent")
+
+        elif cmd == "r":
+            _paused = False
+            print("[ctrl] Control resumed")
+
+        elif cmd == "z":
+            _request_rezero = True
+
+        elif cmd == "d":
+            DEBUG_COMMANDS = not DEBUG_COMMANDS
+            print(f"[ctrl] Command debug {'ON' if DEBUG_COMMANDS else 'OFF'}")
+
+        elif cmd == "q":
+            pass  # only stdin thread should quit
+
+    # --- Terminal input thread (stdin) ---
+    def _terminal_input() -> None:
         while True:
             try:
                 raw = input().strip()
             except EOFError:
                 break
-
-            cmd = raw.lower()
-
-            if cmd == "a":
-                threading.Thread(
-                    target=si.enable_motors, args=([1, 2, 3, 4],), daemon=True
-                ).start()
-
-            elif cmd == "s":
-                if _control_active:
-                    print("[ctrl] Already running — use 'p' to pause")
-                else:
-                    _request_start = True
-                    print("[ctrl] Starting control loop...")
-
-            elif cmd.startswith("g "):
-                parts = raw.split()
-                if len(parts) != 3:
-                    print("[ctrl] Usage: g <joint 1-4> <pos>  e.g.  g 4 20deg  g 4 +20deg  g 4 0.35")
-                    continue
-                try:
-                    j = int(parts[1])
-                    val_str = parts[2].lower().strip()
-                    # Detect relative (+prefix means delta from current reference)
-                    relative = val_str.startswith('+')
-                    if relative:
-                        val_str = val_str[1:]
-                    # Detect degree suffix
-                    in_deg = val_str.endswith('deg') or val_str.endswith('d')
-                    if val_str.endswith('deg'):
-                        val_str = val_str[:-3]
-                    elif val_str.endswith('d'):
-                        val_str = val_str[:-1]
-                    value = float(val_str)
-                    if in_deg:
-                        value = math.radians(value)
-                except ValueError:
-                    print("[ctrl] Usage: g <joint 1-4> <pos>  e.g.  g 4 20deg  g 4 +20deg  g 4 0.35")
-                    continue
-                if j not in ACTUATOR_TO_MOTOR.values():
-                    print("[ctrl] Joint must be 1-4")
-                    continue
-                actuator = next(a for a, m in ACTUATOR_TO_MOTOR.items() if m == j)
-                if relative:
-                    current = limiter.reference_position(actuator)
-                    target_rad = current + value
-                else:
-                    target_rad = value
-                unit_str = f"{math.degrees(value):+.1f}°" if in_deg else f"{value:+.4f} rad"
-                _request_goal = {actuator: target_rad}
-                print(f"[ctrl] Goal: {actuator} → {target_rad:.4f} rad  ({'relative ' + unit_str if relative else unit_str})")
-
-            elif cmd == "h":
-                _request_home = True
-                print("[ctrl] Going to hardware_zero pose...")
-
-            elif cmd == "p":
-                _paused = True
-                print("[ctrl] Control paused — no commands being sent")
-
-            elif cmd == "r":
-                _paused = False
-                print("[ctrl] Control resumed")
-
-            elif cmd == "z":
-                _request_rezero = True
-
-            elif cmd == "q":
+            if raw.lower() == "q":
                 break
+            _handle_command(raw)
 
     threading.Thread(target=_terminal_input, daemon=True).start()
+
+    # Also accept commands from a named pipe so a second terminal can send
+    # commands without debug output interfering.
+    # Usage in a second terminal:  echo "g 4 20deg" > /tmp/robot_cmd
+    FIFO_PATH = "/tmp/robot_cmd"
+    try:
+        import os
+        if not os.path.exists(FIFO_PATH):
+            os.mkfifo(FIFO_PATH)
+        print(f"[ctrl] Named pipe ready — send commands from another terminal:")
+        print(f"[ctrl]   echo 'g 4 20deg' > {FIFO_PATH}")
+
+        def _fifo_input() -> None:
+            while True:
+                try:
+                    with open(FIFO_PATH, "r") as fifo:
+                        for line in fifo:
+                            _handle_command(line.strip())
+                except Exception:
+                    time.sleep(0.1)
+
+        threading.Thread(target=_fifo_input, daemon=True).start()
+    except Exception as e:
+        print(f"[ctrl] Named pipe unavailable: {e}")
 
     dt = 1.0 / UPDATE_HZ
     tick = 0
@@ -468,24 +480,19 @@ def main() -> None:
             # --- Handle deferred terminal commands ---
 
             if _request_start and not _control_active:
-                # Capture a pending native-Control-panel slider change before
-                # establishing the no-jump hardware position offset.
                 limiter.update(data)
                 _control_active = True
                 _request_start  = False
                 _paused         = False
 
-                # Snapshot encoder values and sim qpos at this exact moment.
                 pos_raw, _ = si.raw_snapshot()
                 missing = [m for m in [1, 2, 3, 4] if pos_raw[m] is None]
                 for motor in MOTOR_TO_JOINT:
                     _encoder_at_sync[motor] = pos_raw[motor] if pos_raw[motor] is not None else 0.0
 
-                # Snapshot driven joints.
                 for motor, jname in MOTOR_TO_JOINT.items():
                     if jname in qpos_idx:
                         _sim_at_sync[jname] = float(data.qpos[qpos_idx[jname]])
-                # Snapshot constrained followers.
                 for follower in CONSTRAINED_JOINTS:
                     if follower in qpos_idx:
                         _sim_at_sync[follower] = float(data.qpos[qpos_idx[follower]])
@@ -495,23 +502,13 @@ def main() -> None:
                 snap_str = ", ".join(f"M{m}={_encoder_at_sync[m]:.3f}" for m in MOTOR_TO_JOINT)
                 print(f"[ctrl] Encoder snapshot: {snap_str}")
 
-                # Compute position command offset: difference between the real
-                # encoder reading and what the controller would currently send.
-                # Added to every motor position command so that absolute setpoints
-                # land in encoder space even if sim zero ≠ motor encoder zero.
                 _pos_cmd_offset.clear()
                 for actuator, motor in ACTUATOR_TO_MOTOR.items():
                     act_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
-                    # data.ctrl is already in the actuator's motor coordinate.
-                    # Do not multiply by gear here: doing so displaced the
-                    # AK40 home command by 0.485 rad at every control start.
                     ref_now = MOTOR_DIRECTION[motor] * float(data.ctrl[act_id])
                     _pos_cmd_offset[motor] = _encoder_at_sync[motor] - ref_now
                 off_str = ", ".join(f"M{m}={v:+.4f}" for m, v in sorted(_pos_cmd_offset.items()))
                 print(f"[ctrl] Position command offsets: {off_str}")
-
-                # Keep the synchronized reference while retaining any target
-                # already selected through MuJoCo's Control tab.
                 print("[ctrl] Control loop active — sim moves relative to sync position.")
 
             if _request_goal is not None and _control_active:
@@ -565,16 +562,12 @@ def main() -> None:
 
             if _control_active and not _paused:
 
-                # Hardware provides qpos/qvel directly, so there is no
-                # mj_step to advance time for the reference limiter.
                 data.time += dt
 
                 # 1. Schedule PD gains from current inertia + position.
                 gain_updates = controller.update(model, data)
 
-                # 2. The native MuJoCo Control tab is the primary input.
-                # Capture its slider values, then write the rate-limited
-                # reference back to data.ctrl before commanding hardware.
+                # 2. Capture slider values and advance rate-limited reference.
                 limiter.update(data)
 
                 # 3. Compute gravity-compensation feedforward.
@@ -589,8 +582,6 @@ def main() -> None:
 
                         gear = float(model.actuator_gear[actuator_id, 0])
 
-                        # Reference position and velocity from trapezoidal limiter
-                        # (joint-side); convert to motor-side for the command.
                         ref_pos_joint = limiter.reference_position(actuator)
                         ref_vel_joint = limiter.reference_velocity(actuator)
                         ref_pos_motor = (
@@ -598,7 +589,6 @@ def main() -> None:
                         )
                         ref_vel_motor = MOTOR_DIRECTION[motor] * ref_vel_joint * gear
 
-                        # Scheduled gains are joint-output; convert to motor-side.
                         if actuator in gain_updates:
                             gu = gain_updates[actuator]
                             kp_motor = gu.kp_output_nm_per_rad / (gear ** 2)
@@ -606,18 +596,28 @@ def main() -> None:
                         else:
                             kp_motor, kd_motor = DEFAULT_GAINS[actuator]
 
+                        tau_ff_motor = 0.0 if ZERO_TFF else tau_ff.get(motor, 0.0)
+
                         si.send_mit_frame(
                             motor,
                             ref_pos_motor,
                             ref_vel_motor,
                             kp_motor,
                             kd_motor,
-                            tau_ff.get(motor, 0.0),
+                            tau_ff_motor,
                         )
 
+                        if DEBUG_COMMANDS and tick % UPDATE_HZ == 0:
+                            print(
+                                f"[cmd] M{motor} "
+                                f"P={ref_pos_motor:+.4f} "
+                                f"V={ref_vel_motor:+.4f} "
+                                f"Kp={kp_motor:.3f} "
+                                f"Kd={kd_motor:.3f} "
+                                f"T={tau_ff_motor:+.4f}"
+                            )
+
             else:
-                # Slider edits made while idle or paused select the next
-                # target but do not move the physical reference until active.
                 limiter.update(data)
 
             viewer.sync()
