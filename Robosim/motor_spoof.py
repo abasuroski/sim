@@ -31,9 +31,19 @@ import threading
 SIM_RATE_HZ = 500   # motor simulation update rate
 
 # Per-motor specs derived from CubeMars datasheets.
-# Positions/velocities here are all in motor OUTPUT SHAFT units (rad, rad/s),
-# i.e. what the firmware reports — after the internal gearbox, before any
+# All positions/velocities are in motor OUTPUT SHAFT units (rad, rad/s) —
+# i.e. what the firmware reports: after the internal gearbox, before any
 # external linkage.
+#
+# Encoder sign conventions (physical motion → encoder reading):
+#   M1 AK60  (base):     TBD — validate with sync_hardware.py
+#   M2 AK70  (shoulder): raise arm → encoder DECREASES  (MOTOR_SCALE = -1)
+#   M3 AK70  (elbow):    TBD — validate with sync_hardware.py  (MOTOR_SCALE = +1)
+#   M4 AK40  (linkage):  TBD — MOTOR_SCALE = -1/1.25 (sign + gear ratio)
+#
+# The controller converts sim joint angles to encoder commands via gear=-1 for
+# M2/M3 before calling send_mit_frame, so this spoofer operates purely in
+# encoder space and does not need to know the sign conventions itself.
 #
 # time_const_s : first-order closed-loop lag estimate (tunable)
 # vel_limit     : no-load output shaft speed in rad/s (hard cap)
@@ -44,8 +54,8 @@ SIM_RATE_HZ = 500   # motor simulation update rate
 # AK40 (M4): 10:1 internal + 1.25 external, no-load 435 rpm → 45.5 rad/s, peak 4.1 Nm
 MOTOR_SPECS: dict[int, dict] = {
     1: {"time_const_s": 0.10, "vel_limit": 33.5,  "peak_torque": 9.0},   # AK60
-    2: {"time_const_s": 0.14, "vel_limit": 20.9,  "peak_torque": 24.8},  # AK70
-    3: {"time_const_s": 0.14, "vel_limit": 20.9,  "peak_torque": 24.8},  # AK70
+    2: {"time_const_s": 0.14, "vel_limit": 20.9,  "peak_torque": 24.8},  # AK70 — raise=decrease encoder
+    3: {"time_const_s": 0.14, "vel_limit": 20.9,  "peak_torque": 24.8},  # AK70 — direction TBD
     4: {"time_const_s": 0.10, "vel_limit": 45.5,  "peak_torque": 4.1},   # AK40
 }
 
