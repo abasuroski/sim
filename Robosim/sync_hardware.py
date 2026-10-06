@@ -32,22 +32,17 @@ Requires: mujoco, pyserial
 
 import sys
 import math
-import re
 import threading
 import time
 from pathlib import Path
 
 import mujoco
 import mujoco.viewer
-try:
-    import serial
-except ModuleNotFoundError:
-    serial = None
 
 from robot_master_configuration import HARDWARE_ZERO_ENCODER_RAD, HARDWARE_ZERO_KEYFRAME_NAME
+import serial_interface as si
 
 MODEL_PATH = Path(__file__).parent / "robot_master" / "mjcf" / "robot_master.xml"
-BAUD_RATE  = 115200
 UPDATE_HZ  = 50
 
 MOTOR_TO_JOINT = {
@@ -78,85 +73,19 @@ CONSTRAINED_JOINTS = {
     "revolute_13":              ("revolute_4", 1.0),  # = -revolute_8 = -revolute_4
     #"revolute_14_loop_closure": ("revolute_4", -1.0),  # = -revolute_8 = -revolute_4
 }
-_ser      = None
-_ser_lock = threading.Lock()
-
-_fb_lock      = threading.Lock()
-_motor_pos    = {1: None, 2: None, 3: None, 4: None}
-_motor_vel    = {1: 0.0,  2: 0.0,  3: 0.0,  4: 0.0}
-
 # State flags — written by terminal thread, read by main loop.
-_sync_active   = False   # True once user presses 's'
-_request_start = False   # set by 's', cleared by main loop after it handles it
-_request_rezero = False  # set by 'z', cleared by main loop
-_paused        = False   # True = hold the hardware_zero keyframe
+_sync_active    = False   # True once user presses 's'
+_request_start  = False   # set by 's', cleared by main loop after it handles it
+_request_rezero = False   # set by 'z', cleared by main loop
+_paused         = False   # True = hold the hardware_zero keyframe
 
 # Snapshots captured at the moment live sync starts.
-# encoder: raw encoder values (rad) at that instant.
-# sim:     qpos values the sim had at that instant.
 _encoder_at_sync = {}    # {motor: float}
 _sim_at_sync     = {}    # {joint_name: float}
 
-_POS_RE = re.compile(r'pos=(-?\d+\.?\d*)\s*(rad|deg)')
-_VEL_RE = re.compile(r'\bvel=(-?\d+\.?\d*)')
-
-
-def _send(cmd):
-    with _ser_lock:
-        if _ser and _ser.is_open:
-            _ser.write(cmd.encode())
-
-
-def _enable_motors(motors):
-    for m in motors:
-        print(f"[sync] Starting passive feedback on M{m} (no resistance)...")
-        _send(f"{m}R\n")
-        time.sleep(0.1)
-    print(f"[sync] Passive feedback active: {motors}")
-
-
-def _parse_line(line):
-    for motor in [1, 2, 3, 4]:
-        tag = f"[M{motor}]"
-        if not line.startswith(tag):
-            continue
-        body = line[len(tag):].strip()
-
-        m = _POS_RE.search(body)
-        if not m:
-            break
-        val = float(m.group(1))
-        if m.group(2) == "deg":
-            val = math.radians(val)
-
-        vel = 0.0
-        mv = _VEL_RE.search(body)
-        if mv:
-            vel = float(mv.group(1))
-
-        with _fb_lock:
-            _motor_pos[motor] = val
-            _motor_vel[motor] = vel
-        break
-
-
-def _serial_reader():
-    while True:
-        try:
-            line = _ser.readline().decode(errors="replace").strip()
-            if line:
-                _parse_line(line)
-        except Exception:
-            time.sleep(0.01)
-
 
 def main():
-    global _ser, _sync_active, _request_start, _request_rezero, _paused
-
-    if serial is None:
-        print("[sync] Missing pyserial. Install the project dependencies with:")
-        print("       & .\\.venv\\Scripts\\python.exe -m pip install -r .\\requirements.txt")
-        sys.exit(1)
+    global _sync_active, _request_start, _request_rezero, _paused
 
     if len(sys.argv) < 2:
         print("Usage: python3 sync_hardware.py <serial_port>")
@@ -164,13 +93,11 @@ def main():
 
     port = sys.argv[1]
     try:
-        _ser = serial.Serial(port, BAUD_RATE, timeout=1.0)
+        si.connect(port)
         print(f"[sync] Connected to {port}")
-    except serial.SerialException as e:
+    except Exception as e:
         print(f"[sync] Serial error: {e}")
         sys.exit(1)
-
-    threading.Thread(target=_serial_reader, daemon=True).start()
 
     model = mujoco.MjModel.from_xml_path(str(MODEL_PATH))
     data  = mujoco.MjData(model)
@@ -233,9 +160,9 @@ def main():
                 _request_rezero = True
                 print("[sync] Printing hardware-zero keyframe readings...")
             elif cmd == "e":
-                threading.Thread(target=_enable_motors, args=([2, 3, 4],), daemon=True).start()
+                threading.Thread(target=si.enable_passive_feedback, args=([2, 3, 4],), daemon=True).start()
             elif cmd in ("2", "3", "4"):
-                threading.Thread(target=_enable_motors, args=([int(cmd)],), daemon=True).start()
+                threading.Thread(target=si.enable_passive_feedback, args=([int(cmd)],), daemon=True).start()
             elif cmd == "p":
                 _paused = True
                 print("[sync] Sim frozen at the hardware_zero keyframe")
@@ -259,11 +186,10 @@ def main():
             if _request_start and not _sync_active:
                 _sync_active = True
                 _request_start = False
-                with _fb_lock:
-                    missing = [m for m in [1, 2, 3, 4] if _motor_pos[m] is None]
-                    # Snapshot encoder values right now.
-                    for motor in MOTOR_TO_JOINT:
-                        _encoder_at_sync[motor] = _motor_pos[motor] if _motor_pos[motor] is not None else 0.0
+                pos_raw, _ = si.raw_snapshot()
+                missing = [m for m in [1, 2, 3, 4] if pos_raw[m] is None]
+                for motor in MOTOR_TO_JOINT:
+                    _encoder_at_sync[motor] = pos_raw[motor] if pos_raw[motor] is not None else 0.0
                 # Snapshot current sim qpos so the sim doesn't jump —
                 # capture both driven joints and constrained followers.
                 for motor, jname in MOTOR_TO_JOINT.items():
@@ -279,12 +205,11 @@ def main():
                 print("[sync] Live sync active — sim will move relative to this position.")
 
             if _request_rezero:
-                with _fb_lock:
-                    readings = dict(_motor_pos)
+                pos_raw, _ = si.raw_snapshot()
                 _request_rezero = False
                 print("[sync] Current encoder positions; copy a known arm-zero pose into HARDWARE_ZERO_ENCODER_RAD:")
                 for motor, jname in MOTOR_TO_JOINT.items():
-                    value = readings[motor]
+                    value = pos_raw[motor]
                     if value is None:
                         print(f"    {jname!r}: no feedback")
                     else:
@@ -292,9 +217,9 @@ def main():
                 print("[sync] The keyframe was not changed for this session.")
 
             # --- Drive sim ---
-            with _fb_lock:
-                pos_snap = dict(_motor_pos)
-                vel_snap = dict(_motor_vel)
+            fb       = si.snapshot()
+            pos_snap = fb.pos
+            vel_snap = fb.vel
 
             now = time.perf_counter()
             if now - last_print >= 2.0:
@@ -339,7 +264,7 @@ def main():
             if sleep > 0:
                 time.sleep(sleep)
 
-    _ser.close()
+    si.close()
 
 
 if __name__ == "__main__":
