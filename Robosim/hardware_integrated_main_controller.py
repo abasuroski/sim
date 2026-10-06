@@ -99,7 +99,7 @@ ACTUATOR_TO_MOTOR = {
 
 # Motor-side scale factors (encoder → joint angle).
 # M4 has a 1.25:1 reduction; negative = direction convention.
-MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: -1.0 / 1.25}
+MOTOR_SCALE = {1: 1.0, 2: -1.0, 3: 1.0, 4: -1.0 / 1.25}
 
 # Constrained (passive) joints driven kinematically from revolute_4.
 # Format: joint_name → (source_joint, scale)
