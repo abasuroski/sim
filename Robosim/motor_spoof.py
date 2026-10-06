@@ -37,7 +37,7 @@ SIM_RATE_HZ = 500   # motor simulation update rate
 #
 # Encoder sign conventions (physical motion → encoder reading):
 #   M1 AK60  (base):     TBD — validate with sync_hardware.py
-#   M2 AK70  (shoulder): raise arm → encoder DECREASES  (MOTOR_SCALE = -1)
+#   M2 AK70  (shoulder): raise arm → encoder INCREASES  (MOTOR_SCALE = +1)
 #   M3 AK70  (elbow):    TBD — validate with sync_hardware.py  (MOTOR_SCALE = +1)
 #   M4 AK40  (linkage):  TBD — MOTOR_SCALE = -1/1.25 (sign + gear ratio)
 #

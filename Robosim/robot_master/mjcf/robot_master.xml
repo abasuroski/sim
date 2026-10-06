@@ -1038,7 +1038,7 @@
   </equality>
   <actuator>
     <position name="ak60_revolute_1" joint="revolute_1" gear="1" kp="9" dampratio="1" ctrllimited="false" ctrlrange="-6.283185307 6.283185307" forcelimited="true" forcerange="-9 9" />
-    <position name="ak70_revolute_2" joint="revolute_2" gear="-1" kp="24.8" dampratio="1" ctrllimited="true" ctrlrange="-6.28319 0.153038" forcelimited="true" forcerange="-24.8 24.8" />
+    <position name="ak70_revolute_2" joint="revolute_2" gear="1" kp="24.8" dampratio="1" ctrllimited="true" ctrlrange="-6.28319 0.153038" forcelimited="true" forcerange="-24.8 24.8" />
     <position name="ak70_revolute_3" joint="revolute_3" gear="1" kp="24.8" dampratio="1" ctrllimited="false" ctrlrange="-6.283185307 6.283185307" forcelimited="true" forcerange="-24.8 24.8" />
     <position name="ak40_revolute_4" joint="revolute_4" gear="1.25" kp="3.28" dampratio="1" ctrllimited="true" ctrlrange="-0.0047722125 1.94" forcelimited="true" forcerange="-4.1 4.1" />
   </actuator>

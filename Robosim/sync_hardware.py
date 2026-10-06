@@ -52,7 +52,7 @@ MOTOR_TO_JOINT = {
     4: "revolute_4",
 }
 
-MOTOR_SCALE = {1: 1.0, 2: -1.0, 3: 1.0, 4: -1.0 / 1.25}
+MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: -1.0 / 1.25}
 
 
 def encoder_to_sim_angle(motor: int, encoder_angle_rad: float, sim_angle_at_sync_rad: float, encoder_angle_at_sync_rad: float) -> float:
