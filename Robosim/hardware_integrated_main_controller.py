@@ -81,6 +81,11 @@ SCHEDULE_PATH = Path(__file__).parent / "gain_schedule.json"
 UPDATE_HZ  = 50   # control loop rate (Hz)
 SEND_EVERY = 1    # send commands every N control ticks (1 = every tick)
 
+# Set to False to run open-loop: the sim tracks the reference trajectory
+# instead of encoder feedback. Commands still go to the real motors.
+# Use this first to verify commands are sensible before enabling feedback.
+CLOSED_LOOP = True
+
 # Motor index → joint name (driven joints only)
 MOTOR_TO_JOINT = {
     1: "revolute_1",
@@ -99,7 +104,7 @@ ACTUATOR_TO_MOTOR = {
 
 # Motor-side scale factors (encoder → joint angle).
 # M4 has a 1.25:1 reduction; negative = direction convention.
-MOTOR_SCALE = {1: 1.0, 2: -1.0, 3: 1.0, 4: -1.0 / 1.25}
+MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: -1.0 / 1.25}
 
 # Constrained (passive) joints driven kinematically from revolute_4.
 # Format: joint_name → (source_joint, scale)
@@ -193,6 +198,37 @@ def _apply_encoder_state(
             data.qpos[qpos_idx[follower]] = follower_sim_at_sync + delta * fscale
             if follower in qvel_idx and source in qvel_idx:
                 data.qvel[qvel_idx[follower]] = data.qvel[qvel_idx[source]] * fscale
+
+
+def _apply_reference_state(
+    data: mujoco.MjData,
+    qpos_idx: dict[str, int],
+    qvel_idx: dict[str, int],
+    keyframe_qpos: dict[str, float],
+    limiter: "TrapezoidalReferenceLimiter",
+) -> None:
+    """Write the trapezoidal reference into qpos/qvel (open-loop mode).
+
+    The sim always shows the intended reference trajectory. Gravity compensation
+    and gain scheduling use the reference pose, not the measured encoder pose.
+    Constrained joints propagate from the reference using keyframe as the base.
+    """
+    driven_qpos: dict[str, float] = {}
+    for actuator, motor in ACTUATOR_TO_MOTOR.items():
+        jname = MOTOR_TO_JOINT[motor]
+        if jname not in qpos_idx:
+            continue
+        ref_pos = limiter.reference_position(actuator)
+        data.qpos[qpos_idx[jname]] = ref_pos
+        data.qvel[qvel_idx[jname]] = limiter.reference_velocity(actuator)
+        driven_qpos[jname] = ref_pos
+
+    for follower, (source, fscale) in CONSTRAINED_JOINTS.items():
+        if source in driven_qpos and follower in qpos_idx:
+            kf_source   = keyframe_qpos.get(source,   0.0)
+            kf_follower = keyframe_qpos.get(follower, 0.0)
+            delta = driven_qpos[source] - kf_source
+            data.qpos[qpos_idx[follower]] = kf_follower + delta * fscale
 
 
 def _compute_tau_ff(
@@ -317,14 +353,15 @@ def main() -> None:
     limiter.reset(data)
 
     # --- Print startup info ---
+    loop_mode = "CLOSED-LOOP (encoder feedback)" if CLOSED_LOOP else "OPEN-LOOP (reference only — no encoder feedback)"
     print()
-    print("[ctrl] *** HARDWARE CONTROLLER READY ***")
+    print(f"[ctrl] *** HARDWARE CONTROLLER READY — {loop_mode} ***")
     print("[ctrl]     Motors must be enabled before starting the control loop.")
     print()
     print("[ctrl] Commands:")
     print("         a            — enable all body motors (M1-M4)")
     print("         s            — start control loop")
-    print("         g <j> <rad>  — move joint j (1-4) to position (rad, joint-side)")
+    print("         g <j> <pos>  — move joint j (1-4); pos examples: 0.35  20deg  +20deg (relative)")
     print("         h            — go to hardware_zero pose")
     print("         p            — pause control loop")
     print("         r            — resume control loop")
@@ -358,22 +395,41 @@ def main() -> None:
                     print("[ctrl] Starting control loop...")
 
             elif cmd.startswith("g "):
-                parts = cmd.split()
+                parts = raw.split()
                 if len(parts) != 3:
-                    print("[ctrl] Usage: g <joint 1-4> <position rad>")
+                    print("[ctrl] Usage: g <joint 1-4> <pos>  e.g.  g 4 20deg  g 4 +20deg  g 4 0.35")
                     continue
                 try:
                     j = int(parts[1])
-                    target_rad = float(parts[2])
+                    val_str = parts[2].lower().strip()
+                    # Detect relative (+prefix means delta from current reference)
+                    relative = val_str.startswith('+')
+                    if relative:
+                        val_str = val_str[1:]
+                    # Detect degree suffix
+                    in_deg = val_str.endswith('deg') or val_str.endswith('d')
+                    if val_str.endswith('deg'):
+                        val_str = val_str[:-3]
+                    elif val_str.endswith('d'):
+                        val_str = val_str[:-1]
+                    value = float(val_str)
+                    if in_deg:
+                        value = math.radians(value)
                 except ValueError:
-                    print("[ctrl] Usage: g <joint 1-4> <position rad>")
+                    print("[ctrl] Usage: g <joint 1-4> <pos>  e.g.  g 4 20deg  g 4 +20deg  g 4 0.35")
                     continue
                 if j not in ACTUATOR_TO_MOTOR.values():
-                    print(f"[ctrl] Joint must be 1-4")
+                    print("[ctrl] Joint must be 1-4")
                     continue
                 actuator = next(a for a, m in ACTUATOR_TO_MOTOR.items() if m == j)
+                if relative:
+                    current = limiter.reference_position(actuator)
+                    target_rad = current + value
+                else:
+                    target_rad = value
+                unit_str = f"{math.degrees(value):+.1f}°" if in_deg else f"{value:+.4f} rad"
                 _request_goal = {actuator: target_rad}
-                print(f"[ctrl] Goal: {actuator} → {target_rad:.4f} rad")
+                print(f"[ctrl] Goal: {actuator} → {target_rad:.4f} rad  ({'relative ' + unit_str if relative else unit_str})")
 
             elif cmd == "h":
                 _request_home = True
@@ -491,8 +547,11 @@ def main() -> None:
                 status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
                 print(f"[ctrl/{status}] " + (", ".join(parts) if parts else "no feedback yet"))
 
-            # --- Update MuJoCo state from encoders ---
-            _apply_encoder_state(data, qpos_idx, qvel_idx, keyframe_qpos, pos_snap, vel_snap)
+            # --- Update MuJoCo state ---
+            if CLOSED_LOOP:
+                _apply_encoder_state(data, qpos_idx, qvel_idx, keyframe_qpos, pos_snap, vel_snap)
+            else:
+                _apply_reference_state(data, qpos_idx, qvel_idx, keyframe_qpos, limiter)
             mujoco.mj_forward(model, data)
 
             if _control_active and not _paused:
