@@ -60,10 +60,8 @@ from pathlib import Path
 
 import mujoco
 import mujoco.viewer
-import numpy as np
 
 from robot_master_configuration import (
-    HARDWARE_ZERO_ENCODER_RAD,
     HARDWARE_ZERO_KEYFRAME_NAME,
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
 )
@@ -76,7 +74,7 @@ import serial_interface as si
 # ---------------------------------------------------------------------------
 
 MODEL_PATH = Path(__file__).parent / "robot_master" / "mjcf" / "robot_master.xml"
-SCHEDULE_PATH = Path(__file__).parent / "gain_schedule.json"
+SCHEDULE_PATH = Path(__file__).parent / "master_controller_schedule.json"
 
 UPDATE_HZ  = 50   # control loop rate (Hz)
 SEND_EVERY = 1    # send commands every N control ticks (1 = every tick)
@@ -104,7 +102,11 @@ ACTUATOR_TO_MOTOR = {
 
 # Motor-side scale factors (encoder → joint angle).
 # M4 has a 1.25:1 reduction; negative = direction convention.
-MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: -1.0 / 1.25}
+# This mapping is applied symmetrically to feedback, position/velocity commands,
+# and feedforward torque. Set M4 to +1.0 only if a low-risk physical test shows
+# that its encoder direction already matches the MuJoCo-positive joint motion.
+MOTOR_DIRECTION = {1: 1.0, 2: 1.0, 3: 1.0, 4: -1.0}
+MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: MOTOR_DIRECTION[4] / 1.25}
 
 # Constrained (passive) joints driven kinematically from revolute_4.
 # Format: joint_name → (source_joint, scale)
@@ -119,7 +121,7 @@ CONSTRAINED_JOINTS = {
 
 # Torque feedforward scale per motor (sign + gear ratio applied to mj_inverse output).
 # mj_inverse gives joint-side torques; M4 actuator is on the motor side (÷ gear).
-TORQUE_FF_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0 / 1.25}
+TORQUE_FF_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: MOTOR_DIRECTION[4] / 1.25}
 
 # Default PD gains used if no gain_schedule.json is found.
 # These are joint-output values (N·m/rad and N·m·s/rad).
@@ -359,6 +361,7 @@ def main() -> None:
     print()
     print(f"[ctrl] *** HARDWARE CONTROLLER READY — {loop_mode} ***")
     print("[ctrl]     Motors must be enabled before starting the control loop.")
+    print("[ctrl]     Use MuJoCo's Control tab sliders as the primary position input.")
     print()
     print("[ctrl] Commands:")
     print("         a            — enable all body motors (M1-M4)")
@@ -465,6 +468,9 @@ def main() -> None:
             # --- Handle deferred terminal commands ---
 
             if _request_start and not _control_active:
+                # Capture a pending native-Control-panel slider change before
+                # establishing the no-jump hardware position offset.
+                limiter.update(data)
                 _control_active = True
                 _request_start  = False
                 _paused         = False
@@ -496,15 +502,16 @@ def main() -> None:
                 _pos_cmd_offset.clear()
                 for actuator, motor in ACTUATOR_TO_MOTOR.items():
                     act_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
-                    g = float(model.actuator_gear[act_id, 0])
-                    ref_now = float(data.ctrl[act_id]) * g
+                    # data.ctrl is already in the actuator's motor coordinate.
+                    # Do not multiply by gear here: doing so displaced the
+                    # AK40 home command by 0.485 rad at every control start.
+                    ref_now = MOTOR_DIRECTION[motor] * float(data.ctrl[act_id])
                     _pos_cmd_offset[motor] = _encoder_at_sync[motor] - ref_now
                 off_str = ", ".join(f"M{m}={v:+.4f}" for m, v in sorted(_pos_cmd_offset.items()))
                 print(f"[ctrl] Position command offsets: {off_str}")
 
-                # Initialise the trapezoidal limiter from current sim state
-                # so the first goal command starts from where the arm actually is.
-                limiter.reset(data)
+                # Keep the synchronized reference while retaining any target
+                # already selected through MuJoCo's Control tab.
                 print("[ctrl] Control loop active — sim moves relative to sync position.")
 
             if _request_goal is not None and _control_active:
@@ -558,11 +565,17 @@ def main() -> None:
 
             if _control_active and not _paused:
 
+                # Hardware provides qpos/qvel directly, so there is no
+                # mj_step to advance time for the reference limiter.
+                data.time += dt
+
                 # 1. Schedule PD gains from current inertia + position.
                 gain_updates = controller.update(model, data)
 
-                # 2. Advance trapezoidal reference.
-                limiter.advance(data)
+                # 2. The native MuJoCo Control tab is the primary input.
+                # Capture its slider values, then write the rate-limited
+                # reference back to data.ctrl before commanding hardware.
+                limiter.update(data)
 
                 # 3. Compute gravity-compensation feedforward.
                 tau_ff = _compute_tau_ff(model, data, qpos_idx, qvel_idx)
@@ -580,8 +593,10 @@ def main() -> None:
                         # (joint-side); convert to motor-side for the command.
                         ref_pos_joint = limiter.reference_position(actuator)
                         ref_vel_joint = limiter.reference_velocity(actuator)
-                        ref_pos_motor = ref_pos_joint * gear + _pos_cmd_offset.get(motor, 0.0)
-                        ref_vel_motor = ref_vel_joint * gear
+                        ref_pos_motor = (
+                            MOTOR_DIRECTION[motor] * ref_pos_joint * gear + _pos_cmd_offset.get(motor, 0.0)
+                        )
+                        ref_vel_motor = MOTOR_DIRECTION[motor] * ref_vel_joint * gear
 
                         # Scheduled gains are joint-output; convert to motor-side.
                         if actuator in gain_updates:
@@ -599,6 +614,11 @@ def main() -> None:
                             kd_motor,
                             tau_ff.get(motor, 0.0),
                         )
+
+            else:
+                # Slider edits made while idle or paused select the next
+                # target but do not move the physical reference until active.
+                limiter.update(data)
 
             viewer.sync()
             tick += 1
