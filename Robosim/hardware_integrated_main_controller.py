@@ -606,6 +606,14 @@ def main() -> None:
 
             if _request_goal is not None and _control_active:
                 for actuator, target in _request_goal.items():
+                    act_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
+                    if act_id >= 0:
+                        gear = float(model.actuator_gear[act_id, 0])
+                        # Keep data.ctrl in sync with the new target so that
+                        # limiter.update(data) — which reads data.ctrl as the
+                        # slider target — doesn't overwrite this goal on the
+                        # same tick, causing an immediate snap-back.
+                        data.ctrl[act_id] = target * gear
                     limiter.set_requested_position(actuator, target)
                 _request_goal = None
 
@@ -614,6 +622,7 @@ def main() -> None:
                     actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
                     if actuator_id >= 0:
                         gear = float(model.actuator_gear[actuator_id, 0])
+                        data.ctrl[actuator_id] = ctrl_val
                         limiter.set_requested_position(actuator, ctrl_val / gear)
                 _request_home = False
 
