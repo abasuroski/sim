@@ -8,7 +8,11 @@ import math
 import mujoco
 
 from master_controller import MasterController, actuator_gear
-from robot_master_configuration import TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2, TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S
+from robot_master_configuration import (
+    AK40_MAX_MOTOR_VELOCITY_RAD_S,
+    TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2,
+    TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S,
+)
 
 
 EPSILON = 1e-9
@@ -81,6 +85,8 @@ class TrapezoidalReference:
     velocity_rad_s: float
     requested_position_rad: float
     last_applied_control: float
+    max_velocity_rad_s: float
+    max_acceleration_rad_s2: float
 
 
 class TrapezoidalReferenceLimiter:
@@ -110,7 +116,20 @@ class TrapezoidalReferenceLimiter:
             actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, schedule.actuator)
             if actuator_id < 0:
                 raise ValueError(f"scheduled actuator {schedule.actuator!r} is absent from this MJCF")
-            self.references[schedule.actuator] = TrapezoidalReference(actuator_id, actuator_gear(model, actuator_id), 0.0, 0.0, 0.0, 0.0)
+            gear = actuator_gear(model, actuator_id)
+            reference_max_velocity = self.max_velocity_rad_s
+            if schedule.actuator == "ak40_revolute_4":
+                reference_max_velocity = AK40_MAX_MOTOR_VELOCITY_RAD_S / abs(gear)
+            self.references[schedule.actuator] = TrapezoidalReference(
+                actuator_id,
+                gear,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                reference_max_velocity,
+                self.max_acceleration_rad_s2,
+            )
         self.last_time: float | None = None
 
     def reset(self, data: mujoco.MjData) -> None:
@@ -134,14 +153,14 @@ class TrapezoidalReferenceLimiter:
         # Reverse first if moving away from the requested position; otherwise
         # brake when stopping distance reaches the remaining distance.
         if reference.velocity_rad_s * direction < -EPSILON:
-            acceleration = direction * self.max_acceleration_rad_s2
-        elif abs(error) <= reference.velocity_rad_s**2 / (2.0 * self.max_acceleration_rad_s2):
-            acceleration = -math.copysign(self.max_acceleration_rad_s2, reference.velocity_rad_s)
+            acceleration = direction * reference.max_acceleration_rad_s2
+        elif abs(error) <= reference.velocity_rad_s**2 / (2.0 * reference.max_acceleration_rad_s2):
+            acceleration = -math.copysign(reference.max_acceleration_rad_s2, reference.velocity_rad_s)
         else:
-            acceleration = direction * self.max_acceleration_rad_s2
+            acceleration = direction * reference.max_acceleration_rad_s2
         next_velocity = max(
-            -self.max_velocity_rad_s,
-            min(self.max_velocity_rad_s, reference.velocity_rad_s + acceleration * dt),
+            -reference.max_velocity_rad_s,
+            min(reference.max_velocity_rad_s, reference.velocity_rad_s + acceleration * dt),
         )
         next_position = reference.position_rad + next_velocity * dt
         if (reference.requested_position_rad - reference.position_rad) * (
