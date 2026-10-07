@@ -19,7 +19,7 @@ Control loop (runs at UPDATE_HZ):
   7. Pack and send MIT control frame per motor: P, V, Kp, Kd, tau_ff
 
 Usage:
-    python3 hardware_integrated_main_controller.py /dev/ttyACM1
+    python3 hardware_integrated_main_controller.py [serial_port] [--enable-motors]
 
 Startup workflow:
     1. Motors must already be enabled (use motor_gui.py or type 'e' here).
@@ -62,8 +62,10 @@ import mujoco
 import mujoco.viewer
 
 from robot_master_configuration import (
+    AK40_MOTOR_TORQUE_LIMIT_NM,
     HARDWARE_ZERO_KEYFRAME_NAME,
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
+    M4_STARTUP_ENCODER_DELTA_RAD,
 )
 from master_controller import MasterController, PositionSchedule
 from trapezoidal_motion import TrapezoidalReferenceLimiter
@@ -110,9 +112,9 @@ ACTUATOR_TO_MOTOR = {
 
 # Motor-side scale factors (encoder → joint angle).
 # M4 has a 1.25:1 reduction; negative = direction convention.
-# This mapping is applied symmetrically to feedback, position/velocity commands,
-# and feedforward torque. Set M4 to +1.0 only if a low-risk physical test shows
-# that its encoder direction already matches the MuJoCo-positive joint motion.
+# Keep this mapping symmetric: it applies to feedback, position/velocity
+# commands, and feedforward torque. Change M4 only after a low-risk direction
+# test demonstrates that the physical encoder sign is opposite.
 MOTOR_DIRECTION = {1: 1.0, 2: 1.0, 3: 1.0, 4: -1.0}
 MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: MOTOR_DIRECTION[4] / 1.25}
 
@@ -137,7 +139,7 @@ DEFAULT_GAINS = {
     "ak60_revolute_1": (9.0,  1.0),
     "ak70_revolute_2": (24.8, 1.5),
     "ak70_revolute_3": (24.8, 1.5),
-    "ak40_revolute_4": (3.28, 0.3),
+    "ak40_revolute_4": (AK40_MOTOR_TORQUE_LIMIT_NM * 1.25, 0.3),
 }
 
 # ---------------------------------------------------------------------------
@@ -240,6 +242,46 @@ def _compute_tau_ff(
         tau_ff[motor] = float(data.qfrc_inverse[dof]) * TORQUE_FF_SCALE[motor]
     return tau_ff
 
+
+def _limit_ak40_command_torque(
+    reference_position_motor_rad: float,
+    reference_velocity_motor_rad_s: float,
+    measured_position_motor_rad: float | None,
+    measured_velocity_motor_rad_s: float,
+    kp_motor_nm_per_rad: float,
+    kd_motor_nm_s_per_rad: float,
+    tau_ff_motor_nm: float,
+) -> tuple[float, float, float]:
+    """Keep the estimated AK40 MIT command torque within its motor-side cap.
+
+    The MIT controller's total motor torque is the position/velocity PD term
+    plus feedforward. Feedforward alone is clamped by ``serial_interface``;
+    this additionally scales Kp/Kd together when the measured-error estimate
+    would exceed the 1.2 N m limit. With no position feedback, command zero
+    torque rather than issuing an unbounded position correction.
+    """
+    limit = AK40_MOTOR_TORQUE_LIMIT_NM
+    tau_ff_motor_nm = max(-limit, min(limit, tau_ff_motor_nm))
+    if measured_position_motor_rad is None:
+        return 0.0, 0.0, 0.0
+
+    pd_torque = (
+        kp_motor_nm_per_rad * (reference_position_motor_rad - measured_position_motor_rad)
+        + kd_motor_nm_s_per_rad * (reference_velocity_motor_rad_s - measured_velocity_motor_rad_s)
+    )
+    estimated_total = tau_ff_motor_nm + pd_torque
+    if abs(estimated_total) <= limit or abs(pd_torque) <= 1e-12:
+        return kp_motor_nm_per_rad, kd_motor_nm_s_per_rad, tau_ff_motor_nm
+
+    # Scale the whole PD term to exactly meet the signed residual torque budget.
+    allowed_pd = math.copysign(limit, estimated_total) - tau_ff_motor_nm
+    scale = max(0.0, min(1.0, allowed_pd / pd_torque))
+    return (
+        kp_motor_nm_per_rad * scale,
+        kd_motor_nm_s_per_rad * scale,
+        tau_ff_motor_nm,
+    )
+
 # ---------------------------------------------------------------------------
 # Fallback controller (when no JSON schedule is present)
 # ---------------------------------------------------------------------------
@@ -270,17 +312,29 @@ def main() -> None:
     global _ser, _control_active, _request_start, _request_pause
     global _paused, _request_goal, _request_home, _request_rezero
 
-    if len(sys.argv) < 2:
-        print("Usage: python3 hardware_integrated_main_controller.py <serial_port>")
+    arguments = sys.argv[1:]
+    enable_motors_on_start = "--enable-motors" in arguments
+    port_arguments = [argument for argument in arguments if argument != "--enable-motors"]
+    if len(port_arguments) > 1:
+        print("Usage: python3 hardware_integrated_main_controller.py [serial_port] [--enable-motors]")
         sys.exit(1)
-
-    port = sys.argv[1]
-    try:
-        si.connect(port)
-        print(f"[ctrl] Connected to {port} (motors frozen)")
-    except Exception as e:
-        print(f"[ctrl] Serial error: {e}")
+    port = port_arguments[0] if port_arguments else None
+    simulation_only = port is None
+    if simulation_only and enable_motors_on_start:
+        print("--enable-motors requires a serial port.")
         sys.exit(1)
+    if not simulation_only:
+        try:
+            si.connect(port)
+            print(f"[ctrl] Connected to {port} (motors frozen)")
+        except Exception as e:
+            print(f"[ctrl] Serial error: {e}")
+            sys.exit(1)
+        if enable_motors_on_start:
+            print("[ctrl] Enabling M1-M4; control targets remain inactive until started.")
+            si.enable_motors([1, 2, 3, 4])
+    else:
+        print("[ctrl] Simulation-only mode: no serial port and no hardware commands.")
 
     # --- Load model ---
     model = mujoco.MjModel.from_xml_path(str(MODEL_PATH))
@@ -299,11 +353,13 @@ def main() -> None:
             qpos_idx[name] = model.jnt_qposadr[i]
             qvel_idx[name] = model.jnt_dofadr[i]
 
-    # Include both driven and constrained joints so fallback pose is correct.
-    _all_keyframe_joints = list(MOTOR_TO_JOINT.values()) + list(CONSTRAINED_JOINTS.keys())
+    # Include every joint that the feedback projection may write.  Omitting
+    # passive followers makes the first idle sync overwrite their solved
+    # hardware_zero positions with zero, visibly breaking the four-bar pose.
+    keyframe_joint_names = list(MOTOR_TO_JOINT.values()) + list(CONSTRAINED_JOINTS)
     keyframe_qpos = {
         jname: float(model.key_qpos[keyframe_id, qpos_idx[jname]])
-        for jname in _all_keyframe_joints
+        for jname in keyframe_joint_names
         if jname in qpos_idx
     }
 
@@ -325,29 +381,39 @@ def main() -> None:
     # --- Trapezoidal reference ---
     limiter = TrapezoidalReferenceLimiter(model, controller)
 
-    # Initialise ctrl to hardware_zero BEFORE resetting the limiter so that
-    # the limiter seeds its internal reference from the correct pose, not zeros.
+    # Initialise ctrl to hardware_zero.
     for actuator, ctrl_val in HARDWARE_ZERO_ACTUATOR_CTRL_RAD.items():
         actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
         if actuator_id >= 0:
             data.ctrl[actuator_id] = ctrl_val
     limiter.reset(data)
+    if simulation_only:
+        # In simulation mode, the Control-tab reference is safe to run immediately.
+        _control_active = True
+        _paused = False
 
     # --- Print startup info ---
     loop_mode = "CLOSED-LOOP (encoder feedback)" if CLOSED_LOOP else "OPEN-LOOP (reference only — no encoder feedback)"
+    if simulation_only:
+        loop_mode = "SIMULATION-ONLY (reference tracking; no serial port)"
     print()
     print(f"[ctrl] *** HARDWARE CONTROLLER READY — {loop_mode} ***")
-    print("[ctrl]     Motors must be enabled before starting the control loop.")
+    if not simulation_only:
+        print("[ctrl]     Motors must be enabled before starting the control loop.")
     print("[ctrl]     Use MuJoCo's Control tab sliders as the primary position input.")
+    if simulation_only:
+        print("[ctrl]     Simulation is active immediately; move a Control tab slider to begin.")
     print()
     print("[ctrl] Commands:")
-    print("         a            — enable all body motors (M1-M4)")
+    if not simulation_only:
+        print("         a            — enable all body motors (M1-M4)")
     print("         s            — start control loop")
     print("         g <j> <pos>  — move joint j (1-4); pos examples: 0.35  20deg  +20deg (relative)")
     print("         h            — go to hardware_zero pose")
     print("         p            — pause control loop")
     print("         r            — resume control loop")
-    print("         z            — print current encoder readings")
+    if not simulation_only:
+        print("         z            — print current encoder readings")
     print("         d            — toggle command debug printout")
     print("         q            — quit")
     print()
@@ -363,9 +429,12 @@ def main() -> None:
         cmd = raw.lower()
 
         if cmd == "a":
-            threading.Thread(
-                target=si.enable_motors, args=([1, 2, 3, 4],), daemon=True
-            ).start()
+            if simulation_only:
+                print("[ctrl] Motor enable is unavailable in simulation-only mode.")
+            else:
+                threading.Thread(
+                    target=si.enable_motors, args=([1, 2, 3, 4],), daemon=True
+                ).start()
 
         elif cmd == "s":
             if _control_active:
@@ -480,6 +549,8 @@ def main() -> None:
             # --- Handle deferred terminal commands ---
 
             if _request_start and not _control_active:
+                # Capture a pending native Control-tab edit before establishing
+                # the no-jump hardware-position offset.
                 limiter.update(data)
                 _control_active = True
                 _request_start  = False
@@ -505,10 +576,32 @@ def main() -> None:
                 _pos_cmd_offset.clear()
                 for actuator, motor in ACTUATOR_TO_MOTOR.items():
                     act_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
+                    # data.ctrl is already in the actuator's motor coordinate.
                     ref_now = MOTOR_DIRECTION[motor] * float(data.ctrl[act_id])
+                    # All motors, including M4, start by holding their live
+                    # encoder position. This is M4's software zero point.
                     _pos_cmd_offset[motor] = _encoder_at_sync[motor] - ref_now
                 off_str = ", ".join(f"M{m}={v:+.4f}" for m, v in sorted(_pos_cmd_offset.items()))
                 print(f"[ctrl] Position command offsets: {off_str}")
+
+                # Start M4 from its live encoder position and request a
+                # positive motor-side encoder move through the limiter. The
+                # M4 sign and 1.25 reduction convert it to joint coordinates.
+                m4_actuator = "ak40_revolute_4"
+                m4_actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, m4_actuator)
+                m4_gear = float(model.actuator_gear[m4_actuator_id, 0])
+                m4_initial_joint = limiter.reference_position(m4_actuator)
+                m4_target_joint = m4_initial_joint + (
+                    MOTOR_DIRECTION[4] * M4_STARTUP_ENCODER_DELTA_RAD / m4_gear
+                )
+                limiter.set_requested_position(m4_actuator, m4_target_joint)
+                print(
+                    f"[ctrl] M4 encoder zeroed at {_encoder_at_sync[4]:.4f} rad; "
+                    f"ramping +{M4_STARTUP_ENCODER_DELTA_RAD:.4f} encoder rad."
+                )
+
+                # Keep the synchronized reference while retaining the target
+                # selected through MuJoCo's Control tab.
                 print("[ctrl] Control loop active — sim moves relative to sync position.")
 
             if _request_goal is not None and _control_active:
@@ -525,8 +618,11 @@ def main() -> None:
                 _request_home = False
 
             if _request_rezero:
-                pos_raw, vel_raw = si.raw_snapshot()
                 _request_rezero = False
+                if simulation_only:
+                    print("[ctrl] Re-zero is unavailable in simulation-only mode.")
+                    continue
+                pos_raw, vel_raw = si.raw_snapshot()
                 print("[ctrl] Current encoder readings:")
                 for motor, jname in MOTOR_TO_JOINT.items():
                     p = pos_raw[motor]
@@ -537,9 +633,15 @@ def main() -> None:
                         print(f"    M{motor} ({jname}): pos={p:.5f} rad  vel={v:.5f} rad/s")
 
             # --- Snapshot encoder feedback (lag-compensated) ---
-            fb = si.snapshot()
-            pos_snap = fb.pos
-            vel_snap = fb.vel
+            # Simulation-only mode intentionally has no serial traffic and
+            # drives MuJoCo from the limiter reference below.
+            if simulation_only:
+                pos_snap = {motor: None for motor in MOTOR_TO_JOINT}
+                vel_snap = {motor: 0.0 for motor in MOTOR_TO_JOINT}
+            else:
+                fb = si.snapshot()
+                pos_snap = fb.pos
+                vel_snap = fb.vel
 
             # --- Status print ---
             now = time.perf_counter()
@@ -554,7 +656,7 @@ def main() -> None:
                 print(f"[ctrl/{status}] " + (", ".join(parts) if parts else "no feedback yet"))
 
             # --- Update MuJoCo state ---
-            if CLOSED_LOOP:
+            if CLOSED_LOOP and not simulation_only:
                 _apply_encoder_state(data, qpos_idx, qvel_idx, keyframe_qpos, pos_snap, vel_snap)
             else:
                 _apply_reference_state(data, qpos_idx, qvel_idx, keyframe_qpos, limiter)
@@ -562,19 +664,22 @@ def main() -> None:
 
             if _control_active and not _paused:
 
+                # Hardware supplies qpos/qvel directly, so no mj_step advances
+                # the limiter's clock. Advance it at the real control period.
                 data.time += dt
 
                 # 1. Schedule PD gains from current inertia + position.
                 gain_updates = controller.update(model, data)
 
-                # 2. Capture slider values and advance rate-limited reference.
+                # 2. Treat native MuJoCo Control-tab sliders as requested
+                # targets and write the smooth reference back to data.ctrl.
                 limiter.update(data)
 
                 # 3. Compute gravity-compensation feedforward.
                 tau_ff = _compute_tau_ff(model, data, qpos_idx, qvel_idx)
 
                 # 4. Send MIT frames every SEND_EVERY ticks.
-                if tick % SEND_EVERY == 0:
+                if not simulation_only and tick % SEND_EVERY == 0:
                     for actuator, motor in ACTUATOR_TO_MOTOR.items():
                         actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
                         if actuator_id < 0:
@@ -597,6 +702,16 @@ def main() -> None:
                             kp_motor, kd_motor = DEFAULT_GAINS[actuator]
 
                         tau_ff_motor = 0.0 if ZERO_TFF else tau_ff.get(motor, 0.0)
+                        if motor == 4:
+                            kp_motor, kd_motor, tau_ff_motor = _limit_ak40_command_torque(
+                                ref_pos_motor,
+                                ref_vel_motor,
+                                pos_snap[motor],
+                                vel_snap[motor],
+                                kp_motor,
+                                kd_motor,
+                                tau_ff_motor,
+                            )
 
                         si.send_mit_frame(
                             motor,
@@ -618,6 +733,8 @@ def main() -> None:
                             )
 
             else:
+                # Slider edits select the next target while idle or paused,
+                # but cannot move the physical reference until control starts.
                 limiter.update(data)
 
             viewer.sync()
@@ -629,7 +746,10 @@ def main() -> None:
                 time.sleep(sleep_time)
 
     si.close()
-    print("[ctrl] Serial closed. Bye.")
+    if simulation_only:
+        print("[ctrl] Simulation closed. Bye.")
+    else:
+        print("[ctrl] Serial closed. Bye.")
 
 
 if __name__ == "__main__":
