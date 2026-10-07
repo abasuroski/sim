@@ -13,6 +13,7 @@ from pathlib import Path
 import mujoco
 
 from robot_master_configuration import (
+    AK40_MOTOR_TORQUE_LIMIT_NM,
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
     HARDWARE_ZERO_KEYFRAME_NAME,
     JOINT_RANGE_OVERRIDES_RAD,
@@ -37,7 +38,7 @@ HARDWARE_ZERO_SETTLE_TIME_S = 10.0
 # These values are peak torques, in N*m at the motor actuator output.
 AK60_6_PEAK_TORQUE_NM = 9.0
 AK70_10_PEAK_TORQUE_NM = 24.8
-AK40_10_PEAK_TORQUE_NM = 4.1
+AK40_10_PEAK_TORQUE_NM = AK40_MOTOR_TORQUE_LIMIT_NM
 
 # The AK40 drives a 60-tooth output gear from a 48-tooth motor pinion.  Its
 # motor-to-joint reduction is therefore 60 / 48 = 1.25.  The position actuator

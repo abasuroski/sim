@@ -41,6 +41,8 @@ import threading
 import time
 from dataclasses import dataclass
 
+from robot_master_configuration import AK40_MOTOR_TORQUE_LIMIT_NM
+
 try:
     import serial as _serial_module
 except ModuleNotFoundError:
@@ -53,7 +55,7 @@ except ModuleNotFoundError:
 BAUD_RATE = 115200
 
 # Safety: maximum torque feedforward sent per motor (N·m, motor side).
-TAU_FF_LIMIT: dict[int, float] = {1: 9.0, 2: 18.0, 3: 18.0, 4: 4.1}
+TAU_FF_LIMIT: dict[int, float] = {1: 9.0, 2: 18.0, 3: 18.0, 4: AK40_MOTOR_TORQUE_LIMIT_NM}
 
 # ---------------------------------------------------------------------------
 # Shared state — module-level so both sync and controller can import them
