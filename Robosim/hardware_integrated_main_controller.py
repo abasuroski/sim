@@ -52,10 +52,12 @@ Requires: mujoco, pyserial, numpy
 
 from __future__ import annotations
 
+import csv
 import sys
 import math
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import mujoco
@@ -65,6 +67,7 @@ from robot_master_configuration import (
     AK40_MOTOR_TORQUE_LIMIT_NM,
     HARDWARE_ZERO_KEYFRAME_NAME,
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
+    M1_STARTUP_ENCODER_DELTA_RAD,
     M4_STARTUP_ENCODER_DELTA_RAD,
 )
 from master_controller import MasterController, PositionSchedule
@@ -89,6 +92,16 @@ CLOSED_LOOP = False
 # Print every MIT frame sent to the STM32 (once per second per motor).
 # Toggle at runtime by typing 'd' in the terminal.
 DEBUG_COMMANDS = True
+
+# Print raw STM32 encoder feedback in the terminal. This is hardware feedback,
+# not MuJoCo qpos/qvel, and is unavailable in simulation-only mode.
+PRINT_MOTOR_FEEDBACK = True
+MOTOR_FEEDBACK_PRINT_HZ = 4.0
+
+# Write one plain-text CSV row per control cycle. A four-motor log with the
+# full MuJoCo state grows quickly at 84 Hz, so each run receives its own file.
+CYCLE_LOG_ENABLED = True
+CYCLE_LOG_DIRECTORY = Path(__file__).parent / "logs"
 
 # Set to True to send zero torque feedforward to all motors.
 # Useful for initial testing before verifying TFF sign and magnitude.
@@ -282,6 +295,93 @@ def _limit_ak40_command_torque(
         tau_ff_motor_nm,
     )
 
+def _open_cycle_log(
+    qpos_idx: dict[str, int],
+    qvel_idx: dict[str, int],
+    limiter: "TrapezoidalReferenceLimiter",
+) -> tuple[object, csv.DictWriter, Path] | None:
+    """Create a per-run plain-text CSV log with raw encoder and sim state."""
+    if not CYCLE_LOG_ENABLED:
+        return None
+
+    fieldnames = [
+        "host_time_utc",
+        "wall_time_s",
+        "simulation_time_s",
+        "mode",
+        "control_state",
+        "contact_count",
+    ]
+    for motor in MOTOR_TO_JOINT:
+        fieldnames.extend(
+            [
+                f"m{motor}_encoder_position_rad",
+                f"m{motor}_encoder_velocity_rad_s",
+            ]
+        )
+    for joint in qpos_idx:
+        fieldnames.extend([f"sim_{joint}_qpos_rad", f"sim_{joint}_qvel_rad_s"])
+    for actuator in limiter.references:
+        fieldnames.extend(
+            [
+                f"{actuator}_ctrl",
+                f"{actuator}_requested_joint_rad",
+                f"{actuator}_reference_joint_rad",
+                f"{actuator}_reference_velocity_joint_rad_s",
+            ]
+        )
+
+    try:
+        CYCLE_LOG_DIRECTORY.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        path = CYCLE_LOG_DIRECTORY / f"hardware_controller_{stamp}.csv"
+        log_file = path.open("w", newline="", encoding="utf-8", buffering=1)
+        writer = csv.DictWriter(log_file, fieldnames=fieldnames)
+        writer.writeheader()
+        log_file.flush()
+    except OSError as exc:
+        print(f"[ctrl] Cycle logging disabled: {exc}")
+        return None
+    return log_file, writer, path
+
+
+def _write_cycle_log(
+    log_file: object,
+    writer: csv.DictWriter,
+    start_time: float,
+    simulation_only: bool,
+    data: mujoco.MjData,
+    qpos_idx: dict[str, int],
+    qvel_idx: dict[str, int],
+    limiter: "TrapezoidalReferenceLimiter",
+    raw_pos: dict[int, float | None],
+    raw_vel: dict[int, float],
+) -> None:
+    """Append one controller-cycle record and flush it to disk."""
+    status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
+    row: dict[str, object] = {
+        "host_time_utc": datetime.now(timezone.utc).isoformat(),
+        "wall_time_s": time.perf_counter() - start_time,
+        "simulation_time_s": float(data.time),
+        "mode": "simulation" if simulation_only else "hardware",
+        "control_state": status,
+        "contact_count": int(data.ncon),
+    }
+    for motor in MOTOR_TO_JOINT:
+        row[f"m{motor}_encoder_position_rad"] = raw_pos[motor]
+        row[f"m{motor}_encoder_velocity_rad_s"] = raw_vel[motor]
+    for joint, address in qpos_idx.items():
+        row[f"sim_{joint}_qpos_rad"] = float(data.qpos[address])
+        row[f"sim_{joint}_qvel_rad_s"] = float(data.qvel[qvel_idx[joint]])
+    for actuator, reference in limiter.references.items():
+        row[f"{actuator}_ctrl"] = float(data.ctrl[reference.actuator_id])
+        row[f"{actuator}_requested_joint_rad"] = reference.requested_position_rad
+        row[f"{actuator}_reference_joint_rad"] = reference.position_rad
+        row[f"{actuator}_reference_velocity_joint_rad_s"] = reference.velocity_rad_s
+    writer.writerow(row)
+    log_file.flush()
+
+
 # ---------------------------------------------------------------------------
 # Fallback controller (when no JSON schedule is present)
 # ---------------------------------------------------------------------------
@@ -392,6 +492,11 @@ def main() -> None:
         _control_active = True
         _paused = False
 
+    cycle_log = _open_cycle_log(qpos_idx, qvel_idx, limiter)
+    cycle_log_start_time = time.perf_counter()
+    if cycle_log is not None:
+        print(f"[ctrl] Cycle log: {cycle_log[2]}")
+
     # --- Print startup info ---
     loop_mode = "CLOSED-LOOP (encoder feedback)" if CLOSED_LOOP else "OPEN-LOOP (reference only — no encoder feedback)"
     if simulation_only:
@@ -414,6 +519,7 @@ def main() -> None:
     print("         r            — resume control loop")
     if not simulation_only:
         print("         z            — print current encoder readings")
+        print("         f            — toggle live motor encoder feedback")
     print("         d            — toggle command debug printout")
     print("         q            — quit")
     print()
@@ -422,7 +528,7 @@ def main() -> None:
     def _handle_command(raw: str) -> None:
         global _control_active, _request_start, _request_pause
         global _paused, _request_goal, _request_home, _request_rezero
-        global DEBUG_COMMANDS
+        global DEBUG_COMMANDS, PRINT_MOTOR_FEEDBACK
 
         if not raw:
             return
@@ -493,6 +599,10 @@ def main() -> None:
         elif cmd == "z":
             _request_rezero = True
 
+        elif cmd == "f":
+            PRINT_MOTOR_FEEDBACK = not PRINT_MOTOR_FEEDBACK
+            print(f"[ctrl] Live motor feedback {'ON' if PRINT_MOTOR_FEEDBACK else 'OFF'}")
+
         elif cmd == "d":
             DEBUG_COMMANDS = not DEBUG_COMMANDS
             print(f"[ctrl] Command debug {'ON' if DEBUG_COMMANDS else 'OFF'}")
@@ -542,7 +652,7 @@ def main() -> None:
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
         next_tick  = time.perf_counter()
-        last_print = time.perf_counter()
+        last_feedback_print = 0.0
 
         while viewer.is_running():
 
@@ -584,6 +694,29 @@ def main() -> None:
                 off_str = ", ".join(f"M{m}={v:+.4f}" for m, v in sorted(_pos_cmd_offset.items()))
                 print(f"[ctrl] Position command offsets: {off_str}")
 
+                # Start M1 from its live encoder position and request a
+                # positive 10-degree motor-side move through the limiter.
+                # Require live feedback so a missing encoder cannot create an
+                # arbitrary absolute position command.
+                m1_actuator = "ak60_revolute_1"
+                if pos_raw[1] is None:
+                    print("[ctrl] M1 startup move skipped: no encoder feedback.")
+                else:
+                    m1_actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, m1_actuator)
+                    m1_gear = float(model.actuator_gear[m1_actuator_id, 0])
+                    m1_initial_joint = limiter.reference_position(m1_actuator)
+                    m1_target_joint = m1_initial_joint + (
+                        MOTOR_DIRECTION[1] * M1_STARTUP_ENCODER_DELTA_RAD / m1_gear
+                    )
+                    # Synchronize Ctrl before updating the limiter so the
+                    # native Control tab cannot overwrite this startup goal.
+                    data.ctrl[m1_actuator_id] = m1_target_joint * m1_gear
+                    limiter.set_requested_position(m1_actuator, m1_target_joint)
+                    print(
+                        f"[ctrl] M1 encoder zeroed at {_encoder_at_sync[1]:.4f} rad; "
+                        f"ramping +{math.degrees(M1_STARTUP_ENCODER_DELTA_RAD):.1f} degrees."
+                    )
+
                 # Start M4 from its live encoder position and request a
                 # positive motor-side encoder move through the limiter. The
                 # M4 sign and 1.25 reduction convert it to joint coordinates.
@@ -594,6 +727,7 @@ def main() -> None:
                 m4_target_joint = m4_initial_joint + (
                     MOTOR_DIRECTION[4] * M4_STARTUP_ENCODER_DELTA_RAD / m4_gear
                 )
+                data.ctrl[m4_actuator_id] = m4_target_joint * m4_gear
                 limiter.set_requested_position(m4_actuator, m4_target_joint)
                 print(
                     f"[ctrl] M4 encoder zeroed at {_encoder_at_sync[4]:.4f} rad; "
@@ -647,22 +781,33 @@ def main() -> None:
             if simulation_only:
                 pos_snap = {motor: None for motor in MOTOR_TO_JOINT}
                 vel_snap = {motor: 0.0 for motor in MOTOR_TO_JOINT}
+                raw_pos = {motor: None for motor in MOTOR_TO_JOINT}
+                raw_vel = {motor: 0.0 for motor in MOTOR_TO_JOINT}
             else:
                 fb = si.snapshot()
                 pos_snap = fb.pos
                 vel_snap = fb.vel
+                raw_pos, raw_vel = si.raw_snapshot()
 
-            # --- Status print ---
+            # --- Raw hardware feedback print (never simulated state) ---
             now = time.perf_counter()
-            if now - last_print >= 2.0:
-                last_print = now
-                parts = [
-                    f"M{m}={pos_snap[m]:.3f}"
-                    for m in [1, 2, 3, 4]
-                    if pos_snap[m] is not None
-                ]
+            if (
+                not simulation_only
+                and PRINT_MOTOR_FEEDBACK
+                and now - last_feedback_print >= 1.0 / MOTOR_FEEDBACK_PRINT_HZ
+            ):
+                last_feedback_print = now
+                parts = []
+                for motor in [1, 2, 3, 4]:
+                    if raw_pos[motor] is None:
+                        parts.append(f"M{motor}=no feedback")
+                    else:
+                        parts.append(
+                            f"M{motor}: enc={raw_pos[motor]:+.4f} rad "
+                            f"vel={raw_vel[motor]:+.4f} rad/s"
+                        )
                 status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
-                print(f"[ctrl/{status}] " + (", ".join(parts) if parts else "no feedback yet"))
+                print(f"[motor-feedback/{status}] " + " | ".join(parts))
 
             # --- Update MuJoCo state ---
             if CLOSED_LOOP and not simulation_only:
@@ -746,6 +891,25 @@ def main() -> None:
                 # but cannot move the physical reference until control starts.
                 limiter.update(data)
 
+            if cycle_log is not None:
+                try:
+                    _write_cycle_log(
+                        cycle_log[0],
+                        cycle_log[1],
+                        cycle_log_start_time,
+                        simulation_only,
+                        data,
+                        qpos_idx,
+                        qvel_idx,
+                        limiter,
+                        raw_pos,
+                        raw_vel,
+                    )
+                except OSError as exc:
+                    print(f"[ctrl] Cycle logging stopped: {exc}")
+                    cycle_log[0].close()
+                    cycle_log = None
+
             viewer.sync()
             tick += 1
 
@@ -754,6 +918,9 @@ def main() -> None:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
+    if cycle_log is not None:
+        cycle_log[0].close()
+        print("[ctrl] Cycle log closed.")
     si.close()
     if simulation_only:
         print("[ctrl] Simulation closed. Bye.")

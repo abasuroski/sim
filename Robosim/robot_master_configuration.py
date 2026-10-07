@@ -29,6 +29,10 @@ HARDWARE_ZERO_ENCODER_RAD = {
 # its normal trapezoidal profile to move by this positive encoder delta.
 M4_STARTUP_ENCODER_DELTA_RAD = 0.5
 
+# M1 uses the same startup convention. Its 1:1 transmission means this is
+# also a +10 degree joint move.
+M1_STARTUP_ENCODER_DELTA_RAD = 0.17453292519943295
+
 # AK40 motor-side torque safety limit. This is the torque coordinate used by
 # the serial MIT command and by the MJCF actuator force range. Its 1.25:1
 # reduction makes the corresponding joint-output limit 2.5 N m.
@@ -51,6 +55,10 @@ SCHEDULED_PD_VELOCITY_ERROR_FOR_FULL_TORQUE_RAD_S = 1.0
 # are deliberately easy to tune without changing controller source code.
 TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S = 1.0
 TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2 = 2.0
+
+# AK40 is specified at the motor encoder rather than joint output. With its
+# 1.25:1 reduction, the limiter converts this to 0.4 rad/s joint-side.
+AK40_MAX_MOTOR_VELOCITY_RAD_S = 0.5
 
 # Permit the requested 1.94 rad AK40 motor reference: 1.94 / 1.25 = 1.552 rad
 # at the joint. The coupled follower gets the matching lower bound.
