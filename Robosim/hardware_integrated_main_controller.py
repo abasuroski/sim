@@ -67,8 +67,6 @@ from robot_master_configuration import (
     AK40_MOTOR_TORQUE_LIMIT_NM,
     HARDWARE_ZERO_KEYFRAME_NAME,
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
-    M1_STARTUP_ENCODER_DELTA_RAD,
-    M4_STARTUP_ENCODER_DELTA_RAD,
 )
 from master_controller import MasterController, PositionSchedule
 from trapezoidal_motion import TrapezoidalReferenceLimiter
@@ -93,8 +91,10 @@ CLOSED_LOOP = False
 # Toggle at runtime by typing 'd' in the terminal.
 DEBUG_COMMANDS = True
 
-# Print raw STM32 encoder feedback in the terminal. This is hardware feedback,
-# not MuJoCo qpos/qvel, and is unavailable in simulation-only mode.
+# Print controller telemetry in the terminal.  The encoder is displayed both
+# in its raw STM32 coordinate and, after synchronization, projected into the
+# same joint coordinate as MuJoCo before calculating the position error.
+# Toggle at runtime by typing 'f'.
 PRINT_MOTOR_FEEDBACK = True
 MOTOR_FEEDBACK_PRINT_HZ = 4.0
 
@@ -174,6 +174,7 @@ _request_rezero  = False
 _encoder_at_sync: dict[int, float]  = {}   # {motor: encoder_rad}
 _sim_at_sync:     dict[str, float]  = {}   # {joint_name: qpos_rad}
 _pos_cmd_offset:  dict[int, float]  = {}   # {motor: encoder_rad - ref_pos_motor at sync}
+_encoder_feedback_at_sync: set[int] = set()  # motors with a real encoder sample at sync
 
 # ---------------------------------------------------------------------------
 # Kinematics helpers
@@ -235,6 +236,56 @@ def _apply_reference_state(
             kf_follower = keyframe_qpos.get(follower, 0.0)
             delta = driven_qpos[source] - kf_source
             data.qpos[qpos_idx[follower]] = kf_follower + delta * fscale
+
+
+def _encoder_position_in_sim_coordinates(motor: int, raw_position_rad: float | None) -> float | None:
+    """Project one raw encoder value into the synchronized MuJoCo joint frame."""
+    joint = MOTOR_TO_JOINT[motor]
+    if (
+        raw_position_rad is None
+        or motor not in _encoder_feedback_at_sync
+        or motor not in _encoder_at_sync
+        or joint not in _sim_at_sync
+    ):
+        return None
+    return _sim_at_sync[joint] + (raw_position_rad - _encoder_at_sync[motor]) * MOTOR_SCALE[motor]
+
+
+def _print_live_telemetry(
+    data: mujoco.MjData,
+    qpos_idx: dict[str, int],
+    raw_pos: dict[int, float | None],
+    command_gains: dict[int, tuple[float, float] | None],
+    simulation_only: bool,
+) -> None:
+    """Print positions and the motor-side Kp/Kd values used for control."""
+    status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
+    source = "simulation; no STM32 feedback" if simulation_only else "STM32 raw encoder"
+    print(f"[telemetry/{status}] {source}")
+    for motor, joint in MOTOR_TO_JOINT.items():
+        sim_position = float(data.qpos[qpos_idx[joint]])
+        encoder_position = raw_pos[motor]
+        encoder_sim_position = _encoder_position_in_sim_coordinates(motor, encoder_position)
+        if encoder_position is None:
+            encoder_text = "n/a"
+        else:
+            encoder_text = f"{encoder_position:+.4f} raw rad"
+        if encoder_sim_position is None:
+            comparison_text = "enc_sim=n/a  error=n/a"
+        else:
+            error = sim_position - encoder_sim_position
+            comparison_text = (
+                f"enc_sim={encoder_sim_position:+.4f} rad  "
+                f"error={error:+.4f} rad"
+            )
+        gains = command_gains[motor]
+        gain_text = "Kp=n/a  Kd=n/a"
+        if gains is not None:
+            gain_text = f"Kp={gains[0]:.3f} N m/rad  Kd={gains[1]:.3f} N m s/rad"
+        print(
+            f"    M{motor} {joint}: sim={sim_position:+.4f} rad  "
+            f"enc={encoder_text}  {comparison_text}  {gain_text}"
+        )
 
 
 def _compute_tau_ff(
@@ -519,7 +570,7 @@ def main() -> None:
     print("         r            — resume control loop")
     if not simulation_only:
         print("         z            — print current encoder readings")
-        print("         f            — toggle live motor encoder feedback")
+    print("         f            — toggle live controller telemetry")
     print("         d            — toggle command debug printout")
     print("         q            — quit")
     print()
@@ -601,7 +652,7 @@ def main() -> None:
 
         elif cmd == "f":
             PRINT_MOTOR_FEEDBACK = not PRINT_MOTOR_FEEDBACK
-            print(f"[ctrl] Live motor feedback {'ON' if PRINT_MOTOR_FEEDBACK else 'OFF'}")
+            print(f"[ctrl] Live controller telemetry {'ON' if PRINT_MOTOR_FEEDBACK else 'OFF'}")
 
         elif cmd == "d":
             DEBUG_COMMANDS = not DEBUG_COMMANDS
@@ -649,6 +700,9 @@ def main() -> None:
 
     dt = 1.0 / UPDATE_HZ
     tick = 0
+    latest_command_gains: dict[int, tuple[float, float] | None] = {
+        motor: None for motor in MOTOR_TO_JOINT
+    }
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
         next_tick  = time.perf_counter()
@@ -668,8 +722,13 @@ def main() -> None:
 
                 pos_raw, _ = si.raw_snapshot()
                 missing = [m for m in [1, 2, 3, 4] if pos_raw[m] is None]
+                _encoder_feedback_at_sync.clear()
                 for motor in MOTOR_TO_JOINT:
-                    _encoder_at_sync[motor] = pos_raw[motor] if pos_raw[motor] is not None else 0.0
+                    if pos_raw[motor] is None:
+                        _encoder_at_sync[motor] = 0.0
+                    else:
+                        _encoder_at_sync[motor] = pos_raw[motor]
+                        _encoder_feedback_at_sync.add(motor)
 
                 for motor, jname in MOTOR_TO_JOINT.items():
                     if jname in qpos_idx:
@@ -694,49 +753,9 @@ def main() -> None:
                 off_str = ", ".join(f"M{m}={v:+.4f}" for m, v in sorted(_pos_cmd_offset.items()))
                 print(f"[ctrl] Position command offsets: {off_str}")
 
-                # Start M1 from its live encoder position and request a
-                # positive 10-degree motor-side move through the limiter.
-                # Require live feedback so a missing encoder cannot create an
-                # arbitrary absolute position command.
-                m1_actuator = "ak60_revolute_1"
-                if pos_raw[1] is None:
-                    print("[ctrl] M1 startup move skipped: no encoder feedback.")
-                else:
-                    m1_actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, m1_actuator)
-                    m1_gear = float(model.actuator_gear[m1_actuator_id, 0])
-                    m1_initial_joint = limiter.reference_position(m1_actuator)
-                    m1_target_joint = m1_initial_joint + (
-                        MOTOR_DIRECTION[1] * M1_STARTUP_ENCODER_DELTA_RAD / m1_gear
-                    )
-                    # Synchronize Ctrl before updating the limiter so the
-                    # native Control tab cannot overwrite this startup goal.
-                    data.ctrl[m1_actuator_id] = m1_target_joint * m1_gear
-                    limiter.set_requested_position(m1_actuator, m1_target_joint)
-                    print(
-                        f"[ctrl] M1 encoder zeroed at {_encoder_at_sync[1]:.4f} rad; "
-                        f"ramping +{math.degrees(M1_STARTUP_ENCODER_DELTA_RAD):.1f} degrees."
-                    )
-
-                # Start M4 from its live encoder position and request a
-                # positive motor-side encoder move through the limiter. The
-                # M4 sign and 1.25 reduction convert it to joint coordinates.
-                m4_actuator = "ak40_revolute_4"
-                m4_actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, m4_actuator)
-                m4_gear = float(model.actuator_gear[m4_actuator_id, 0])
-                m4_initial_joint = limiter.reference_position(m4_actuator)
-                m4_target_joint = m4_initial_joint + (
-                    MOTOR_DIRECTION[4] * M4_STARTUP_ENCODER_DELTA_RAD / m4_gear
-                )
-                data.ctrl[m4_actuator_id] = m4_target_joint * m4_gear
-                limiter.set_requested_position(m4_actuator, m4_target_joint)
-                print(
-                    f"[ctrl] M4 encoder zeroed at {_encoder_at_sync[4]:.4f} rad; "
-                    f"ramping +{M4_STARTUP_ENCODER_DELTA_RAD:.4f} encoder rad."
-                )
-
-                # Keep the synchronized reference while retaining the target
-                # selected through MuJoCo's Control tab.
-                print("[ctrl] Control loop active — sim moves relative to sync position.")
+                # Do not schedule an automatic startup move. The offsets make
+                # the first outgoing position command match each live encoder.
+                print("[ctrl] Control loop active — holding synchronized positions.")
 
             if _request_goal is not None and _control_active:
                 for actuator, target in _request_goal.items():
@@ -789,26 +808,6 @@ def main() -> None:
                 vel_snap = fb.vel
                 raw_pos, raw_vel = si.raw_snapshot()
 
-            # --- Raw hardware feedback print (never simulated state) ---
-            now = time.perf_counter()
-            if (
-                not simulation_only
-                and PRINT_MOTOR_FEEDBACK
-                and now - last_feedback_print >= 1.0 / MOTOR_FEEDBACK_PRINT_HZ
-            ):
-                last_feedback_print = now
-                parts = []
-                for motor in [1, 2, 3, 4]:
-                    if raw_pos[motor] is None:
-                        parts.append(f"M{motor}=no feedback")
-                    else:
-                        parts.append(
-                            f"M{motor}: enc={raw_pos[motor]:+.4f} rad "
-                            f"vel={raw_vel[motor]:+.4f} rad/s"
-                        )
-                status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
-                print(f"[motor-feedback/{status}] " + " | ".join(parts))
-
             # --- Update MuJoCo state ---
             if CLOSED_LOOP and not simulation_only:
                 _apply_encoder_state(data, qpos_idx, qvel_idx, keyframe_qpos, pos_snap, vel_snap)
@@ -832,7 +831,25 @@ def main() -> None:
                 # 3. Compute gravity-compensation feedforward.
                 tau_ff = _compute_tau_ff(model, data, qpos_idx, qvel_idx)
 
-                # 4. Send MIT frames every SEND_EVERY ticks.
+                # 4. Calculate the motor-side gains. These are also the
+                # values displayed in terminal telemetry and sent below.
+                latest_command_gains = {}
+                for actuator, motor in ACTUATOR_TO_MOTOR.items():
+                    actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
+                    if actuator_id < 0:
+                        latest_command_gains[motor] = None
+                        continue
+                    gear = float(model.actuator_gear[actuator_id, 0])
+                    if actuator in gain_updates:
+                        gain_update = gain_updates[actuator]
+                        latest_command_gains[motor] = (
+                            gain_update.kp_output_nm_per_rad / (gear ** 2),
+                            gain_update.kd_output_nm_s_per_rad / (gear ** 2),
+                        )
+                    else:
+                        latest_command_gains[motor] = DEFAULT_GAINS[actuator]
+
+                # 5. Send MIT frames every SEND_EVERY ticks.
                 if not simulation_only and tick % SEND_EVERY == 0:
                     for actuator, motor in ACTUATOR_TO_MOTOR.items():
                         actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
@@ -848,12 +865,10 @@ def main() -> None:
                         )
                         ref_vel_motor = MOTOR_DIRECTION[motor] * ref_vel_joint * gear
 
-                        if actuator in gain_updates:
-                            gu = gain_updates[actuator]
-                            kp_motor = gu.kp_output_nm_per_rad / (gear ** 2)
-                            kd_motor = gu.kd_output_nm_s_per_rad / (gear ** 2)
-                        else:
-                            kp_motor, kd_motor = DEFAULT_GAINS[actuator]
+                        gains = latest_command_gains[motor]
+                        if gains is None:
+                            continue
+                        kp_motor, kd_motor = gains
 
                         tau_ff_motor = 0.0 if ZERO_TFF else tau_ff.get(motor, 0.0)
                         if motor == 4:
@@ -866,6 +881,9 @@ def main() -> None:
                                 kd_motor,
                                 tau_ff_motor,
                             )
+                            # Report the AK40 safety-limited values, which
+                            # are the ones placed in the outgoing MIT frame.
+                            latest_command_gains[motor] = (kp_motor, kd_motor)
 
                         si.send_mit_frame(
                             motor,
@@ -890,6 +908,20 @@ def main() -> None:
                 # Slider edits select the next target while idle or paused,
                 # but cannot move the physical reference until control starts.
                 limiter.update(data)
+
+            now = time.perf_counter()
+            if (
+                PRINT_MOTOR_FEEDBACK
+                and now - last_feedback_print >= 1.0 / MOTOR_FEEDBACK_PRINT_HZ
+            ):
+                last_feedback_print = now
+                _print_live_telemetry(
+                    data,
+                    qpos_idx,
+                    raw_pos,
+                    latest_command_gains,
+                    simulation_only,
+                )
 
             if cycle_log is not None:
                 try:
