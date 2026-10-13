@@ -65,7 +65,6 @@ from robot_master_configuration import (
     AK40_MOTOR_TORQUE_LIMIT_NM,
     HARDWARE_ZERO_KEYFRAME_NAME,
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
-    M4_STARTUP_ENCODER_DELTA_RAD,
 )
 from master_controller import MasterController, PositionSchedule
 from trapezoidal_motion import TrapezoidalReferenceLimiter
@@ -127,6 +126,9 @@ CONSTRAINED_JOINTS = {
     "revolute_9":  ("revolute_4", -1.0),
     "revolute_6":  ("revolute_4",  1.0),
     "revolute_13": ("revolute_4",  1.0),
+    # MJCF: revolute_14 = -revolute_8 = +revolute_4.  Leaving this out freezes
+    # the loop-closure joint and tears the weld open as revolute_4 moves.
+    "revolute_14_loop_closure": ("revolute_4", 1.0),
 }
 
 # Torque feedforward scale per motor (sign + gear ratio applied to mj_inverse output).
@@ -230,16 +232,28 @@ def _compute_tau_ff(
     qpos_idx: dict[str, int],
     qvel_idx: dict[str, int],
 ) -> dict[int, float]:
-    data.qacc[:] = 0.0
-    mujoco.mj_inverse(model, data)
+    """Static (gravity + Coriolis) feedforward per motor, by virtual work.
+
+    Each driven joint's torque is the generalized load projected onto the
+    motion it causes: its own DOF plus every coupled follower in
+    CONSTRAINED_JOINTS.  This deliberately ignores constraint forces.  Reading
+    the revolute_4 row of mj_inverse instead picks up the stiff loop-closure
+    weld reacting to small kinematic residuals (hundreds of N m once M4 leaves
+    hardware_zero) and drops the gravity of the passive links.
+    Requires a prior mj_forward on the current state.
+    """
+    load = data.qfrc_bias - data.qfrc_passive
 
     tau_ff: dict[int, float] = {}
     for motor, jname in MOTOR_TO_JOINT.items():
         if jname not in qvel_idx:
             tau_ff[motor] = 0.0
             continue
-        dof = qvel_idx[jname]
-        tau_ff[motor] = float(data.qfrc_inverse[dof]) * TORQUE_FF_SCALE[motor]
+        joint_torque = float(load[qvel_idx[jname]])
+        for follower, (source, fscale) in CONSTRAINED_JOINTS.items():
+            if source == jname and follower in qvel_idx:
+                joint_torque += fscale * float(load[qvel_idx[follower]])
+        tau_ff[motor] = joint_torque * TORQUE_FF_SCALE[motor]
     return tau_ff
 
 
@@ -255,10 +269,12 @@ def _limit_ak40_command_torque(
     """Keep the estimated AK40 MIT command torque within its motor-side cap.
 
     The MIT controller's total motor torque is the position/velocity PD term
-    plus feedforward. Feedforward alone is clamped by ``serial_interface``;
-    this additionally scales Kp/Kd together when the measured-error estimate
-    would exceed the 1.2 N m limit. With no position feedback, command zero
-    torque rather than issuing an unbounded position correction.
+    plus feedforward. When the estimate would exceed the configured
+    motor-side torque limit, the PD (position-hold) term has priority:
+    feedforward is reduced first, and Kp/Kd are scaled only if the PD term
+    alone exceeds the limit. Kp/Kd are never driven to zero by a saturated
+    feedforward, which would leave the motor limp. With no position feedback,
+    command zero torque rather than issuing an unbounded position correction.
     """
     limit = AK40_MOTOR_TORQUE_LIMIT_NM
     tau_ff_motor_nm = max(-limit, min(limit, tau_ff_motor_nm))
@@ -269,17 +285,20 @@ def _limit_ak40_command_torque(
         kp_motor_nm_per_rad * (reference_position_motor_rad - measured_position_motor_rad)
         + kd_motor_nm_s_per_rad * (reference_velocity_motor_rad_s - measured_velocity_motor_rad_s)
     )
-    estimated_total = tau_ff_motor_nm + pd_torque
-    if abs(estimated_total) <= limit or abs(pd_torque) <= 1e-12:
+    if abs(tau_ff_motor_nm + pd_torque) <= limit:
         return kp_motor_nm_per_rad, kd_motor_nm_s_per_rad, tau_ff_motor_nm
 
-    # Scale the whole PD term to exactly meet the signed residual torque budget.
-    allowed_pd = math.copysign(limit, estimated_total) - tau_ff_motor_nm
-    scale = max(0.0, min(1.0, allowed_pd / pd_torque))
+    if abs(pd_torque) <= limit:
+        # PD fits on its own: give feedforward only the remaining budget.
+        tau_ff_motor_nm = math.copysign(limit, pd_torque) - pd_torque
+        return kp_motor_nm_per_rad, kd_motor_nm_s_per_rad, tau_ff_motor_nm
+
+    # PD alone exceeds the limit: drop feedforward and scale PD to the limit.
+    scale = limit / abs(pd_torque)
     return (
         kp_motor_nm_per_rad * scale,
         kd_motor_nm_s_per_rad * scale,
-        tau_ff_motor_nm,
+        0.0,
     )
 
 # ---------------------------------------------------------------------------
@@ -583,22 +602,6 @@ def main() -> None:
                     _pos_cmd_offset[motor] = _encoder_at_sync[motor] - ref_now
                 off_str = ", ".join(f"M{m}={v:+.4f}" for m, v in sorted(_pos_cmd_offset.items()))
                 print(f"[ctrl] Position command offsets: {off_str}")
-
-                # Start M4 from its live encoder position and request a
-                # positive motor-side encoder move through the limiter. The
-                # M4 sign and 1.25 reduction convert it to joint coordinates.
-                m4_actuator = "ak40_revolute_4"
-                m4_actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, m4_actuator)
-                m4_gear = float(model.actuator_gear[m4_actuator_id, 0])
-                m4_initial_joint = limiter.reference_position(m4_actuator)
-                m4_target_joint = m4_initial_joint + (
-                    MOTOR_DIRECTION[4] * M4_STARTUP_ENCODER_DELTA_RAD / m4_gear
-                )
-                limiter.set_requested_position(m4_actuator, m4_target_joint)
-                print(
-                    f"[ctrl] M4 encoder zeroed at {_encoder_at_sync[4]:.4f} rad; "
-                    f"ramping +{M4_STARTUP_ENCODER_DELTA_RAD:.4f} encoder rad."
-                )
 
                 # Keep the synchronized reference while retaining the target
                 # selected through MuJoCo's Control tab.

@@ -24,15 +24,10 @@ HARDWARE_ZERO_ENCODER_RAD = {
     "revolute_4": HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak40_revolute_4"],
 }
 
-# M4 startup is expressed in raw motor-encoder coordinates. The controller
-# treats the live M4 reading at control activation as software zero, then uses
-# its normal trapezoidal profile to move by this positive encoder delta.
-M4_STARTUP_ENCODER_DELTA_RAD = 0.5
-
 # AK40 motor-side torque safety limit. This is the torque coordinate used by
 # the serial MIT command and by the MJCF actuator force range. Its 1.25:1
-# reduction makes the corresponding joint-output limit 2.5 N m.
-AK40_MOTOR_TORQUE_LIMIT_NM = 1.0
+# reduction makes the corresponding joint-output limit 0.625 N m.
+AK40_MOTOR_TORQUE_LIMIT_NM = 0.5
 
 # Scheduled PD safety limits.  ``SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_RAD``
 # converts each actuator's output-torque limit into a maximum usable position
