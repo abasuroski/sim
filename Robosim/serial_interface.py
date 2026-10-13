@@ -232,6 +232,38 @@ def send_mit_frame(
     send(f"{motor}T{tau_ff:.5f}\n")
 
 
+def send_mit_update(
+    motor: int,
+    pos: float | None = None,
+    vel: float | None = None,
+    kp: float | None = None,
+    kd: float | None = None,
+    tau_ff: float | None = None,
+) -> int:
+    """Send only the given MIT fields for one motor, in a single serial write.
+
+    The STM32 latches each field, so unchanged fields can be omitted to save
+    bandwidth. Returns the number of bytes written.
+    """
+    parts = []
+    if pos is not None:
+        parts.append(f"{motor}P{pos:.5f}\n")
+    if vel is not None:
+        parts.append(f"{motor}V{vel:.5f}\n")
+    if kp is not None:
+        parts.append(f"{motor}K{kp:.5f}\n")
+    if kd is not None:
+        parts.append(f"{motor}D{kd:.5f}\n")
+    if tau_ff is not None:
+        tau_ff = max(-TAU_FF_LIMIT[motor], min(TAU_FF_LIMIT[motor], tau_ff))
+        parts.append(f"{motor}T{tau_ff:.5f}\n")
+    if not parts:
+        return 0
+    cmd = "".join(parts)
+    send(cmd)
+    return len(cmd)
+
+
 def enable_motors(motors: list[int]) -> None:
     """Enable motors and zero the STM32 outer PID so it doesn't fight the PC controller."""
     for m in motors:
