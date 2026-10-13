@@ -52,6 +52,7 @@ Requires: mujoco, pyserial, numpy
 
 from __future__ import annotations
 
+import atexit
 import csv
 import json
 import math
@@ -73,6 +74,7 @@ from robot_master_configuration import (
 )
 from master_controller import MasterController, PositionSchedule
 from trapezoidal_motion import TrapezoidalReferenceLimiter
+from plot_run_log import plot_run_log
 import serial_interface as si
 
 # ---------------------------------------------------------------------------
@@ -94,13 +96,21 @@ CLOSED_LOOP = True
 # Toggle at runtime by typing 'd' in the terminal.
 DEBUG_COMMANDS = True
 
+# Print controller telemetry in the terminal.  The encoder is displayed both
+# in its raw STM32 coordinate and, after synchronization, projected into the
+# same joint coordinate as MuJoCo before calculating the position error.
+# Toggle at runtime by typing 'f'.
+PRINT_MOTOR_FEEDBACK = True
+MOTOR_FEEDBACK_PRINT_HZ = 4.0
+
 # Set to True to send zero torque feedforward to all motors.
 # Useful for initial testing before verifying TFF sign and magnitude.
 ZERO_TFF = True
 
 # Every run writes logs/hardware_controller_<UTC stamp>.csv (one row per
-# control tick, flushed immediately) and a matching .json with the run's
-# settings and git revision.  The controller refuses to start without a log.
+# control tick, flushed immediately), a matching .json with the run's
+# settings and git revision, and a .svg graph (plot_run_log.py) written when
+# the run ends.  The controller refuses to start without a log.
 CYCLE_LOG_DIRECTORY = Path(__file__).parent / "logs"
 
 # Live slider streaming.  A full P/V/K/D/T frame for all four motors every
@@ -181,6 +191,7 @@ _request_rezero  = False
 _encoder_at_sync: dict[int, float]  = {}   # {motor: encoder_rad}
 _sim_at_sync:     dict[str, float]  = {}   # {joint_name: qpos_rad}
 _pos_cmd_offset:  dict[int, float]  = {}   # {motor: encoder_rad - ref_pos_motor at sync}
+_encoder_feedback_at_sync: set[int] = set()  # motors with a real encoder sample at sync
 
 # Terminal/pipe commands and controller events, drained into the next log row.
 _log_events: deque[str] = deque()
@@ -342,6 +353,30 @@ def _git_revision() -> str:
     return f"{rev}-dirty" if dirty else rev
 
 
+_finished_logs: set[Path] = set()
+
+
+def _finish_run_log(log_file: object, path: Path) -> None:
+    """Close the run's CSV and write its graph next to it. Safe to call twice.
+
+    Registered with atexit as well as called at the normal end, so a crash or
+    Ctrl+C still leaves a graph of whatever was logged.
+    """
+    if path in _finished_logs:
+        return
+    _finished_logs.add(path)
+    try:
+        log_file.close()
+    except OSError:
+        pass
+    print(f"[ctrl] Run log saved: {path}")
+    try:
+        print(f"[ctrl] Run graph saved: {plot_run_log(path)}")
+    except Exception as exc:  # a plotting bug must never hide the CSV
+        print(f"[ctrl] WARNING: could not draw the run graph: {exc}")
+        print(f"[ctrl]   Retry with: python plot_run_log.py {path}")
+
+
 def _open_cycle_log(
     qpos_idx: dict[str, int],
     limiter: "TrapezoidalReferenceLimiter",
@@ -462,6 +497,56 @@ def _write_cycle_log(
         row[f"{actuator}_reference_velocity_joint_rad_s"] = reference.velocity_rad_s
     writer.writerow(row)
     log_file.flush()
+
+def _encoder_position_in_sim_coordinates(motor: int, raw_position_rad: float | None) -> float | None:
+    """Project one raw encoder value into the synchronized MuJoCo joint frame."""
+    joint = MOTOR_TO_JOINT[motor]
+    if (
+        raw_position_rad is None
+        or motor not in _encoder_feedback_at_sync
+        or motor not in _encoder_at_sync
+        or joint not in _sim_at_sync
+    ):
+        return None
+    return _sim_at_sync[joint] + (raw_position_rad - _encoder_at_sync[motor]) * MOTOR_SCALE[motor]
+
+
+def _print_live_telemetry(
+    data: mujoco.MjData,
+    qpos_idx: dict[str, int],
+    raw_pos: dict[int, float | None],
+    command_gains: dict[int, tuple[float, float] | None],
+    simulation_only: bool,
+) -> None:
+    """Print positions and the motor-side Kp/Kd values used for control."""
+    status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
+    source = "simulation; no STM32 feedback" if simulation_only else "STM32 raw encoder"
+    print(f"[telemetry/{status}] {source}")
+    for motor, joint in MOTOR_TO_JOINT.items():
+        sim_position = float(data.qpos[qpos_idx[joint]])
+        encoder_position = raw_pos[motor]
+        encoder_sim_position = _encoder_position_in_sim_coordinates(motor, encoder_position)
+        if encoder_position is None:
+            encoder_text = "n/a"
+        else:
+            encoder_text = f"{encoder_position:+.4f} raw rad"
+        if encoder_sim_position is None:
+            comparison_text = "enc_sim=n/a  error=n/a"
+        else:
+            error = sim_position - encoder_sim_position
+            comparison_text = (
+                f"enc_sim={encoder_sim_position:+.4f} rad  "
+                f"error={error:+.4f} rad"
+            )
+        gains = command_gains[motor]
+        gain_text = "Kp=n/a  Kd=n/a"
+        if gains is not None:
+            gain_text = f"Kp={gains[0]:.3f} N m/rad  Kd={gains[1]:.3f} N m s/rad"
+        print(
+            f"    M{motor} {joint}: sim={sim_position:+.4f} rad  "
+            f"enc={encoder_text}  {comparison_text}  {gain_text}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Fallback controller (when no JSON schedule is present)
@@ -595,6 +680,7 @@ def main() -> None:
     print("         r            — resume control loop")
     if not simulation_only:
         print("         z            — print current encoder readings")
+    print("         f            — toggle live controller telemetry")
     print("         d            — toggle command debug printout")
     print("         q            — quit")
     print()
@@ -603,7 +689,7 @@ def main() -> None:
     def _handle_command(raw: str) -> None:
         global _control_active, _request_start, _request_pause
         global _paused, _request_goal, _request_home, _request_rezero
-        global DEBUG_COMMANDS
+        global DEBUG_COMMANDS, PRINT_MOTOR_FEEDBACK
 
         if not raw:
             return
@@ -674,6 +760,10 @@ def main() -> None:
 
         elif cmd == "z":
             _request_rezero = True
+
+        elif cmd == "f":
+            PRINT_MOTOR_FEEDBACK = not PRINT_MOTOR_FEEDBACK
+            print(f"[ctrl] Live controller telemetry {'ON' if PRINT_MOTOR_FEEDBACK else 'OFF'}")
 
         elif cmd == "d":
             DEBUG_COMMANDS = not DEBUG_COMMANDS
@@ -755,16 +845,22 @@ def main() -> None:
         si.close()
         sys.exit(1)
     cycle_log_start_time = time.perf_counter()
-    print(f"[ctrl] Logging this run to {cycle_log[2]}")
+    run_log_file, run_log_path = cycle_log[0], cycle_log[2]
+    atexit.register(_finish_run_log, run_log_file, run_log_path)
+    print(f"[ctrl] Logging this run to {run_log_path}")
 
     dt = 1.0 / UPDATE_HZ
     tick = 0
     streamer = _CommandStreamer()
     idle_slider_hint_shown = False
+    latest_command_gains: dict[int, tuple[float, float] | None] = {
+        motor: None for motor in MOTOR_TO_JOINT
+    }
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
         next_tick  = time.perf_counter()
         last_print = time.perf_counter()
+        last_feedback_print = 0.0
 
         while viewer.is_running():
 
@@ -780,8 +876,11 @@ def main() -> None:
 
                 pos_raw, _ = si.raw_snapshot()
                 missing = [m for m in [1, 2, 3, 4] if pos_raw[m] is None]
+                _encoder_feedback_at_sync.clear()
                 for motor in MOTOR_TO_JOINT:
                     _encoder_at_sync[motor] = pos_raw[motor] if pos_raw[motor] is not None else 0.0
+                    if pos_raw[motor] is not None:
+                        _encoder_feedback_at_sync.add(motor)
 
                 for motor, jname in MOTOR_TO_JOINT.items():
                     if jname in qpos_idx:
@@ -923,6 +1022,8 @@ def main() -> None:
                             kp_motor, kd_motor = DEFAULT_GAINS[actuator]
 
                         tau_ff_motor = 0.0 if ZERO_TFF else tau_ff.get(motor, 0.0)
+                        # The motor-side gains shown in terminal telemetry.
+                        latest_command_gains[motor] = (kp_motor, kd_motor)
 
                         streamer.send(
                             motor,
@@ -964,6 +1065,20 @@ def main() -> None:
                     state = "paused — type 'r'" if _paused else "idle — type 's'"
                     print(f"[ctrl] Slider target stored, but control is {state} to stream it to the motors.")
 
+            now = time.perf_counter()
+            if (
+                PRINT_MOTOR_FEEDBACK
+                and now - last_feedback_print >= 1.0 / MOTOR_FEEDBACK_PRINT_HZ
+            ):
+                last_feedback_print = now
+                _print_live_telemetry(
+                    data,
+                    qpos_idx,
+                    log_pos,
+                    latest_command_gains,
+                    simulation_only,
+                )
+
             if cycle_log is not None:
                 try:
                     _write_cycle_log(
@@ -994,9 +1109,7 @@ def main() -> None:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
-    if cycle_log is not None:
-        cycle_log[0].close()
-        print(f"[ctrl] Run log saved: {cycle_log[2]}")
+    _finish_run_log(run_log_file, run_log_path)
     si.close()
     if simulation_only:
         print("[ctrl] Simulation closed. Bye.")
