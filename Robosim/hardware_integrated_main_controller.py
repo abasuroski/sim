@@ -14,7 +14,7 @@ Control loop (runs at UPDATE_HZ):
   2. Write encoder state into MuJoCo data.qpos / data.qvel
   3. Run mj_forward to update kinematics and mass matrix
   4. MasterController.update() schedules kp/kd from inertia + position
-  5. TrapezoidalReferenceLimiter.advance() steps the reference trajectory
+  5. CubicSplineReferenceLimiter.advance() steps the reference trajectory
   6. mj_inverse computes gravity-compensation feedforward torques
   7. Pack and send MIT control frame per motor: P, V, Kp, Kd, tau_ff
 
@@ -69,7 +69,7 @@ from robot_master_configuration import (
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
 )
 from master_controller import MasterController, PositionSchedule
-from trapezoidal_motion import TrapezoidalReferenceLimiter
+from trapezoidal_motion import CubicSplineReferenceLimiter
 import serial_interface as si
 
 # ---------------------------------------------------------------------------
@@ -163,6 +163,7 @@ _control_active  = False   # True once 's' is pressed
 _request_start   = False
 _request_pause   = False
 _paused          = False
+_request_resume  = False
 _request_goal: dict[str, float] | None = None   # actuator → target (rad, joint side)
 _request_home    = False
 _request_rezero  = False
@@ -187,13 +188,22 @@ def _apply_encoder_state(
     keyframe_qpos: dict[str, float],
     pos_snap: dict[int, float | None],
     vel_snap: dict[int, float],
+    limiter: "CubicSplineReferenceLimiter | None" = None,
 ) -> None:
     driven_qpos: dict[str, float] = {}
 
     for motor, jname in MOTOR_TO_JOINT.items():
         pos = pos_snap[motor]
         if pos is None or jname not in qpos_idx or motor not in _encoder_at_sync:
-            driven_qpos[jname] = keyframe_qpos.get(jname, 0.0)
+            fallback = keyframe_qpos.get(jname, 0.0)
+            if limiter is not None:
+                for act, mot in ACTUATOR_TO_MOTOR.items():
+                    if mot == motor:
+                        fallback = limiter.reference_position(act)
+                        break
+            driven_qpos[jname] = fallback
+            if jname in qpos_idx:
+                data.qpos[qpos_idx[jname]] = fallback
             continue
 
         scale = MOTOR_SCALE[motor]
@@ -218,7 +228,7 @@ def _apply_reference_state(
     qpos_idx: dict[str, int],
     qvel_idx: dict[str, int],
     keyframe_qpos: dict[str, float],
-    limiter: "TrapezoidalReferenceLimiter",
+    limiter: "CubicSplineReferenceLimiter",
 ) -> None:
     driven_qpos: dict[str, float] = {}
     for actuator, motor in ACTUATOR_TO_MOTOR.items():
@@ -349,7 +359,7 @@ def _limit_ak40_command_torque(
 def _open_cycle_log(
     qpos_idx: dict[str, int],
     qvel_idx: dict[str, int],
-    limiter: "TrapezoidalReferenceLimiter",
+    limiter: "CubicSplineReferenceLimiter",
 ) -> tuple[object, csv.DictWriter, Path] | None:
     """Create a per-run plain-text CSV log with raw encoder and sim state."""
     if not CYCLE_LOG_ENABLED:
@@ -381,6 +391,16 @@ def _open_cycle_log(
                 f"{actuator}_reference_velocity_joint_rad_s",
             ]
         )
+    for motor in MOTOR_TO_JOINT:
+        fieldnames.extend(
+            [
+                f"m{motor}_cmd_position_motor_rad",
+                f"m{motor}_cmd_velocity_motor_rad_s",
+                f"m{motor}_cmd_kp_motor_nm_per_rad",
+                f"m{motor}_cmd_kd_motor_nm_s_per_rad",
+                f"m{motor}_cmd_tff_motor_nm",
+            ]
+        )
 
     try:
         CYCLE_LOG_DIRECTORY.mkdir(parents=True, exist_ok=True)
@@ -404,9 +424,10 @@ def _write_cycle_log(
     data: mujoco.MjData,
     qpos_idx: dict[str, int],
     qvel_idx: dict[str, int],
-    limiter: "TrapezoidalReferenceLimiter",
+    limiter: "CubicSplineReferenceLimiter",
     raw_pos: dict[int, float | None],
     raw_vel: dict[int, float],
+    mit_commands: dict[int, tuple[float, float, float, float, float] | None] | None = None,
 ) -> None:
     """Append one controller-cycle record and flush it to disk."""
     status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
@@ -429,6 +450,14 @@ def _write_cycle_log(
         row[f"{actuator}_requested_joint_rad"] = reference.requested_position_rad
         row[f"{actuator}_reference_joint_rad"] = reference.position_rad
         row[f"{actuator}_reference_velocity_joint_rad_s"] = reference.velocity_rad_s
+    for motor in MOTOR_TO_JOINT:
+        cmd = mit_commands.get(motor) if mit_commands else None
+        if cmd is not None:
+            row[f"m{motor}_cmd_position_motor_rad"] = cmd[0]
+            row[f"m{motor}_cmd_velocity_motor_rad_s"] = cmd[1]
+            row[f"m{motor}_cmd_kp_motor_nm_per_rad"] = cmd[2]
+            row[f"m{motor}_cmd_kd_motor_nm_s_per_rad"] = cmd[3]
+            row[f"m{motor}_cmd_tff_motor_nm"] = cmd[4]
     writer.writerow(row)
     log_file.flush()
 
@@ -461,7 +490,7 @@ def _build_default_controller() -> MasterController:
 
 def main() -> None:
     global _ser, _control_active, _request_start, _request_pause
-    global _paused, _request_goal, _request_home, _request_rezero
+    global _paused, _request_resume, _request_goal, _request_home, _request_rezero
 
     arguments = sys.argv[1:]
     enable_motors_on_start = "--enable-motors" in arguments
@@ -530,7 +559,7 @@ def main() -> None:
     controller.bind(model)
 
     # --- Trapezoidal reference ---
-    limiter = TrapezoidalReferenceLimiter(model, controller)
+    limiter = CubicSplineReferenceLimiter(model, controller)
 
     # Initialise ctrl to hardware_zero.
     for actuator, ctrl_val in HARDWARE_ZERO_ACTUATOR_CTRL_RAD.items():
@@ -578,7 +607,7 @@ def main() -> None:
     # --- Shared command handler (used by both stdin and named pipe) ---
     def _handle_command(raw: str) -> None:
         global _control_active, _request_start, _request_pause
-        global _paused, _request_goal, _request_home, _request_rezero
+        global _paused, _request_resume, _request_goal, _request_home, _request_rezero
         global DEBUG_COMMANDS, PRINT_MOTOR_FEEDBACK
 
         if not raw:
@@ -644,8 +673,10 @@ def main() -> None:
             print("[ctrl] Control paused — no commands being sent")
 
         elif cmd == "r":
-            _paused = False
-            print("[ctrl] Control resumed")
+            if _paused:
+                _request_resume = True
+            else:
+                print("[ctrl] Not paused.")
 
         elif cmd == "z":
             _request_rezero = True
@@ -703,6 +734,9 @@ def main() -> None:
     latest_command_gains: dict[int, tuple[float, float] | None] = {
         motor: None for motor in MOTOR_TO_JOINT
     }
+    latest_mit_commands: dict[int, tuple[float, float, float, float, float] | None] = {
+        motor: None for motor in MOTOR_TO_JOINT
+    }
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
         next_tick  = time.perf_counter()
@@ -757,6 +791,35 @@ def main() -> None:
                 # the first outgoing position command match each live encoder.
                 print("[ctrl] Control loop active — holding synchronized positions.")
 
+            if _request_resume and _control_active and _paused:
+                _request_resume = False
+                if not simulation_only:
+                    pos_raw, _ = si.raw_snapshot()
+                    _encoder_feedback_at_sync.clear()
+                    for motor in MOTOR_TO_JOINT:
+                        if pos_raw[motor] is not None:
+                            _encoder_at_sync[motor] = pos_raw[motor]
+                            _encoder_feedback_at_sync.add(motor)
+                    for motor, jname in MOTOR_TO_JOINT.items():
+                        if jname in qpos_idx:
+                            _sim_at_sync[jname] = float(data.qpos[qpos_idx[jname]])
+                    for follower in CONSTRAINED_JOINTS:
+                        if follower in qpos_idx:
+                            _sim_at_sync[follower] = float(data.qpos[qpos_idx[follower]])
+                    _pos_cmd_offset.clear()
+                    for actuator, motor in ACTUATOR_TO_MOTOR.items():
+                        act_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
+                        gear = float(model.actuator_gear[act_id, 0])
+                        ref_motor = MOTOR_DIRECTION[motor] * limiter.reference_position(actuator) * gear
+                        if pos_raw[motor] is not None:
+                            _pos_cmd_offset[motor] = pos_raw[motor] - ref_motor
+                        else:
+                            _pos_cmd_offset[motor] = 0.0
+                    off_str = ", ".join(f"M{m}={v:+.4f}" for m, v in sorted(_pos_cmd_offset.items()))
+                    print(f"[ctrl] Resume re-sync offsets: {off_str}")
+                _paused = False
+                print("[ctrl] Control resumed")
+
             if _request_goal is not None and _control_active:
                 for actuator, target in _request_goal.items():
                     act_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
@@ -810,7 +873,7 @@ def main() -> None:
 
             # --- Update MuJoCo state ---
             if CLOSED_LOOP and not simulation_only:
-                _apply_encoder_state(data, qpos_idx, qvel_idx, keyframe_qpos, pos_snap, vel_snap)
+                _apply_encoder_state(data, qpos_idx, qvel_idx, keyframe_qpos, pos_snap, vel_snap, limiter)
             else:
                 _apply_reference_state(data, qpos_idx, qvel_idx, keyframe_qpos, limiter)
             mujoco.mj_forward(model, data)
@@ -893,6 +956,9 @@ def main() -> None:
                             kd_motor,
                             tau_ff_motor,
                         )
+                        latest_mit_commands[motor] = (
+                            ref_pos_motor, ref_vel_motor, kp_motor, kd_motor, tau_ff_motor,
+                        )
 
                         if DEBUG_COMMANDS and tick % UPDATE_HZ == 0:
                             print(
@@ -936,6 +1002,7 @@ def main() -> None:
                         limiter,
                         raw_pos,
                         raw_vel,
+                        latest_mit_commands,
                     )
                 except OSError as exc:
                     print(f"[ctrl] Cycle logging stopped: {exc}")

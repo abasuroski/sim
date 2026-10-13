@@ -20,9 +20,6 @@ Serial protocol (STM32 UART, 115200 baud):
     <n>D<val>\\n  — inner Kd
     <n>T<val>\\n  — torque feedforward (N·m)
     <n>E\\n       — enable motor
-    <n>G<val>\\n  — outer Kp (set to 0 to bypass STM32 PID)
-    <n>H<val>\\n  — outer Kd
-    <n>J<val>\\n  — outer Ki
     <n>R\\n       — passive feedback (no torque)
     0X\\n         — emergency stop all motors
 
@@ -52,7 +49,7 @@ except ModuleNotFoundError:
 # Constants
 # ---------------------------------------------------------------------------
 
-BAUD_RATE = 115200
+BAUD_RATE = 1000000
 
 # Safety: maximum torque feedforward sent per motor (N·m, motor side).
 TAU_FF_LIMIT: dict[int, float] = {1: 9.0, 2: 18.0, 3: 18.0, 4: AK40_MOTOR_TORQUE_LIMIT_NM}
@@ -75,7 +72,12 @@ _motor_measure_time: dict[int, float]        = {1: 0.0,  2: 0.0,  3: 0.0,  4: 0.
 
 _POS_RE = re.compile(r'pos=(-?\d+\.?\d*)\s*(rad|deg)')
 _VEL_RE = re.compile(r'\bvel=(-?\d+\.?\d*)')
+_SPD_RE = re.compile(r'\bspd=(-?\d+\.?\d*)')
 _TS_RE  = re.compile(r'\bt=(\d+)ms')
+
+_AK60_POLE_PAIRS = 14
+_AK60_REDUCTION = 6.0
+_ERPM_TO_RAD_S = (2.0 * math.pi) / (60.0 * _AK60_POLE_PAIRS * _AK60_REDUCTION)
 
 
 def _parse_line(line: str) -> None:
@@ -97,6 +99,10 @@ def _parse_line(line: str) -> None:
         mv = _VEL_RE.search(body)
         if mv:
             vel = float(mv.group(1))
+        else:
+            ms = _SPD_RE.search(body)
+            if ms:
+                vel = float(ms.group(1)) * _ERPM_TO_RAD_S
 
         with _fb_lock:
             _motor_pos[motor]          = val
@@ -233,18 +239,12 @@ def send_mit_frame(
 
 
 def enable_motors(motors: list[int]) -> None:
-    """Enable motors and zero the STM32 outer PID so it doesn't fight the PC controller."""
+    """Enable motors via the STM32 soft-start sequence."""
     for m in motors:
         print(f"[serial] Enabling M{m}...")
         send(f"{m}E\n")
         time.sleep(0.1)
-        send(f"{m}G0.0\n")   # outer Kp → 0
-        time.sleep(0.005)
-        send(f"{m}H0.0\n")   # outer Kd → 0
-        time.sleep(0.005)
-        send(f"{m}J0.0\n")   # outer Ki → 0
-        time.sleep(0.005)
-    print(f"[serial] Motors enabled with outer PID zeroed: {motors}")
+    print(f"[serial] Motors enabled: {motors}")
 
 
 def enable_passive_feedback(motors: list[int]) -> None:
