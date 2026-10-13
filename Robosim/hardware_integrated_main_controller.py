@@ -52,11 +52,16 @@ Requires: mujoco, pyserial, numpy
 
 from __future__ import annotations
 
+import atexit
 import csv
-import sys
+import json
 import math
+import platform
+import subprocess
+import sys
 import threading
 import time
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -70,6 +75,7 @@ from robot_master_configuration import (
 )
 from master_controller import MasterController, PositionSchedule
 from trapezoidal_motion import CubicSplineReferenceLimiter
+from plot_run_log import plot_run_log
 import serial_interface as si
 
 # ---------------------------------------------------------------------------
@@ -85,7 +91,7 @@ SEND_EVERY = 1    # send commands every N control ticks (1 = every tick)
 # Set to False to run open-loop: the sim tracks the reference trajectory
 # instead of encoder feedback. Commands still go to the real motors.
 # Use this first to verify commands are sensible before enabling feedback.
-CLOSED_LOOP = False
+CLOSED_LOOP = True
 
 # Print every MIT frame sent to the STM32 (once per second per motor).
 # Toggle at runtime by typing 'd' in the terminal.
@@ -98,9 +104,10 @@ DEBUG_COMMANDS = True
 PRINT_MOTOR_FEEDBACK = True
 MOTOR_FEEDBACK_PRINT_HZ = 4.0
 
-# Write one plain-text CSV row per control cycle. A four-motor log with the
-# full MuJoCo state grows quickly at 84 Hz, so each run receives its own file.
-CYCLE_LOG_ENABLED = True
+# Every run writes logs/hardware_controller_<UTC stamp>.csv (one row per
+# control tick, flushed immediately), a matching .json with the run's
+# settings and git revision, and a .svg graph (plot_run_log.py) written when
+# the run ends.  The controller refuses to start without a log.
 CYCLE_LOG_DIRECTORY = Path(__file__).parent / "logs"
 
 # Set to True to send zero torque feedforward to all motors.
@@ -149,7 +156,7 @@ TORQUE_FF_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: MOTOR_DIRECTION[4] / 1.25}
 # Default PD gains used if no gain_schedule.json is found.
 # These are joint-output values (N·m/rad and N·m·s/rad).
 DEFAULT_GAINS = {
-    "ak60_revolute_1": (9.0,  1.0),
+    "ak60_revolute_1": (3.0,  0.8),
     "ak70_revolute_2": (24.8, 1.5),
     "ak70_revolute_3": (24.8, 1.5),
     "ak40_revolute_4": (AK40_MOTOR_TORQUE_LIMIT_NM * 1.25, 0.3),
@@ -176,6 +183,9 @@ _encoder_at_sync: dict[int, float]  = {}   # {motor: encoder_rad}
 _sim_at_sync:     dict[str, float]  = {}   # {joint_name: qpos_rad}
 _pos_cmd_offset:  dict[int, float]  = {}   # {motor: encoder_rad - ref_pos_motor at sync}
 _encoder_feedback_at_sync: set[int] = set()  # motors with a real encoder sample at sync
+
+# Terminal/pipe commands and controller events, drained into the next log row.
+_log_events: deque[str] = deque()
 
 # ---------------------------------------------------------------------------
 # Kinematics helpers
@@ -356,18 +366,63 @@ def _limit_ak40_command_torque(
         tau_ff_motor_nm,
     )
 
+# ---------------------------------------------------------------------------
+# Per-run cycle log
+# ---------------------------------------------------------------------------
+
+def _git_revision() -> str:
+    """Return the short HEAD hash, suffixed with -dirty for uncommitted edits."""
+    repo = Path(__file__).parent
+    try:
+        rev = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=repo, capture_output=True, text=True, timeout=5,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=repo, capture_output=True, text=True, timeout=5,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    if not rev:
+        return "unknown"
+    return f"{rev}-dirty" if dirty else rev
+
+
+_finished_logs: set[Path] = set()
+
+
+def _finish_run_log(log_file: object, path: Path) -> None:
+    """Close the run's CSV and write its graph next to it. Safe to call twice.
+
+    Registered with atexit as well as called at the normal end, so a crash or
+    Ctrl+C still leaves a graph of whatever was logged.
+    """
+    if path in _finished_logs:
+        return
+    _finished_logs.add(path)
+    try:
+        log_file.close()
+    except OSError:
+        pass
+    print(f"[ctrl] Run log saved: {path}")
+    try:
+        print(f"[ctrl] Run graph saved: {plot_run_log(path)}")
+    except Exception as exc:  # a plotting bug must never hide the CSV
+        print(f"[ctrl] WARNING: could not draw the run graph: {exc}")
+        print(f"[ctrl]   Retry with: python plot_run_log.py {path}")
+
+
 def _open_cycle_log(
     qpos_idx: dict[str, int],
-    qvel_idx: dict[str, int],
     limiter: "CubicSplineReferenceLimiter",
-) -> tuple[object, csv.DictWriter, Path] | None:
-    """Create a per-run plain-text CSV log with raw encoder and sim state."""
-    if not CYCLE_LOG_ENABLED:
-        return None
-
+    metadata: dict[str, object],
+) -> tuple[object, csv.DictWriter, Path]:
+    """Create this run's CSV log and its JSON settings file. Raises OSError on failure."""
     fieldnames = [
         "host_time_utc",
         "wall_time_s",
+        "tick",
         "simulation_time_s",
         "mode",
         "control_state",
@@ -378,6 +433,18 @@ def _open_cycle_log(
             [
                 f"m{motor}_encoder_position_rad",
                 f"m{motor}_encoder_velocity_rad_s",
+                f"m{motor}_feedback_age_s",
+            ]
+        )
+    for motor in MOTOR_TO_JOINT:
+        fieldnames.extend(
+            [
+                f"m{motor}_cmd_position_rad",
+                f"m{motor}_cmd_velocity_rad_s",
+                f"m{motor}_cmd_kp",
+                f"m{motor}_cmd_kd",
+                f"m{motor}_cmd_tau_ff_nm",
+                f"m{motor}_cmd_fields_sent",
             ]
         )
     for joint in qpos_idx:
@@ -391,28 +458,26 @@ def _open_cycle_log(
                 f"{actuator}_reference_velocity_joint_rad_s",
             ]
         )
-    for motor in MOTOR_TO_JOINT:
-        fieldnames.extend(
-            [
-                f"m{motor}_cmd_position_motor_rad",
-                f"m{motor}_cmd_velocity_motor_rad_s",
-                f"m{motor}_cmd_kp_motor_nm_per_rad",
-                f"m{motor}_cmd_kd_motor_nm_s_per_rad",
-                f"m{motor}_cmd_tff_motor_nm",
-            ]
-        )
+    fieldnames.append("events")
 
-    try:
-        CYCLE_LOG_DIRECTORY.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        path = CYCLE_LOG_DIRECTORY / f"hardware_controller_{stamp}.csv"
-        log_file = path.open("w", newline="", encoding="utf-8", buffering=1)
-        writer = csv.DictWriter(log_file, fieldnames=fieldnames)
-        writer.writeheader()
-        log_file.flush()
-    except OSError as exc:
-        print(f"[ctrl] Cycle logging disabled: {exc}")
-        return None
+    CYCLE_LOG_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    # Exclusive create: two runs started in the same second never overwrite each other.
+    for suffix in [""] + [f"_{n}" for n in range(1, 100)]:
+        path = CYCLE_LOG_DIRECTORY / f"hardware_controller_{stamp}{suffix}.csv"
+        try:
+            log_file = path.open("x", newline="", encoding="utf-8", buffering=1)
+            break
+        except FileExistsError:
+            continue
+    else:
+        raise OSError(f"no free log filename for {stamp} in {CYCLE_LOG_DIRECTORY}")
+
+    writer = csv.DictWriter(log_file, fieldnames=fieldnames)
+    writer.writeheader()
+    log_file.flush()
+    metadata = dict(metadata, csv_file=path.name)
+    path.with_suffix(".json").write_text(json.dumps(metadata, indent=2, default=str), encoding="utf-8")
     return log_file, writer, path
 
 
@@ -420,28 +485,44 @@ def _write_cycle_log(
     log_file: object,
     writer: csv.DictWriter,
     start_time: float,
+    tick: int,
     simulation_only: bool,
     data: mujoco.MjData,
     qpos_idx: dict[str, int],
     qvel_idx: dict[str, int],
     limiter: "CubicSplineReferenceLimiter",
     raw_pos: dict[int, float | None],
-    raw_vel: dict[int, float],
-    mit_commands: dict[int, tuple[float, float, float, float, float] | None] | None = None,
+    raw_vel: dict[int, float | None],
+    feedback_age: dict[int, float | None],
+    commanded: dict[int, tuple[float, float, float, float, float, str]],
 ) -> None:
     """Append one controller-cycle record and flush it to disk."""
     status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
+    events = []
+    while _log_events:
+        events.append(_log_events.popleft())
     row: dict[str, object] = {
         "host_time_utc": datetime.now(timezone.utc).isoformat(),
         "wall_time_s": time.perf_counter() - start_time,
+        "tick": tick,
         "simulation_time_s": float(data.time),
         "mode": "simulation" if simulation_only else "hardware",
         "control_state": status,
         "contact_count": int(data.ncon),
+        "events": " | ".join(events),
     }
     for motor in MOTOR_TO_JOINT:
         row[f"m{motor}_encoder_position_rad"] = raw_pos[motor]
         row[f"m{motor}_encoder_velocity_rad_s"] = raw_vel[motor]
+        row[f"m{motor}_feedback_age_s"] = feedback_age[motor]
+        if motor in commanded:
+            pos, vel, kp, kd, tau_ff, sent = commanded[motor]
+            row[f"m{motor}_cmd_position_rad"] = pos
+            row[f"m{motor}_cmd_velocity_rad_s"] = vel
+            row[f"m{motor}_cmd_kp"] = kp
+            row[f"m{motor}_cmd_kd"] = kd
+            row[f"m{motor}_cmd_tau_ff_nm"] = tau_ff
+            row[f"m{motor}_cmd_fields_sent"] = sent
     for joint, address in qpos_idx.items():
         row[f"sim_{joint}_qpos_rad"] = float(data.qpos[address])
         row[f"sim_{joint}_qvel_rad_s"] = float(data.qvel[qvel_idx[joint]])
@@ -450,14 +531,6 @@ def _write_cycle_log(
         row[f"{actuator}_requested_joint_rad"] = reference.requested_position_rad
         row[f"{actuator}_reference_joint_rad"] = reference.position_rad
         row[f"{actuator}_reference_velocity_joint_rad_s"] = reference.velocity_rad_s
-    for motor in MOTOR_TO_JOINT:
-        cmd = mit_commands.get(motor) if mit_commands else None
-        if cmd is not None:
-            row[f"m{motor}_cmd_position_motor_rad"] = cmd[0]
-            row[f"m{motor}_cmd_velocity_motor_rad_s"] = cmd[1]
-            row[f"m{motor}_cmd_kp_motor_nm_per_rad"] = cmd[2]
-            row[f"m{motor}_cmd_kd_motor_nm_s_per_rad"] = cmd[3]
-            row[f"m{motor}_cmd_tff_motor_nm"] = cmd[4]
     writer.writerow(row)
     log_file.flush()
 
@@ -572,10 +645,45 @@ def main() -> None:
         _control_active = True
         _paused = False
 
-    cycle_log = _open_cycle_log(qpos_idx, qvel_idx, limiter)
+    # --- Per-run cycle log (mandatory) ---
+    run_metadata = {
+        "started_utc": datetime.now(timezone.utc).isoformat(),
+        "host": platform.node(),
+        "python": sys.version,
+        "script": str(Path(__file__).resolve()),
+        "git_revision": _git_revision(),
+        "argv": sys.argv,
+        "serial_port": port,
+        "serial_baud": si.BAUD_RATE,
+        "simulation_only": simulation_only,
+        "enable_motors_on_start": enable_motors_on_start,
+        "gain_schedule": str(SCHEDULE_PATH) if SCHEDULE_PATH.exists() else None,
+        "settings": {
+            "UPDATE_HZ": UPDATE_HZ,
+            "SEND_EVERY": SEND_EVERY,
+            "CLOSED_LOOP": CLOSED_LOOP,
+            "ZERO_TFF": ZERO_TFF,
+            "MOTOR_DIRECTION": MOTOR_DIRECTION,
+            "MOTOR_SCALE": MOTOR_SCALE,
+            "TORQUE_FF_SCALE": TORQUE_FF_SCALE,
+            "TAU_FF_LIMIT": si.TAU_FF_LIMIT,
+            "AK40_MOTOR_TORQUE_LIMIT_NM": AK40_MOTOR_TORQUE_LIMIT_NM,
+            "DEFAULT_GAINS": DEFAULT_GAINS,
+            "CONSTRAINED_JOINTS": CONSTRAINED_JOINTS,
+            "HARDWARE_ZERO_ACTUATOR_CTRL_RAD": HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
+        },
+    }
+    try:
+        cycle_log = _open_cycle_log(qpos_idx, limiter, run_metadata)
+    except OSError as exc:
+        print(f"[ctrl] ERROR: cannot create the run log in {CYCLE_LOG_DIRECTORY}: {exc}")
+        print("[ctrl] Refusing to run without a log.")
+        si.close()
+        sys.exit(1)
     cycle_log_start_time = time.perf_counter()
-    if cycle_log is not None:
-        print(f"[ctrl] Cycle log: {cycle_log[2]}")
+    run_log_file, run_log_path = cycle_log[0], cycle_log[2]
+    atexit.register(_finish_run_log, run_log_file, run_log_path)
+    print(f"[ctrl] Logging this run to {run_log_path}")
 
     # --- Print startup info ---
     loop_mode = "CLOSED-LOOP (encoder feedback)" if CLOSED_LOOP else "OPEN-LOOP (reference only — no encoder feedback)"
@@ -612,6 +720,7 @@ def main() -> None:
 
         if not raw:
             return
+        _log_events.append(f"cmd {raw}")
         cmd = raw.lower()
 
         if cmd == "a":
@@ -700,6 +809,7 @@ def main() -> None:
             except EOFError:
                 break
             if raw.lower() == "q":
+                _log_events.append("cmd q")
                 break
             _handle_command(raw)
 
@@ -732,9 +842,6 @@ def main() -> None:
     dt = 1.0 / UPDATE_HZ
     tick = 0
     latest_command_gains: dict[int, tuple[float, float] | None] = {
-        motor: None for motor in MOTOR_TO_JOINT
-    }
-    latest_mit_commands: dict[int, tuple[float, float, float, float, float] | None] = {
         motor: None for motor in MOTOR_TO_JOINT
     }
 
@@ -786,6 +893,10 @@ def main() -> None:
                     _pos_cmd_offset[motor] = _encoder_at_sync[motor] - ref_now
                 off_str = ", ".join(f"M{m}={v:+.4f}" for m, v in sorted(_pos_cmd_offset.items()))
                 print(f"[ctrl] Position command offsets: {off_str}")
+                _log_events.append(
+                    f"start snapshot {snap_str}; offsets {off_str}"
+                    + (f"; no feedback from {missing}" if missing else "")
+                )
 
                 # Do not schedule an automatic startup move. The offsets make
                 # the first outgoing position command match each live encoder.
@@ -817,6 +928,7 @@ def main() -> None:
                             _pos_cmd_offset[motor] = 0.0
                     off_str = ", ".join(f"M{m}={v:+.4f}" for m, v in sorted(_pos_cmd_offset.items()))
                     print(f"[ctrl] Resume re-sync offsets: {off_str}")
+                    _log_events.append(f"resume offsets {off_str}")
                 _paused = False
                 print("[ctrl] Control resumed")
 
@@ -865,11 +977,20 @@ def main() -> None:
                 vel_snap = {motor: 0.0 for motor in MOTOR_TO_JOINT}
                 raw_pos = {motor: None for motor in MOTOR_TO_JOINT}
                 raw_vel = {motor: 0.0 for motor in MOTOR_TO_JOINT}
+                log_vel = {motor: None for motor in MOTOR_TO_JOINT}
+                log_age = {motor: None for motor in MOTOR_TO_JOINT}
             else:
                 fb = si.snapshot()
                 pos_snap = fb.pos
                 vel_snap = fb.vel
+                # Telemetry and the log use the raw (non-extrapolated) packet
+                # values; the log also records each packet's age so stale
+                # feedback is visible.
                 raw_pos, raw_vel = si.raw_snapshot()
+                fb_now = time.perf_counter()
+                log_vel = {m: (raw_vel[m] if raw_pos[m] is not None else None) for m in MOTOR_TO_JOINT}
+                log_age = {m: (fb_now - fb.time[m] if raw_pos[m] is not None else None) for m in MOTOR_TO_JOINT}
+            commanded: dict[int, tuple[float, float, float, float, float, str]] = {}
 
             # --- Update MuJoCo state ---
             if CLOSED_LOOP and not simulation_only:
@@ -956,8 +1077,9 @@ def main() -> None:
                             kd_motor,
                             tau_ff_motor,
                         )
-                        latest_mit_commands[motor] = (
-                            ref_pos_motor, ref_vel_motor, kp_motor, kd_motor, tau_ff_motor,
+                        # Full frame every tick on this branch: all five fields sent.
+                        commanded[motor] = (
+                            ref_pos_motor, ref_vel_motor, kp_motor, kd_motor, tau_ff_motor, "PVKDT",
                         )
 
                         if DEBUG_COMMANDS and tick % UPDATE_HZ == 0:
@@ -995,17 +1117,19 @@ def main() -> None:
                         cycle_log[0],
                         cycle_log[1],
                         cycle_log_start_time,
+                        tick,
                         simulation_only,
                         data,
                         qpos_idx,
                         qvel_idx,
                         limiter,
                         raw_pos,
-                        raw_vel,
-                        latest_mit_commands,
+                        log_vel,
+                        log_age,
+                        commanded,
                     )
                 except OSError as exc:
-                    print(f"[ctrl] Cycle logging stopped: {exc}")
+                    print(f"[ctrl] WARNING: run logging stopped: {exc}")
                     cycle_log[0].close()
                     cycle_log = None
 
@@ -1017,9 +1141,7 @@ def main() -> None:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
-    if cycle_log is not None:
-        cycle_log[0].close()
-        print("[ctrl] Cycle log closed.")
+    _finish_run_log(run_log_file, run_log_path)
     si.close()
     if simulation_only:
         print("[ctrl] Simulation closed. Bye.")
