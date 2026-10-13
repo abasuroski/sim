@@ -8,7 +8,7 @@ Shared between sync_hardware.py and the main controller. Handles:
   - MIT control mode command sending (P, V, K, D, T)
   - Motor enable with outer PID zeroing
 
-Serial protocol (STM32 UART, 115200 baud):
+Serial protocol (STM32 UART, 1000000 baud):
   Incoming feedback:
     [M<n>] pos=<val> rad  vel=<val>  tau=<val>  T=<val>  err=<val>  t=<val>ms
     [M<n>] pos=<val> deg  spd=<val> eRPM  I=<val> A  T=<val>  err=<val>  t=<val>ms
@@ -52,7 +52,7 @@ except ModuleNotFoundError:
 # Constants
 # ---------------------------------------------------------------------------
 
-BAUD_RATE = 115200
+BAUD_RATE = 1000000
 
 # Safety: maximum torque feedforward sent per motor (N·m, motor side).
 TAU_FF_LIMIT: dict[int, float] = {1: 9.0, 2: 18.0, 3: 18.0, 4: AK40_MOTOR_TORQUE_LIMIT_NM}
