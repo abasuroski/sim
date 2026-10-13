@@ -8,7 +8,7 @@ Shared between sync_hardware.py and the main controller. Handles:
   - MIT control mode command sending (P, V, K, D, T)
   - Motor enable with outer PID zeroing
 
-Serial protocol (STM32 UART, 115200 baud):
+Serial protocol (STM32 UART, 1000000 baud):
   Incoming feedback:
     [M<n>] pos=<val> rad  vel=<val>  tau=<val>  T=<val>  err=<val>  t=<val>ms
     [M<n>] pos=<val> deg  spd=<val> eRPM  I=<val> A  T=<val>  err=<val>  t=<val>ms
@@ -52,7 +52,7 @@ except ModuleNotFoundError:
 # Constants
 # ---------------------------------------------------------------------------
 
-BAUD_RATE = 115200
+BAUD_RATE = 1000000
 
 # Safety: maximum torque feedforward sent per motor (N·m, motor side).
 TAU_FF_LIMIT: dict[int, float] = {1: 9.0, 2: 18.0, 3: 18.0, 4: AK40_MOTOR_TORQUE_LIMIT_NM}
@@ -230,38 +230,6 @@ def send_mit_frame(
     send(f"{motor}K{kp:.5f}\n")
     send(f"{motor}D{kd:.5f}\n")
     send(f"{motor}T{tau_ff:.5f}\n")
-
-
-def send_mit_update(
-    motor: int,
-    pos: float | None = None,
-    vel: float | None = None,
-    kp: float | None = None,
-    kd: float | None = None,
-    tau_ff: float | None = None,
-) -> int:
-    """Send only the given MIT fields for one motor, in a single serial write.
-
-    The STM32 latches each field, so unchanged fields can be omitted to save
-    bandwidth. Returns the number of bytes written.
-    """
-    parts = []
-    if pos is not None:
-        parts.append(f"{motor}P{pos:.5f}\n")
-    if vel is not None:
-        parts.append(f"{motor}V{vel:.5f}\n")
-    if kp is not None:
-        parts.append(f"{motor}K{kp:.5f}\n")
-    if kd is not None:
-        parts.append(f"{motor}D{kd:.5f}\n")
-    if tau_ff is not None:
-        tau_ff = max(-TAU_FF_LIMIT[motor], min(TAU_FF_LIMIT[motor], tau_ff))
-        parts.append(f"{motor}T{tau_ff:.5f}\n")
-    if not parts:
-        return 0
-    cmd = "".join(parts)
-    send(cmd)
-    return len(cmd)
 
 
 def enable_motors(motors: list[int]) -> None:

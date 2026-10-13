@@ -35,7 +35,7 @@ import serial
 import serial.tools.list_ports
 
 # ── config ────────────────────────────────────────────────────────────────────
-BAUD         = 115200
+BAUD         = 1000000
 CALIB_PINGS  = 20      # number of pings used to find best clock offset
 PING_PAUSE   = 0.05    # seconds between pings during calibration
 PRINT_EVERY  = 1       # print every Nth motor message (1 = all)
