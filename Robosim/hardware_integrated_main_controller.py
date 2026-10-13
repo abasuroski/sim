@@ -156,10 +156,16 @@ CONSTRAINED_JOINTS = {
 # mj_inverse gives joint-side torques; M4 actuator is on the motor side (÷ gear).
 TORQUE_FF_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: MOTOR_DIRECTION[4] / 1.25}
 
-# Default PD gains used if no gain_schedule.json is found.
-# These are joint-output values (N·m/rad and N·m·s/rad).
+# True: send DEFAULT_GAINS below to every motor, ignoring the gain schedule
+# in master_controller_schedule.json. False: use the schedule (Kp = I·ω²,
+# capped at each motor's torque limit per rad, which pins the AK60 at 9).
+OVERRIDE_SCHEDULER = True
+
+# PD gains sent when OVERRIDE_SCHEDULER is True, or when no schedule file is
+# found. These are joint-output values (N·m/rad and N·m·s/rad); the AK40's
+# 1.25:1 reduction is applied before sending (motor side = joint / 1.25²).
 DEFAULT_GAINS = {
-    "ak60_revolute_1": (9.0,  1.0),
+    "ak60_revolute_1": (3.0,  0.8),
     "ak70_revolute_2": (24.8, 1.5),
     "ak70_revolute_3": (24.8, 1.5),
     "ak40_revolute_4": (3.28, 0.3),
@@ -585,6 +591,10 @@ def main() -> None:
         print(f"[ctrl] Default gains: { {k: v for k, v in DEFAULT_GAINS.items()} }")
 
     controller.bind(model)
+    if OVERRIDE_SCHEDULER:
+        print("[ctrl] OVERRIDE_SCHEDULER = True — sending DEFAULT_GAINS (joint-side Kp, Kd), not the schedule:")
+        for actuator, (kp, kd) in DEFAULT_GAINS.items():
+            print(f"[ctrl]     {actuator}: Kp={kp:g} N·m/rad  Kd={kd:g} N·m·s/rad")
 
     # --- Trapezoidal reference ---
     limiter = TrapezoidalReferenceLimiter(model, controller)
@@ -768,6 +778,7 @@ def main() -> None:
             "MOTOR_SCALE": MOTOR_SCALE,
             "TORQUE_FF_SCALE": TORQUE_FF_SCALE,
             "TAU_FF_LIMIT": si.TAU_FF_LIMIT,
+            "OVERRIDE_SCHEDULER": OVERRIDE_SCHEDULER,
             "DEFAULT_GAINS": DEFAULT_GAINS,
             "CONSTRAINED_JOINTS": CONSTRAINED_JOINTS,
             "HARDWARE_ZERO_ACTUATOR_CTRL_RAD": HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
@@ -944,12 +955,13 @@ def main() -> None:
                         )
                         ref_vel_motor = MOTOR_DIRECTION[motor] * ref_vel_joint * gear
 
-                        if actuator in gain_updates:
-                            gu = gain_updates[actuator]
-                            kp_motor = gu.kp_output_nm_per_rad / (gear ** 2)
-                            kd_motor = gu.kd_output_nm_s_per_rad / (gear ** 2)
+                        if actuator in gain_updates and not OVERRIDE_SCHEDULER:
+                            kp_output = gain_updates[actuator].kp_output_nm_per_rad
+                            kd_output = gain_updates[actuator].kd_output_nm_s_per_rad
                         else:
-                            kp_motor, kd_motor = DEFAULT_GAINS[actuator]
+                            kp_output, kd_output = DEFAULT_GAINS[actuator]
+                        kp_motor = kp_output / (gear ** 2)
+                        kd_motor = kd_output / (gear ** 2)
 
                         tau_ff_motor = 0.0 if ZERO_TFF else tau_ff.get(motor, 0.0)
 
