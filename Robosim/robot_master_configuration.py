@@ -47,10 +47,6 @@ SCHEDULED_PD_VELOCITY_ERROR_FOR_FULL_TORQUE_RAD_S = 1.0
 TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S = 1.0
 TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2 = 2.0
 
-# AK40 is specified at the motor encoder rather than joint output. With its
-# 1.25:1 reduction, the limiter converts this to 0.4 rad/s joint-side.
-AK40_MAX_MOTOR_VELOCITY_RAD_S = 0.5
-
 # Permit the requested 1.94 rad AK40 motor reference: 1.94 / 1.25 = 1.552 rad
 # at the joint. The coupled follower gets the matching lower bound.
 JOINT_RANGE_OVERRIDES_RAD = {

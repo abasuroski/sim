@@ -1,30 +1,18 @@
-"""Joint-space motion references for native MuJoCo Control-panel commands.
-
-Provides both legacy trapezoidal standalone helpers (used by training scripts)
-and a cubic-spline reference limiter for real-time smooth trajectory generation.
-"""
+"""Joint-space trapezoidal references for native MuJoCo Control-panel commands."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import math
 
 import mujoco
 
 from master_controller import MasterController, actuator_gear
-from robot_master_configuration import (
-    AK40_MAX_MOTOR_VELOCITY_RAD_S,
-    TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2,
-    TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S,
-)
+from robot_master_configuration import TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2, TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S
 
 
 EPSILON = 1e-9
 
-
-# ---------------------------------------------------------------------------
-# Legacy trapezoidal standalone helpers (used by train_multidof_master_controller)
-# ---------------------------------------------------------------------------
 
 def trapezoidal_duration(
     distance_rad: float,
@@ -83,13 +71,9 @@ def trapezoidal_position(
     return float(initial_rad) + direction * progress
 
 
-# ---------------------------------------------------------------------------
-# Cubic spline reference limiter
-# ---------------------------------------------------------------------------
-
 @dataclass
-class CubicSplineReference:
-    """One cubic-spline smoothed joint-space reference."""
+class TrapezoidalReference:
+    """One velocity- and acceleration-limited joint-space reference."""
 
     actuator_id: int
     gear: float
@@ -97,70 +81,15 @@ class CubicSplineReference:
     velocity_rad_s: float
     requested_position_rad: float
     last_applied_control: float
-    max_velocity_rad_s: float
-    max_acceleration_rad_s2: float
 
 
-def _cubic_duration(
-    d: float,
-    v0: float,
-    max_vel: float,
-    max_acc: float,
-) -> float:
-    """Compute minimum duration for a cubic from (p0, v0) to (p0+d, 0).
+class TrapezoidalReferenceLimiter:
+    """Convert Control-panel jumps into 1-D trapezoidal joint references.
 
-    The cubic p(t) = p0 + v0*t + a2*t^2 + a3*t^3 satisfies:
-        p(0) = p0, p'(0) = v0, p(T) = p0+d, p'(T) = 0
-    Duration T is chosen so peak velocity <= max_vel and peak |accel| <= max_acc.
-    """
-    dist = abs(d)
-    if dist < EPSILON and abs(v0) < EPSILON:
-        return 0.0
-
-    if dist < EPSILON:
-        T = 2.0 * abs(v0) / max_acc
-    else:
-        T = max(1.5 * dist / max_vel, math.sqrt(6.0 * dist / max_acc))
-
-    if abs(v0) > EPSILON:
-        T = max(T, 2.0 * abs(v0) / max_acc)
-
-    T = max(T, 1e-6)
-
-    for _ in range(8):
-        T2 = T * T
-        T3 = T2 * T
-        a2 = (3.0 * d - 2.0 * v0 * T) / T2
-        a3 = (v0 * T - 2.0 * d) / T3
-
-        peak_acc = max(abs(2.0 * a2), abs(2.0 * a2 + 6.0 * a3 * T))
-
-        peak_vel = abs(v0)
-        if abs(a3) > EPSILON:
-            t_crit = -a2 / (3.0 * a3)
-            if 0.0 < t_crit < T:
-                v_crit = abs(v0 + 2.0 * a2 * t_crit + 3.0 * a3 * t_crit * t_crit)
-                peak_vel = max(peak_vel, v_crit)
-
-        scale = 1.0
-        if peak_vel > max_vel * 1.001:
-            scale = max(scale, peak_vel / max_vel)
-        if peak_acc > max_acc * 1.001:
-            scale = max(scale, math.sqrt(peak_acc / max_acc))
-        if scale <= 1.001:
-            break
-        T *= scale
-
-    return T
-
-
-class CubicSplineReferenceLimiter:
-    """Convert Control-panel jumps into cubic-spline smoothed joint references.
-
-    Each simulation step, the limiter plans a cubic polynomial from the current
-    (position, velocity) to the target (requested_position, 0) and evaluates one
-    time step forward.  This gives C1-continuous motion with smooth acceleration,
-    unlike the trapezoidal profile which has discontinuous acceleration.
+    The native viewer and this limiter share ``data.ctrl``.  A new user slider
+    value is detected when it differs from the previous filtered value.  The
+    limiter then writes its smooth reference back to ``data.ctrl`` before the
+    position actuator computes force.
     """
 
     def __init__(
@@ -176,25 +105,12 @@ class CubicSplineReferenceLimiter:
             raise ValueError("max_acceleration_rad_s2 must be finite and greater than zero")
         self.max_velocity_rad_s = max_velocity_rad_s
         self.max_acceleration_rad_s2 = max_acceleration_rad_s2
-        self.references: dict[str, CubicSplineReference] = {}
+        self.references: dict[str, TrapezoidalReference] = {}
         for schedule in controller.schedules:
             actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, schedule.actuator)
             if actuator_id < 0:
                 raise ValueError(f"scheduled actuator {schedule.actuator!r} is absent from this MJCF")
-            gear = actuator_gear(model, actuator_id)
-            reference_max_velocity = self.max_velocity_rad_s
-            if schedule.actuator == "ak40_revolute_4":
-                reference_max_velocity = AK40_MAX_MOTOR_VELOCITY_RAD_S / abs(gear)
-            self.references[schedule.actuator] = CubicSplineReference(
-                actuator_id,
-                gear,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                reference_max_velocity,
-                self.max_acceleration_rad_s2,
-            )
+            self.references[schedule.actuator] = TrapezoidalReference(actuator_id, actuator_gear(model, actuator_id), 0.0, 0.0, 0.0, 0.0)
         self.last_time: float | None = None
 
     def reset(self, data: mujoco.MjData) -> None:
@@ -208,29 +124,34 @@ class CubicSplineReferenceLimiter:
             reference.last_applied_control = control
         self.last_time = float(data.time)
 
-    def _advance(self, reference: CubicSplineReference, dt: float) -> None:
-        d = reference.requested_position_rad - reference.position_rad
-        v0 = reference.velocity_rad_s
-        if abs(d) <= EPSILON and abs(v0) <= EPSILON:
+    def _advance(self, reference: TrapezoidalReference, dt: float) -> None:
+        error = reference.requested_position_rad - reference.position_rad
+        if abs(error) <= EPSILON and abs(reference.velocity_rad_s) <= EPSILON:
             reference.position_rad = reference.requested_position_rad
             reference.velocity_rad_s = 0.0
             return
-
-        T = _cubic_duration(d, v0, reference.max_velocity_rad_s, reference.max_acceleration_rad_s2)
-
-        if T <= dt:
+        direction = 1.0 if error >= 0.0 else -1.0
+        # Reverse first if moving away from the requested position; otherwise
+        # brake when stopping distance reaches the remaining distance.
+        if reference.velocity_rad_s * direction < -EPSILON:
+            acceleration = direction * self.max_acceleration_rad_s2
+        elif abs(error) <= reference.velocity_rad_s**2 / (2.0 * self.max_acceleration_rad_s2):
+            acceleration = -math.copysign(self.max_acceleration_rad_s2, reference.velocity_rad_s)
+        else:
+            acceleration = direction * self.max_acceleration_rad_s2
+        next_velocity = max(
+            -self.max_velocity_rad_s,
+            min(self.max_velocity_rad_s, reference.velocity_rad_s + acceleration * dt),
+        )
+        next_position = reference.position_rad + next_velocity * dt
+        if (reference.requested_position_rad - reference.position_rad) * (
+            reference.requested_position_rad - next_position
+        ) <= 0.0:
             reference.position_rad = reference.requested_position_rad
             reference.velocity_rad_s = 0.0
-            return
-
-        T2 = T * T
-        T3 = T2 * T
-        a2 = (3.0 * d - 2.0 * v0 * T) / T2
-        a3 = (v0 * T - 2.0 * d) / T3
-
-        dt2 = dt * dt
-        reference.position_rad += v0 * dt + a2 * dt2 + a3 * dt2 * dt
-        reference.velocity_rad_s = v0 + 2.0 * a2 * dt + 3.0 * a3 * dt2
+        else:
+            reference.position_rad = next_position
+            reference.velocity_rad_s = next_velocity
 
     def update(self, data: mujoco.MjData) -> None:
         """Capture user controls, advance once per simulation time step, write references."""
@@ -239,6 +160,8 @@ class CubicSplineReferenceLimiter:
             self.reset(data)
         for reference in self.references.values():
             incoming_control = float(data.ctrl[reference.actuator_id])
+            # The viewer only changes ctrl on an actual slider edit. Values
+            # equal to our previous filtered output are our own feedback.
             if abs(incoming_control - reference.last_applied_control) > 1e-7:
                 reference.requested_position_rad = incoming_control / reference.gear
         if current_time > self.last_time + EPSILON:
@@ -282,7 +205,3 @@ class CubicSplineReferenceLimiter:
 
     def reference_velocity(self, actuator: str) -> float:
         return self.references[actuator].velocity_rad_s
-
-
-# Backwards-compatible alias
-TrapezoidalReferenceLimiter = CubicSplineReferenceLimiter
