@@ -52,6 +52,7 @@ Requires: mujoco, pyserial, numpy
 
 from __future__ import annotations
 
+import atexit
 import csv
 import json
 import math
@@ -74,6 +75,7 @@ from robot_master_configuration import (
 )
 from master_controller import MasterController, PositionSchedule
 from trapezoidal_motion import CubicSplineReferenceLimiter
+from plot_run_log import plot_run_log
 import serial_interface as si
 
 # ---------------------------------------------------------------------------
@@ -107,8 +109,9 @@ MOTOR_FEEDBACK_PRINT_HZ = 4.0
 ZERO_TFF = True
 
 # Every run writes logs/hardware_controller_<UTC stamp>.csv (one row per
-# control tick, flushed immediately) and a matching .json with the run's
-# settings and git revision.  The controller refuses to start without a log.
+# control tick, flushed immediately), a matching .json with the run's
+# settings and git revision, and a .svg graph (plot_run_log.py) written when
+# the run ends.  The controller refuses to start without a log.
 CYCLE_LOG_DIRECTORY = Path(__file__).parent / "logs"
 
 # Live slider streaming.  A full P/V/K/D/T frame for all four motors every
@@ -449,6 +452,30 @@ def _git_revision() -> str:
     if not rev:
         return "unknown"
     return f"{rev}-dirty" if dirty else rev
+
+
+_finished_logs: set[Path] = set()
+
+
+def _finish_run_log(log_file: object, path: Path) -> None:
+    """Close the run's CSV and write its graph next to it. Safe to call twice.
+
+    Registered with atexit as well as called at the normal end, so a crash or
+    Ctrl+C still leaves a graph of whatever was logged.
+    """
+    if path in _finished_logs:
+        return
+    _finished_logs.add(path)
+    try:
+        log_file.close()
+    except OSError:
+        pass
+    print(f"[ctrl] Run log saved: {path}")
+    try:
+        print(f"[ctrl] Run graph saved: {plot_run_log(path)}")
+    except Exception as exc:  # a plotting bug must never hide the CSV
+        print(f"[ctrl] WARNING: could not draw the run graph: {exc}")
+        print(f"[ctrl]   Retry with: python plot_run_log.py {path}")
 
 
 def _open_cycle_log(
@@ -872,7 +899,9 @@ def main() -> None:
         si.close()
         sys.exit(1)
     cycle_log_start_time = time.perf_counter()
-    print(f"[ctrl] Logging this run to {cycle_log[2]}")
+    run_log_file, run_log_path = cycle_log[0], cycle_log[2]
+    atexit.register(_finish_run_log, run_log_file, run_log_path)
+    print(f"[ctrl] Logging this run to {run_log_path}")
 
     dt = 1.0 / UPDATE_HZ
     tick = 0
@@ -1184,9 +1213,7 @@ def main() -> None:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
-    if cycle_log is not None:
-        cycle_log[0].close()
-        print(f"[ctrl] Run log saved: {cycle_log[2]}")
+    _finish_run_log(run_log_file, run_log_path)
     si.close()
     if simulation_only:
         print("[ctrl] Simulation closed. Bye.")
