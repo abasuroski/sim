@@ -67,6 +67,8 @@ _ser_lock = threading.Lock()
 _fb_lock            = threading.Lock()
 _motor_pos:          dict[int, float | None] = {1: None, 2: None, 3: None, 4: None}
 _motor_vel:          dict[int, float]        = {1: 0.0,  2: 0.0,  3: 0.0,  4: 0.0}
+_motor_current:      dict[int, float | None] = {1: None, 2: None, 3: None, 4: None}
+_motor_torque:       dict[int, float | None] = {1: None, 2: None, 3: None, 4: None}
 _motor_measure_time: dict[int, float]        = {1: 0.0,  2: 0.0,  3: 0.0,  4: 0.0}
 
 # ---------------------------------------------------------------------------
@@ -75,7 +77,14 @@ _motor_measure_time: dict[int, float]        = {1: 0.0,  2: 0.0,  3: 0.0,  4: 0.
 
 _POS_RE = re.compile(r'pos=(-?\d+\.?\d*)\s*(rad|deg)')
 _VEL_RE = re.compile(r'\bvel=(-?\d+\.?\d*)')
+_SPD_RE = re.compile(r'\bspd=(-?\d+\.?\d*)')
+_CUR_RE = re.compile(r'\bI=(-?\d+\.?\d*)')
+_TAU_RE = re.compile(r'\btau=(-?\d+\.?\d*)')
 _TS_RE  = re.compile(r'\bt=(\d+)ms')
+
+_AK60_POLE_PAIRS = 14
+_AK60_REDUCTION  = 6.0
+_ERPM_TO_RAD_S   = (2.0 * math.pi) / (60.0 * _AK60_POLE_PAIRS * _AK60_REDUCTION)
 
 
 def _parse_line(line: str) -> None:
@@ -97,10 +106,26 @@ def _parse_line(line: str) -> None:
         mv = _VEL_RE.search(body)
         if mv:
             vel = float(mv.group(1))
+        else:
+            ms = _SPD_RE.search(body)
+            if ms:
+                vel = float(ms.group(1)) * _ERPM_TO_RAD_S
+
+        cur = None
+        mc = _CUR_RE.search(body)
+        if mc:
+            cur = float(mc.group(1))
+
+        tau = None
+        mt = _TAU_RE.search(body)
+        if mt:
+            tau = float(mt.group(1))
 
         with _fb_lock:
             _motor_pos[motor]          = val
             _motor_vel[motor]          = vel
+            _motor_current[motor]      = cur
+            _motor_torque[motor]       = tau
             _motor_measure_time[motor] = time.perf_counter()
         break
 
@@ -157,9 +182,11 @@ def close() -> None:
 @dataclass
 class MotorSnapshot:
     """Lag-compensated motor state snapshot for all four body motors."""
-    pos:  dict[int, float | None]  # motor → joint position (rad), None = no feedback
-    vel:  dict[int, float]         # motor → velocity (rad/s)
-    time: dict[int, float]         # motor → PC time of measurement
+    pos:     dict[int, float | None]  # motor → joint position (rad), None = no feedback
+    vel:     dict[int, float]         # motor → velocity (rad/s)
+    current: dict[int, float | None]  # motor → phase current (A), AK60 only; None if unavailable
+    torque:  dict[int, float | None]  # motor → measured torque (N·m), AK70/AK40 only; None if unavailable
+    time:    dict[int, float]         # motor → PC time of measurement
 
 
 def snapshot(lag_cap_s: float = 0.1) -> MotorSnapshot:
@@ -174,9 +201,11 @@ def snapshot(lag_cap_s: float = 0.1) -> MotorSnapshot:
                    than this are not extrapolated further (stale packet guard).
     """
     with _fb_lock:
-        pos_raw   = dict(_motor_pos)
-        vel_raw   = dict(_motor_vel)
-        mtime_raw = dict(_motor_measure_time)
+        pos_raw     = dict(_motor_pos)
+        vel_raw     = dict(_motor_vel)
+        current_raw = dict(_motor_current)
+        torque_raw  = dict(_motor_torque)
+        mtime_raw   = dict(_motor_measure_time)
 
     now = time.perf_counter()
     pos_est: dict[int, float | None] = {}
@@ -187,7 +216,7 @@ def snapshot(lag_cap_s: float = 0.1) -> MotorSnapshot:
         elapsed = max(0.0, min(lag_cap_s, now - mtime_raw[motor]))
         pos_est[motor] = pos_raw[motor] + vel_raw[motor] * elapsed
 
-    return MotorSnapshot(pos=pos_est, vel=vel_raw, time=mtime_raw)
+    return MotorSnapshot(pos=pos_est, vel=vel_raw, current=current_raw, torque=torque_raw, time=mtime_raw)
 
 
 def raw_snapshot() -> tuple[dict[int, float | None], dict[int, float]]:

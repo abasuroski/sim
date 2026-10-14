@@ -413,6 +413,8 @@ def _open_cycle_log(
             [
                 f"m{motor}_encoder_position_rad",
                 f"m{motor}_encoder_velocity_rad_s",
+                f"m{motor}_encoder_current_a",
+                f"m{motor}_encoder_torque_nm",
                 f"m{motor}_feedback_age_s",
             ]
         )
@@ -476,6 +478,8 @@ def _write_cycle_log(
     raw_vel: dict[int, float | None],
     feedback_age: dict[int, float | None],
     commanded: dict[int, tuple[float, float, float, float, float, str]],
+    feedback_current: dict[int, float | None] | None = None,
+    feedback_torque: dict[int, float | None] | None = None,
 ) -> None:
     """Append one controller-cycle record and flush it to disk."""
     status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
@@ -495,6 +499,8 @@ def _write_cycle_log(
     for motor in MOTOR_TO_JOINT:
         row[f"m{motor}_encoder_position_rad"] = raw_pos[motor]
         row[f"m{motor}_encoder_velocity_rad_s"] = raw_vel[motor]
+        row[f"m{motor}_encoder_current_a"] = feedback_current[motor] if feedback_current else None
+        row[f"m{motor}_encoder_torque_nm"] = feedback_torque[motor] if feedback_torque else None
         row[f"m{motor}_feedback_age_s"] = feedback_age[motor]
         if motor in commanded:
             pos, vel, kp, kd, tau_ff, sent = commanded[motor]
@@ -968,6 +974,8 @@ def main() -> None:
                 log_pos = {motor: None for motor in MOTOR_TO_JOINT}
                 log_vel = {motor: None for motor in MOTOR_TO_JOINT}
                 log_age = {motor: None for motor in MOTOR_TO_JOINT}
+                log_current: dict[int, float | None] = {motor: None for motor in MOTOR_TO_JOINT}
+                log_torque: dict[int, float | None] = {motor: None for motor in MOTOR_TO_JOINT}
             else:
                 fb = si.snapshot()
                 pos_snap = fb.pos
@@ -978,6 +986,8 @@ def main() -> None:
                 fb_now = time.perf_counter()
                 log_vel = {m: (raw_vel[m] if log_pos[m] is not None else None) for m in MOTOR_TO_JOINT}
                 log_age = {m: (fb_now - fb.time[m] if log_pos[m] is not None else None) for m in MOTOR_TO_JOINT}
+                log_current = fb.current
+                log_torque = fb.torque
             commanded: dict[int, tuple[float, float, float, float, float, str]] = {}
 
             # --- Status print ---
@@ -1112,6 +1122,8 @@ def main() -> None:
                         log_vel,
                         log_age,
                         commanded,
+                        log_current,
+                        log_torque,
                     )
                 except OSError as exc:
                     print(f"[ctrl] WARNING: run logging stopped: {exc}")
