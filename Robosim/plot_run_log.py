@@ -1,12 +1,12 @@
 """Plot a hardware-controller run log as an SVG next to it.
 
-For every motor that reported feedback (or, failing that, was commanded), four
-panels share one time axis: encoder vs commanded position, estimated torque
-output, Kp and Kd. Shaded bands mark stale feedback; dashed lines mark terminal
+For every motor that reported feedback (or, failing that, was commanded), five
+panels share one time axis: encoder vs commanded position, encoder vs
+commanded velocity, estimated torque output, Kp and Kd. Shaded bands mark stale feedback; dashed lines mark terminal
 commands. The controller calls ``plot_run_log`` when each run ends; run this
 file directly to plot existing logs:
 
-    python plot_run_log.py logs/hardware_controller_<stamp>.csv [more.csv ...]
+    python plot_run_log.py logs/<branch>_<date>_<time>.csv [more.csv ...]
 
 Standard library only, so it runs wherever the controller does.
 """
@@ -173,6 +173,7 @@ def build_svg(csv_path: Path) -> str:
     plot_motors = _motors_to_plot(motors) if times else []
     panels = [
         ("Position (motor rad)", [("pos", "Encoder", ACTUAL_COLOR), ("cmd", "Desired", DESIRED_COLOR)]),
+        ("Velocity (motor rad/s)", [("vel", "Encoder", ACTUAL_COLOR), ("cmd_vel", "Desired", DESIRED_COLOR)]),
         ("Torque output, estimated (N·m)", [("torque", "Kp·(P−pos) + Kd·(V−vel) + T", ACTUAL_COLOR)]),
         ("Kp (N·m/rad)", [("kp", "Kp sent, axis from zero", ACTUAL_COLOR)]),
         ("Kd (N·m·s/rad)", [("kd", "Kd sent, axis from zero", ACTUAL_COLOR)]),

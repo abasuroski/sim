@@ -107,7 +107,7 @@ MOTOR_FEEDBACK_PRINT_HZ = 4.0
 # Useful for initial testing before verifying TFF sign and magnitude.
 ZERO_TFF = True
 
-# Every run writes logs/hardware_controller_<UTC stamp>.csv (one row per
+# Every run writes logs/<branch>_<YYYY-MM-DD>_<HH-MM-SS UTC>.csv (one row per
 # control tick, flushed immediately), a matching .json with the run's
 # settings and git revision, and a .svg graph (plot_run_log.py) written when
 # the run ends.  The controller refuses to start without a log.
@@ -353,6 +353,22 @@ def _git_revision() -> str:
     return f"{rev}-dirty" if dirty else rev
 
 
+def _git_branch() -> str:
+    """Return the checked-out branch name, made safe for a file name."""
+    try:
+        branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=5,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        branch = ""
+    if not branch:
+        return "no-branch"
+    if branch == "HEAD":
+        return "detached"
+    return "".join(ch if ch.isalnum() or ch in "-." else "-" for ch in branch)
+
+
 _finished_logs: set[Path] = set()
 
 
@@ -425,10 +441,11 @@ def _open_cycle_log(
     fieldnames.append("events")
 
     CYCLE_LOG_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    # <branch>_<date>_<time> in UTC; the .json and .svg share this name.
+    stamp = f"{_git_branch()}_{datetime.now(timezone.utc).strftime('%Y-%m-%d_%H-%M-%S')}"
     # Exclusive create: two runs started in the same second never overwrite each other.
     for suffix in [""] + [f"_{n}" for n in range(1, 100)]:
-        path = CYCLE_LOG_DIRECTORY / f"hardware_controller_{stamp}{suffix}.csv"
+        path = CYCLE_LOG_DIRECTORY / f"{stamp}{suffix}.csv"
         try:
             log_file = path.open("x", newline="", encoding="utf-8", buffering=1)
             break
