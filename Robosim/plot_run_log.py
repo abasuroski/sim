@@ -192,6 +192,7 @@ def build_svg(csv_path: Path) -> str:
     plot_motors = _motors_to_plot(motors) if times else []
     _BASE_PANELS = [
         ("Position (motor rad)", [("pos", "Encoder", ACTUAL_COLOR), ("cmd", "Desired", DESIRED_COLOR)]),
+        ("Velocity (motor rad/s)", [("vel", "Encoder", ACTUAL_COLOR), ("cmd_vel", "Desired", DESIRED_COLOR)]),
         ("Torque output, estimated (N·m)", [("torque", "Kp·(P−pos) + Kd·(V−vel) + T", ACTUAL_COLOR)]),
         ("Kp (N·m/rad)", [("kp", "Kp sent, axis from zero", ACTUAL_COLOR)]),
         ("Kd (N·m·s/rad)", [("kd", "Kd sent, axis from zero", ACTUAL_COLOR)]),
