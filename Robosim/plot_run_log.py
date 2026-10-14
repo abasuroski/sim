@@ -22,6 +22,7 @@ from pathlib import Path
 
 MOTORS = (1, 2, 3, 4)
 STALE_FEEDBACK_S = 0.1     # a reading older than this is shaded as stale
+WATCHDOG_AGE_S   = 0.2     # firmware disables motor at this feedback age
 MAX_POINTS = 2_000         # per series, after min/max downsampling
 
 WIDTH = 1200
@@ -30,9 +31,11 @@ PANEL_HEIGHT = 130
 PANEL_GAP = 50
 GROUP_GAP = 56
 
-ACTUAL_COLOR = "#2a78d6"
-DESIRED_COLOR = "#eb6834"
-STALE_FILL = "#e34948"
+ACTUAL_COLOR   = "#2a78d6"
+DESIRED_COLOR  = "#eb6834"
+CURRENT_COLOR  = "#16a34a"
+TORQUE_M_COLOR = "#d97706"
+STALE_FILL     = "#e34948"
 EVENT_LABELS = {"a": "a · enable", "s": "s · start", "p": "p · pause", "r": "r · resume", "h": "h · home", "q": "q · quit"}
 
 
@@ -45,7 +48,7 @@ def _load(csv_path: Path) -> tuple[list[float], dict[int, dict[str, list[float |
     """Return times, per-motor series, and (time, command) events from one log."""
     times: list[float] = []
     motors: dict[int, dict[str, list[float | None]]] = {
-        m: {k: [] for k in ("pos", "vel", "age", "cmd", "cmd_vel", "kp", "kd", "tff", "torque")} for m in MOTORS
+        m: {k: [] for k in ("pos", "vel", "age", "cmd", "cmd_vel", "kp", "kd", "tff", "torque", "current", "torque_meas")} for m in MOTORS
     }
     events: list[tuple[float, str]] = []
     with csv_path.open(newline="", encoding="utf-8") as log_file:
@@ -74,6 +77,8 @@ def _load(csv_path: Path) -> tuple[list[float], dict[int, dict[str, list[float |
                 s["kp"].append(kp)
                 s["kd"].append(kd)
                 s["tff"].append(tff)
+                s["current"].append(_value(row, f"m{m}_encoder_current_a"))
+                s["torque_meas"].append(_value(row, f"m{m}_encoder_torque_nm"))
                 # MIT law: tau = Kp (P - pos) + Kd (V - vel) + T_ff, using the last reading.
                 torque = None
                 if None not in (pos, cmd, kp, kd):
@@ -153,6 +158,20 @@ def _stale_intervals(times: list[float], ages: list[float | None]) -> list[tuple
     return intervals
 
 
+def _watchdog_crossings(times: list[float], ages: list[float | None]) -> list[float]:
+    """Return the times where feedback_age crosses WATCHDOG_AGE_S in either direction."""
+    crossings: list[float] = []
+    prev_over: bool | None = None
+    for t, age in zip(times, ages):
+        if age is None:
+            continue
+        over = age > WATCHDOG_AGE_S
+        if prev_over is not None and over != prev_over:
+            crossings.append(t)
+        prev_over = over
+    return crossings
+
+
 def _motors_to_plot(motors: dict[int, dict[str, list[float | None]]]) -> list[int]:
     reporting = [m for m in MOTORS if any(v is not None for v in motors[m]["pos"])]
     if reporting:
@@ -171,16 +190,27 @@ def build_svg(csv_path: Path) -> str:
             metadata = {}
 
     plot_motors = _motors_to_plot(motors) if times else []
-    panels = [
+    _BASE_PANELS = [
         ("Position (motor rad)", [("pos", "Encoder", ACTUAL_COLOR), ("cmd", "Desired", DESIRED_COLOR)]),
         ("Velocity (motor rad/s)", [("vel", "Encoder", ACTUAL_COLOR), ("cmd_vel", "Desired", DESIRED_COLOR)]),
         ("Torque output, estimated (N·m)", [("torque", "Kp·(P−pos) + Kd·(V−vel) + T", ACTUAL_COLOR)]),
         ("Kp (N·m/rad)", [("kp", "Kp sent, axis from zero", ACTUAL_COLOR)]),
         ("Kd (N·m·s/rad)", [("kd", "Kd sent, axis from zero", ACTUAL_COLOR)]),
     ]
+
+    def _panels_for(series: dict) -> list:
+        p = list(_BASE_PANELS)
+        if any(v is not None for v in series["torque_meas"]):
+            p.append(("Torque measured (N·m)", [("torque_meas", "MIT feedback torque, AK70/AK40", TORQUE_M_COLOR)]))
+        if any(v is not None for v in series["current"]):
+            p.append(("Current (A)", [("current", "Phase current, AK60 only", CURRENT_COLOR)]))
+        return p
+
+    def _group_height(series: dict) -> int:
+        return len(_panels_for(series)) * (PANEL_HEIGHT + PANEL_GAP) + 30
+
     header = 96
-    group_height = len(panels) * (PANEL_HEIGHT + PANEL_GAP) + 30
-    height = header + max(1, len(plot_motors)) * (group_height + GROUP_GAP)
+    height = header + sum(_group_height(motors[m]) + GROUP_GAP for m in plot_motors) if plot_motors else header + 30
     plot_width = WIDTH - LEFT - RIGHT
     t0, t1 = (times[0], times[-1]) if times else (0.0, 1.0)
     t_low, t_high, t_ticks = _ticks(t0, t1, 10)
@@ -208,6 +238,7 @@ def build_svg(csv_path: Path) -> str:
         ".grid { stroke: #e1e0d9; stroke-width: 1; } .frame { fill: none; stroke: #c3c2b7; stroke-width: 1; }",
         ".trace { fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }",
         ".event { stroke: #898781; stroke-width: 1; stroke-dasharray: 3 3; } .event-label { font-size: 11px; fill: #52514e; }",
+        ".watchdog { stroke: #dc2626; stroke-width: 1.5; opacity: 0.75; }",
         "</style>",
         f'<rect width="{WIDTH}" height="{height}" fill="#fcfcfb"/>',
         f'<text x="{LEFT}" y="34" class="title">{escape(csv_path.name)}</text>',
@@ -235,10 +266,12 @@ def build_svg(csv_path: Path) -> str:
     top = header
     for motor in plot_motors:
         series = motors[motor]
+        panels = _panels_for(series)
         reported = any(v is not None for v in series["pos"])
         note = "" if reported else "  (no feedback this run; commands only)"
         svg.append(f'<text x="{LEFT}" y="{top + 18}" class="group">M{motor}{escape(note)}</text>')
         stale = _stale_intervals(times, series["age"]) if reported else []
+        wdog  = _watchdog_crossings(times, series["age"]) if reported else []
         panel_top = top + 30 + PANEL_GAP - 12
         for title, keys in panels:
             values = [v for key, _, _ in keys for v in series[key] if v is not None]
@@ -262,6 +295,8 @@ def build_svg(csv_path: Path) -> str:
             for tick in y_ticks:
                 svg.append(f'<line x1="{LEFT}" y1="{y(tick):.1f}" x2="{WIDTH - RIGHT}" y2="{y(tick):.1f}" class="grid"/>')
                 svg.append(f'<text x="{LEFT - 8}" y="{y(tick) + 4:.1f}" text-anchor="end" class="tick">{_fmt(tick)}</text>')
+            for tw in wdog:
+                svg.append(f'<line x1="{x(tw):.1f}" y1="{panel_top:.1f}" x2="{x(tw):.1f}" y2="{bottom:.1f}" class="watchdog"/>')
             for t, label in events:
                 svg.append(f'<line x1="{x(t):.1f}" y1="{panel_top:.1f}" x2="{x(t):.1f}" y2="{bottom:.1f}" class="event"/>')
                 if title == panels[0][0]:
@@ -281,7 +316,7 @@ def build_svg(csv_path: Path) -> str:
                 svg.append(f'<text x="{x(tick):.1f}" y="{bottom + 16:.1f}" text-anchor="middle" class="tick">{_fmt(tick)}</text>')
             panel_top = bottom + PANEL_GAP
         svg.append(f'<text x="{LEFT + plot_width / 2:.1f}" y="{panel_top - PANEL_GAP + 30:.1f}" text-anchor="middle" class="note">Seconds since the program started</text>')
-        top += group_height + GROUP_GAP
+        top += _group_height(series) + GROUP_GAP
     svg.append("</svg>")
     return "\n".join(svg)
 
