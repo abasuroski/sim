@@ -1,0 +1,97 @@
+{
+  "started_utc": "2026-10-14T17:28:41.971968+00:00",
+  "host": "CADMobile",
+  "python": "3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]",
+  "script": "C:\\Users\\Matt Mitchell\\Documents\\projects\\sim\\Robosim\\hardware_integrated_main_controller.py",
+  "git_revision": "12e965c",
+  "argv": [
+    "hardware_integrated_main_controller.py",
+    "COM5"
+  ],
+  "serial_port": "COM5",
+  "simulation_only": false,
+  "enable_motors_on_start": false,
+  "gain_schedule": "C:\\Users\\Matt Mitchell\\Documents\\projects\\sim\\Robosim\\master_controller_schedule.json",
+  "settings": {
+    "UPDATE_HZ": 84,
+    "SEND_EVERY": 1,
+    "CLOSED_LOOP": true,
+    "ZERO_TFF": true,
+    "MOTOR_DIRECTION": {
+      "1": 1.0,
+      "2": 1.0,
+      "3": 1.0,
+      "4": -1.0
+    },
+    "MOTOR_SCALE": {
+      "1": 1.0,
+      "2": 1.0,
+      "3": 1.0,
+      "4": -0.8
+    },
+    "TORQUE_FF_SCALE": {
+      "1": 1.0,
+      "2": 1.0,
+      "3": 1.0,
+      "4": -0.8
+    },
+    "TAU_FF_LIMIT": {
+      "1": 9.0,
+      "2": 18.0,
+      "3": 18.0,
+      "4": 0.5
+    },
+    "DEFAULT_GAINS": {
+      "ak60_revolute_1": [
+        9.0,
+        1.0
+      ],
+      "ak70_revolute_2": [
+        24.8,
+        1.5
+      ],
+      "ak70_revolute_3": [
+        24.8,
+        1.5
+      ],
+      "ak40_revolute_4": [
+        3.28,
+        0.3
+      ]
+    },
+    "CONSTRAINED_JOINTS": {
+      "revolute_5": [
+        "revolute_4",
+        -1.0
+      ],
+      "revolute_7": [
+        "revolute_4",
+        1.0
+      ],
+      "revolute_8": [
+        "revolute_4",
+        -1.0
+      ],
+      "revolute_9": [
+        "revolute_4",
+        -1.0
+      ],
+      "revolute_6": [
+        "revolute_4",
+        1.0
+      ],
+      "revolute_13": [
+        "revolute_4",
+        1.0
+      ]
+    },
+    "HARDWARE_ZERO_ACTUATOR_CTRL_RAD": {
+      "ak60_revolute_1": 1.45,
+      "ak70_revolute_2": 0.113,
+      "ak70_revolute_3": -1.29,
+      "ak40_revolute_4": 1.94
+    },
+    "STREAM_KEEPALIVE_S": 0.25
+  },
+  "csv_file": "main_2026-10-14_17-28-42.csv"
+}

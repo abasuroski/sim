@@ -21,6 +21,9 @@ Control loop (runs at UPDATE_HZ):
 Usage:
     python3 hardware_integrated_main_controller.py [serial_port] [--enable-motors]
 
+Runaway stop (RUNAWAY_STOP): a motor that leaves its command, moves too fast
+or stops reporting triggers 0X and returns to IDLE; type 'a' then 's' again.
+
 Startup workflow:
     1. Motors must already be enabled (use motor_gui.py or type 'e' here).
     2. Viewer opens showing current sim state.
@@ -123,6 +126,26 @@ STREAM_VEL_EPS_RAD_S = 1e-3   # resend V when it changes more than this
 STREAM_GAIN_REL_EPS  = 0.02   # resend K/D on a >2% change
 STREAM_TFF_EPS_NM    = 0.01   # resend T when it changes more than this
 STREAM_KEEPALIVE_S   = 0.25   # full frame per motor at least this often
+
+# Runaway stop.  On 2026-10-21 M1 accelerated to 21 rad/s at 19-37 A while
+# its command was constant, and the controller kept streaming for 10 s.  Any
+# motor that had encoder feedback at sync is checked every tick; a trip sends
+# 0X (STM32 freeze), stops streaming and returns to IDLE, so 'a' then 's'
+# re-synchronizes before the arm moves again.  All values are motor side.
+RUNAWAY_STOP = True
+# |command - encoder| above this for RUNAWAY_POS_ERROR_S trips.  Normal
+# tracking lag at 1 rad/s is ~0.26 rad on M1; M4's soft gains (Kp ~0.4 N·m/rad)
+# leave a larger steady-state error under load, so its limit is wider.
+RUNAWAY_POS_ERROR_RAD = {1: 0.5, 2: 0.5, 3: 0.5, 4: 1.0}
+RUNAWAY_POS_ERROR_S   = 0.25
+# Measured speed above this on RUNAWAY_SPEED_PACKETS consecutive feedback
+# packets trips.  References are limited to 1 rad/s joint (1.25 rad/s motor
+# side on M4).  M1 has shown 1-2 packet glitches up to 5.6 rad/s that
+# recover on their own; the 2026-10-21 runaway gave 3 fast packets in 46 ms.
+RUNAWAY_SPEED_RAD_S   = 3.0
+RUNAWAY_SPEED_PACKETS = 3
+# No new feedback packet for this long trips: the checks above are blind.
+RUNAWAY_FEEDBACK_TIMEOUT_S = 0.5
 
 # Motor index → joint name (driven joints only)
 MOTOR_TO_JOINT = {
@@ -329,6 +352,69 @@ class _CommandStreamer:
         if full:
             self._last_full[motor] = now
         return True
+
+
+class _RunawayMonitor:
+    """Detect a motor that is not following its command (see RUNAWAY_* above)."""
+
+    def __init__(self) -> None:
+        self._error_since: dict[int, float] = {}
+        self._fast_packets: dict[int, int] = {}
+        self._last_packet_time: dict[int, float] = {}
+        self._last_packet_seen: dict[int, float] = {}
+
+    def reset(self) -> None:
+        self._error_since.clear()
+        self._fast_packets.clear()
+        self._last_packet_time.clear()
+        self._last_packet_seen.clear()
+
+    def check(
+        self,
+        motor: int,
+        cmd_pos_motor_rad: float,
+        encoder_pos_motor_rad: float | None,
+        encoder_vel_motor_rad_s: float | None,
+        packet_time: float,
+        now: float,
+    ) -> str | None:
+        """Return a trip reason, or None. Call once per tick per monitored motor."""
+        # Feedback timeout. packet_time is the PC time the last packet arrived.
+        if packet_time != self._last_packet_time.get(motor):
+            self._last_packet_time[motor] = packet_time
+            self._last_packet_seen[motor] = now
+            new_packet = True
+        else:
+            new_packet = False
+        silent_s = now - self._last_packet_seen.setdefault(motor, now)
+        if encoder_pos_motor_rad is None or silent_s > RUNAWAY_FEEDBACK_TIMEOUT_S:
+            return f"M{motor} no feedback for {silent_s:.2f} s"
+
+        # Speed: count consecutive packets, so a repeated stale value or a
+        # one-packet glitch does not trip.
+        if new_packet and encoder_vel_motor_rad_s is not None:
+            if abs(encoder_vel_motor_rad_s) > RUNAWAY_SPEED_RAD_S:
+                self._fast_packets[motor] = self._fast_packets.get(motor, 0) + 1
+            else:
+                self._fast_packets[motor] = 0
+            if self._fast_packets[motor] >= RUNAWAY_SPEED_PACKETS:
+                return (
+                    f"M{motor} speed {encoder_vel_motor_rad_s:+.2f} rad/s "
+                    f"> {RUNAWAY_SPEED_RAD_S} rad/s"
+                )
+
+        # Sustained position error.
+        error = cmd_pos_motor_rad - encoder_pos_motor_rad
+        if abs(error) > RUNAWAY_POS_ERROR_RAD[motor]:
+            since = self._error_since.setdefault(motor, now)
+            if now - since >= RUNAWAY_POS_ERROR_S:
+                return (
+                    f"M{motor} position error {error:+.3f} rad for {now - since:.2f} s "
+                    f"(cmd {cmd_pos_motor_rad:+.3f}, encoder {encoder_pos_motor_rad:+.3f})"
+                )
+        else:
+            self._error_since.pop(motor, None)
+        return None
 
 # ---------------------------------------------------------------------------
 # Per-run cycle log
@@ -858,6 +944,12 @@ def main() -> None:
             "CONSTRAINED_JOINTS": CONSTRAINED_JOINTS,
             "HARDWARE_ZERO_ACTUATOR_CTRL_RAD": HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
             "STREAM_KEEPALIVE_S": STREAM_KEEPALIVE_S,
+            "RUNAWAY_STOP": RUNAWAY_STOP,
+            "RUNAWAY_POS_ERROR_RAD": RUNAWAY_POS_ERROR_RAD,
+            "RUNAWAY_POS_ERROR_S": RUNAWAY_POS_ERROR_S,
+            "RUNAWAY_SPEED_RAD_S": RUNAWAY_SPEED_RAD_S,
+            "RUNAWAY_SPEED_PACKETS": RUNAWAY_SPEED_PACKETS,
+            "RUNAWAY_FEEDBACK_TIMEOUT_S": RUNAWAY_FEEDBACK_TIMEOUT_S,
         },
     }
     try:
@@ -875,6 +967,7 @@ def main() -> None:
     dt = 1.0 / UPDATE_HZ
     tick = 0
     streamer = _CommandStreamer()
+    runaway = _RunawayMonitor()
     idle_slider_hint_shown = False
     latest_command_gains: dict[int, tuple[float, float] | None] = {
         motor: None for motor in MOTOR_TO_JOINT
@@ -932,6 +1025,7 @@ def main() -> None:
                 )
                 # First tick after start sends a full frame to every motor.
                 streamer.reset()
+                runaway.reset()
 
                 # Keep the synchronized reference while retaining the target
                 # selected through MuJoCo's Control tab.
@@ -1025,8 +1119,42 @@ def main() -> None:
                 # 3. Compute gravity-compensation feedforward.
                 tau_ff = _compute_tau_ff(model, data, qpos_idx, qvel_idx)
 
-                # 4. Send MIT frames every SEND_EVERY ticks.
-                if not simulation_only and tick % SEND_EVERY == 0:
+                # 4. Runaway check against the encoders, before anything is
+                # sent this tick.  Only motors with feedback at sync are
+                # monitored; unpowered motors never report and are skipped.
+                trip_reason = None
+                if RUNAWAY_STOP and not simulation_only:
+                    check_now = time.perf_counter()
+                    for actuator, motor in ACTUATOR_TO_MOTOR.items():
+                        if motor not in _encoder_feedback_at_sync:
+                            continue
+                        actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
+                        if actuator_id < 0:
+                            continue
+                        gear = float(model.actuator_gear[actuator_id, 0])
+                        cmd_pos_motor = (
+                            MOTOR_DIRECTION[motor] * limiter.reference_position(actuator) * gear
+                            + _pos_cmd_offset.get(motor, 0.0)
+                        )
+                        # Raw (non-extrapolated) packet values, in the same
+                        # motor-side frame as the P command.
+                        trip_reason = runaway.check(
+                            motor, cmd_pos_motor, log_pos[motor], log_vel[motor], fb.time[motor], check_now
+                        )
+                        if trip_reason:
+                            break
+
+                if trip_reason:
+                    si.emergency_stop()
+                    _control_active = False
+                    _paused = False
+                    _log_events.append(f"RUNAWAY STOP: {trip_reason}")
+                    print(f"[ctrl] *** RUNAWAY STOP: {trip_reason} ***")
+                    print("[ctrl]     Sent 0X; no commands are being streamed. Check the arm,")
+                    print("[ctrl]     then type 'a' and 's' to re-enable and re-synchronize.")
+
+                # 5. Send MIT frames every SEND_EVERY ticks.
+                elif not simulation_only and tick % SEND_EVERY == 0:
                     for actuator, motor in ACTUATOR_TO_MOTOR.items():
                         actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
                         if actuator_id < 0:
