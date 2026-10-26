@@ -12,6 +12,10 @@ Serial protocol (STM32 UART, 1000000 baud):
   Incoming feedback:
     [M<n>] pos=<val> rad  vel=<val>  tau=<val>  T=<val>  err=<val>  t=<val>ms
     [M<n>] pos=<val> deg  spd=<val> eRPM  I=<val> A  T=<val>  err=<val>  t=<val>ms
+    [TX M<n>] pos=<val> vel=<val> kp=<val> kd=<val> tff=<val>   (CAN command echo, TX_ECHO=1)
+    [UART] rx errors ore=<n> fe=<n> ne=<n> pe=<n> rejected=<n> t=<val>ms   (on change)
+    [UART] rejected "<line>"   (latest command line the firmware refused)
+    Anything else (faults, "feedback lost", unknown CAN id, [UART]) is kept for the run log.
 
   Outgoing commands:
     <n>P<val>\\n  — position setpoint (rad)
@@ -39,6 +43,7 @@ import math
 import re
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 
 from robot_master_configuration import AK40_MOTOR_TORQUE_LIMIT_NM
@@ -71,6 +76,20 @@ _motor_current:      dict[int, float | None] = {1: None, 2: None, 3: None, 4: No
 _motor_torque:       dict[int, float | None] = {1: None, 2: None, 3: None, 4: None}
 _motor_measure_time: dict[int, float]        = {1: 0.0,  2: 0.0,  3: 0.0,  4: 0.0}
 
+# CAN command echo ("[TX Mn] ..." lines, firmware built with TX_ECHO=1): the
+# values the STM32 actually latched and put on the bus, motor side.
+_motor_echo:      dict[int, "CommandEcho | None"] = {1: None, 2: None, 3: None, 4: None}
+_motor_echo_time: dict[int, float]                = {1: 0.0,  2: 0.0,  3: 0.0,  4: 0.0}
+# Every echo in arrival order, as (PC receive time, motor, echo), for the
+# controller's echo check: the latest-only dicts above skip echoes that
+# arrive between two control ticks.
+_echo_queue: deque[tuple[float, int, "CommandEcho"]] = deque(maxlen=2000)
+
+# Every other line from the STM32 (faults, watchdog trips, unknown CAN ids,
+# future message types), as (PC receive time, text).  Bounded so a chatty
+# firmware cannot grow it without limit if nobody drains it.
+_other_lines: deque[tuple[float, str]] = deque(maxlen=500)
+
 # ---------------------------------------------------------------------------
 # Feedback parsing
 # ---------------------------------------------------------------------------
@@ -81,6 +100,21 @@ _SPD_RE = re.compile(r'\bspd=(-?\d+\.?\d*)')
 _CUR_RE = re.compile(r'\bI=(-?\d+\.?\d*)')
 _TAU_RE = re.compile(r'\btau=(-?\d+\.?\d*)')
 _TS_RE  = re.compile(r'\bt=(\d+)ms')
+# "[TX M1] pos= 3.865 vel= 0.00 kp=  9.0 kd=0.69 tff= 0.00" (printf widths pad with spaces)
+_NUM = r'\s*(-?\d+\.?\d*)'
+_ECHO_RE = re.compile(
+    rf'^\[TX M([1-4])\]\s*pos={_NUM}\s+vel={_NUM}\s+kp={_NUM}\s+kd={_NUM}\s+tff={_NUM}'
+)
+
+
+@dataclass
+class CommandEcho:
+    """One CAN command as echoed by the STM32 (motor side)."""
+    pos:    float   # rad
+    vel:    float   # rad/s
+    kp:     float   # N·m/rad
+    kd:     float   # N·m·s/rad
+    tau_ff: float   # N·m
 
 _AK60_POLE_PAIRS = 14
 _AK60_REDUCTION  = 6.0
@@ -88,7 +122,18 @@ _ERPM_TO_RAD_S   = (2.0 * math.pi) / (60.0 * _AK60_POLE_PAIRS * _AK60_REDUCTION)
 
 
 def _parse_line(line: str) -> None:
-    """Parse one STM32 feedback line and update shared motor state."""
+    """Parse one STM32 line: motor feedback, a command echo, or anything else."""
+    echo = _ECHO_RE.match(line)
+    if echo:
+        motor = int(echo.group(1))
+        values = CommandEcho(*(float(echo.group(i)) for i in range(2, 7)))
+        now = time.perf_counter()
+        with _fb_lock:
+            _motor_echo[motor]      = values
+            _motor_echo_time[motor] = now
+            _echo_queue.append((now, motor, values))
+        return
+
     for motor in [1, 2, 3, 4]:
         tag = f"[M{motor}]"
         if not line.startswith(tag):
@@ -97,7 +142,9 @@ def _parse_line(line: str) -> None:
 
         m = _POS_RE.search(body)
         if not m:
-            break
+            # e.g. "[M1] feedback lost — disabled (re-enable required)"
+            _other_lines.append((time.perf_counter(), line))
+            return
         val = float(m.group(1))
         if m.group(2) == "deg":
             val = math.radians(val)
@@ -127,7 +174,9 @@ def _parse_line(line: str) -> None:
             _motor_current[motor]      = cur
             _motor_torque[motor]       = tau
             _motor_measure_time[motor] = time.perf_counter()
-        break
+        return
+
+    _other_lines.append((time.perf_counter(), line))
 
 
 def _serial_reader() -> None:
@@ -223,6 +272,31 @@ def raw_snapshot() -> tuple[dict[int, float | None], dict[int, float]]:
     """Return raw (non-extrapolated) pos and vel dicts. Used for zeroing."""
     with _fb_lock:
         return dict(_motor_pos), dict(_motor_vel)
+
+
+def echo_snapshot() -> tuple[dict[int, CommandEcho | None], dict[int, float]]:
+    """Return the latest echoed CAN command per motor and its PC receive time.
+
+    None until the firmware sends an echo (needs TX_ECHO=1; enabled motors only).
+    """
+    with _fb_lock:
+        return dict(_motor_echo), dict(_motor_echo_time)
+
+
+def drain_echoes() -> list[tuple[float, int, CommandEcho]]:
+    """Remove and return every echo received since the last call, oldest first."""
+    with _fb_lock:
+        echoes = list(_echo_queue)
+        _echo_queue.clear()
+    return echoes
+
+
+def drain_other_lines() -> list[tuple[float, str]]:
+    """Remove and return STM32 lines that were neither feedback nor echoes."""
+    lines = []
+    while _other_lines:
+        lines.append(_other_lines.popleft())
+    return lines
 
 # ---------------------------------------------------------------------------
 # Public API — commands

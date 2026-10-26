@@ -23,6 +23,8 @@ Usage:
 
 Runaway stop (RUNAWAY_STOP): a motor that leaves its command, moves too fast
 or stops reporting triggers 0X and returns to IDLE; type 'a' then 's' again.
+With TX_ECHO firmware, a CAN command echo that disagrees with what the PC
+sent (ECHO_CHECK) trips the same stop.
 
 Startup workflow:
     1. Motors must already be enabled (use motor_gui.py or type 'e' here).
@@ -106,6 +108,11 @@ DEBUG_COMMANDS = True
 PRINT_MOTOR_FEEDBACK = True
 MOTOR_FEEDBACK_PRINT_HZ = 4.0
 
+# STM32 lines that are not motor feedback (faults, "feedback lost", unknown
+# CAN ids) are always written to the run log; at most this many per second
+# are also printed as [stm32] so a chatty firmware cannot flood the terminal.
+STM32_PRINT_MAX_PER_S = 5
+
 # Set to True to send zero torque feedforward to all motors.
 # Useful for initial testing before verifying TFF sign and magnitude.
 ZERO_TFF = True
@@ -146,6 +153,21 @@ RUNAWAY_SPEED_RAD_S   = 3.0
 RUNAWAY_SPEED_PACKETS = 3
 # No new feedback packet for this long trips: the checks above are blind.
 RUNAWAY_FEEDBACK_TIMEOUT_S = 0.5
+
+# Command echo check (needs TX_ECHO=1 firmware).  On 2026-10-22 the STM32
+# latched P = 0 that the PC never sent (a damaged serial line), and the
+# encoder checks above only tripped 45 ms later, after a 17.5 A slam.  Each
+# "[TX Mn]" echo is compared with what the PC sent; ECHO_MISMATCH_COUNT
+# consecutive mismatching echoes trip the same stop.  Two, so one damaged
+# echo line on the way back cannot trip it alone.
+ECHO_CHECK = True
+ECHO_MISMATCH_COUNT = 2
+# An echo may show any value sent within this long before it arrived (serial
+# and firmware-loop latency), or the value current before that.
+ECHO_WINDOW_S = 0.15
+# Allowed |echo - sent| per field: the echo's printf rounding (pos %.3f,
+# vel %.2f, kp %.1f, kd %.2f, tff %.2f) plus margin.  Motor side.
+ECHO_TOLERANCE = {"pos": 0.01, "vel": 0.02, "kp": 0.1, "kd": 0.01, "tau_ff": 0.02}
 
 # Motor index → joint name (driven joints only)
 MOTOR_TO_JOINT = {
@@ -308,11 +330,14 @@ class _CommandStreamer:
         self._last_full: dict[int, float] = {}
         # Field letters written on each motor's latest send() ("" = nothing), for the cycle log.
         self.last_sent_fields: dict[int, str] = {}
+        # Values written on each motor's latest send(), for the echo check.
+        self.last_sent_values: dict[int, dict[str, float]] = {}
 
     def reset(self) -> None:
         self._last.clear()
         self._last_full.clear()
         self.last_sent_fields.clear()
+        self.last_sent_values.clear()
 
     def send(self, motor: int, pos: float, vel: float, kp: float, kd: float, tau_ff: float) -> bool:
         """Return True if anything was written for this motor."""
@@ -341,6 +366,7 @@ class _CommandStreamer:
         self.last_sent_fields[motor] = "".join(
             letter for letter, key in zip("PVKDT", fields) if fields[key] is not None
         )
+        self.last_sent_values[motor] = {k: v for k, v in fields.items() if v is not None}
         if all(v is None for v in fields.values()):
             return False
 
@@ -414,6 +440,64 @@ class _RunawayMonitor:
                 )
         else:
             self._error_since.pop(motor, None)
+        return None
+
+
+class _EchoMonitor:
+    """Compare the STM32's CAN command echoes with what the PC sent (see ECHO_* above)."""
+
+    _LETTER = {"pos": "P", "vel": "V", "kp": "K", "kd": "D", "tau_ff": "T"}
+
+    def __init__(self) -> None:
+        # motor -> field -> [(PC send time, value)], oldest first.  Pruned to
+        # the window plus the one value current before it.
+        self._sent: dict[int, dict[str, list[tuple[float, float]]]] = {}
+        self._mismatches: dict[int, int] = {}
+
+    def reset(self) -> None:
+        self._sent.clear()
+        self._mismatches.clear()
+
+    def record_sent(self, motor: int, values: dict[str, float], now: float) -> None:
+        for key, value in values.items():
+            if key == "tau_ff":
+                # send_mit_update clamps T before writing it.
+                limit = si.TAU_FF_LIMIT[motor]
+                value = max(-limit, min(limit, value))
+            history = self._sent.setdefault(motor, {}).setdefault(key, [])
+            history.append((now, value))
+            while len(history) > 1 and history[1][0] < now - 2.0 * ECHO_WINDOW_S:
+                history.pop(0)
+
+    def check(self, motor: int, echo: "si.CommandEcho", received: float) -> str | None:
+        """Return a trip reason, or None. Call once per echo, in arrival order."""
+        mismatched = []
+        judged = False
+        for key, tolerance in ECHO_TOLERANCE.items():
+            history = self._sent.get(motor, {}).get(key)
+            window_start = received - ECHO_WINDOW_S
+            # Inconclusive until the first sent value is older than the
+            # window: the firmware may still show what it held before.
+            if not history or history[0][0] > window_start:
+                continue
+            candidates = [v for t, v in history if window_start <= t <= received]
+            older = [v for t, v in history if t < window_start]
+            candidates.append(older[-1])
+            judged = True
+            echoed = getattr(echo, key)
+            if all(abs(echoed - v) > tolerance for v in candidates):
+                mismatched.append(f"{self._LETTER[key]} echo {echoed:+.3f} vs sent {candidates[-1]:+.3f}")
+        if not judged:
+            return None
+        if not mismatched:
+            self._mismatches[motor] = 0
+            return None
+        self._mismatches[motor] = self._mismatches.get(motor, 0) + 1
+        if self._mismatches[motor] >= ECHO_MISMATCH_COUNT:
+            return (
+                f"M{motor} command echo mismatch on {self._mismatches[motor]} echoes: "
+                + ", ".join(mismatched)
+            )
         return None
 
 # ---------------------------------------------------------------------------
@@ -504,6 +588,19 @@ def _open_cycle_log(
                 f"m{motor}_feedback_age_s",
             ]
         )
+    # What the STM32 echoed back as sent on CAN (TX_ECHO firmware), motor side.
+    # Compare with m<n>_cmd_* to see whether commands arrived intact.
+    for motor in MOTOR_TO_JOINT:
+        fieldnames.extend(
+            [
+                f"m{motor}_echo_position_rad",
+                f"m{motor}_echo_velocity_rad_s",
+                f"m{motor}_echo_kp",
+                f"m{motor}_echo_kd",
+                f"m{motor}_echo_tau_ff_nm",
+                f"m{motor}_echo_age_s",
+            ]
+        )
     for motor in MOTOR_TO_JOINT:
         fieldnames.extend(
             [
@@ -566,6 +663,8 @@ def _write_cycle_log(
     commanded: dict[int, tuple[float, float, float, float, float, str]],
     feedback_current: dict[int, float | None] | None = None,
     feedback_torque: dict[int, float | None] | None = None,
+    command_echo: dict[int, "si.CommandEcho | None"] | None = None,
+    command_echo_age: dict[int, float | None] | None = None,
 ) -> None:
     """Append one controller-cycle record and flush it to disk."""
     status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
@@ -588,6 +687,14 @@ def _write_cycle_log(
         row[f"m{motor}_encoder_current_a"] = feedback_current[motor] if feedback_current else None
         row[f"m{motor}_encoder_torque_nm"] = feedback_torque[motor] if feedback_torque else None
         row[f"m{motor}_feedback_age_s"] = feedback_age[motor]
+        echo = command_echo.get(motor) if command_echo else None
+        if echo is not None:
+            row[f"m{motor}_echo_position_rad"] = echo.pos
+            row[f"m{motor}_echo_velocity_rad_s"] = echo.vel
+            row[f"m{motor}_echo_kp"] = echo.kp
+            row[f"m{motor}_echo_kd"] = echo.kd
+            row[f"m{motor}_echo_tau_ff_nm"] = echo.tau_ff
+            row[f"m{motor}_echo_age_s"] = command_echo_age[motor] if command_echo_age else None
         if motor in commanded:
             pos, vel, kp, kd, tau_ff, sent = commanded[motor]
             row[f"m{motor}_cmd_position_rad"] = pos
@@ -950,6 +1057,10 @@ def main() -> None:
             "RUNAWAY_SPEED_RAD_S": RUNAWAY_SPEED_RAD_S,
             "RUNAWAY_SPEED_PACKETS": RUNAWAY_SPEED_PACKETS,
             "RUNAWAY_FEEDBACK_TIMEOUT_S": RUNAWAY_FEEDBACK_TIMEOUT_S,
+            "ECHO_CHECK": ECHO_CHECK,
+            "ECHO_MISMATCH_COUNT": ECHO_MISMATCH_COUNT,
+            "ECHO_WINDOW_S": ECHO_WINDOW_S,
+            "ECHO_TOLERANCE": ECHO_TOLERANCE,
         },
     }
     try:
@@ -968,7 +1079,10 @@ def main() -> None:
     tick = 0
     streamer = _CommandStreamer()
     runaway = _RunawayMonitor()
+    echo_monitor = _EchoMonitor()
     idle_slider_hint_shown = False
+    stm32_print_window_s = 0.0
+    stm32_print_count = 0
     latest_command_gains: dict[int, tuple[float, float] | None] = {
         motor: None for motor in MOTOR_TO_JOINT
     }
@@ -1026,6 +1140,7 @@ def main() -> None:
                 # First tick after start sends a full frame to every motor.
                 streamer.reset()
                 runaway.reset()
+                echo_monitor.reset()
 
                 # Keep the synchronized reference while retaining the target
                 # selected through MuJoCo's Control tab.
@@ -1070,6 +1185,9 @@ def main() -> None:
                 log_age = {motor: None for motor in MOTOR_TO_JOINT}
                 log_current: dict[int, float | None] = {motor: None for motor in MOTOR_TO_JOINT}
                 log_torque: dict[int, float | None] = {motor: None for motor in MOTOR_TO_JOINT}
+                log_echo = None
+                log_echo_age = None
+                new_echoes = []
             else:
                 fb = si.snapshot()
                 pos_snap = fb.pos
@@ -1082,6 +1200,24 @@ def main() -> None:
                 log_age = {m: (fb_now - fb.time[m] if log_pos[m] is not None else None) for m in MOTOR_TO_JOINT}
                 log_current = fb.current
                 log_torque = fb.torque
+                # Drained every tick, so the echo check never sees echoes
+                # from before a start or while paused.
+                new_echoes = si.drain_echoes()
+                log_echo, echo_time = si.echo_snapshot()
+                log_echo_age = {
+                    m: (fb_now - echo_time[m] if log_echo[m] is not None else None) for m in MOTOR_TO_JOINT
+                }
+                # Firmware messages that are not feedback (faults, watchdog,
+                # unknown CAN ids): always logged, printed at a capped rate.
+                for _, text in si.drain_other_lines():
+                    _log_events.append(f"stm32: {text}")
+                    if fb_now - stm32_print_window_s >= 1.0:
+                        stm32_print_window_s, stm32_print_count = fb_now, 0
+                    stm32_print_count += 1
+                    if stm32_print_count <= STM32_PRINT_MAX_PER_S:
+                        print(f"[stm32] {text}")
+                    elif stm32_print_count == STM32_PRINT_MAX_PER_S + 1:
+                        print("[stm32] ... more messages this second (see run log events)")
             commanded: dict[int, tuple[float, float, float, float, float, str]] = {}
 
             # --- Status print ---
@@ -1123,7 +1259,14 @@ def main() -> None:
                 # sent this tick.  Only motors with feedback at sync are
                 # monitored; unpowered motors never report and are skipped.
                 trip_reason = None
-                if RUNAWAY_STOP and not simulation_only:
+                # A command the STM32 latched wrongly shows in its echo before
+                # the motor moves, so check echoes first.
+                if ECHO_CHECK and not simulation_only:
+                    for received, motor, echo in new_echoes:
+                        trip_reason = echo_monitor.check(motor, echo, received)
+                        if trip_reason:
+                            break
+                if RUNAWAY_STOP and not simulation_only and not trip_reason:
                     check_now = time.perf_counter()
                     for actuator, motor in ACTUATOR_TO_MOTOR.items():
                         if motor not in _encoder_feedback_at_sync:
@@ -1187,6 +1330,9 @@ def main() -> None:
                             kp_motor,
                             kd_motor,
                             tau_ff_motor,
+                        )
+                        echo_monitor.record_sent(
+                            motor, streamer.last_sent_values.get(motor, {}), time.perf_counter()
                         )
                         commanded[motor] = (
                             ref_pos_motor,
@@ -1252,6 +1398,8 @@ def main() -> None:
                         commanded,
                         log_current,
                         log_torque,
+                        log_echo,
+                        log_echo_age,
                     )
                 except OSError as exc:
                     print(f"[ctrl] WARNING: run logging stopped: {exc}")
