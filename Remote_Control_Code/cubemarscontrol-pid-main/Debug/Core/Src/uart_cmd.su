@@ -1,0 +1,7 @@
+../Core/Src/uart_cmd.c:13:9:uart_cmd_e_stop_requested	4	static
+../Core/Src/uart_cmd.c:14:9:uart_cmd_clear_e_stop	4	static
+../Core/Src/uart_cmd.c:16:6:uart_cmd_init	4	static
+../Core/Src/uart_cmd.c:75:13:uart_cmd_motor	16	static
+../Core/Src/uart_cmd.c:81:8:uart_cmd_servo_pos	4	static
+../Core/Src/uart_cmd.c:86:13:parse_cmd	24	static
+../Core/Src/uart_cmd.c:135:6:uart_cmd_feed	16	static
