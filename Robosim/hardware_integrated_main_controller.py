@@ -24,7 +24,8 @@ Usage:
 Runaway stop (RUNAWAY_STOP): a motor that leaves its command, moves too fast
 or stops reporting triggers 0X and returns to IDLE; type 'a' then 's' again.
 With TX_ECHO firmware, a CAN command echo that disagrees with what the PC
-sent (ECHO_CHECK) trips the same stop.
+sent (ECHO_CHECK) trips the same stop, and so does a motor reporting a
+nonzero fault code (MOTOR_FAULT_STOP).
 
 Startup workflow:
     1. Motors must already be enabled (use motor_gui.py or type 'e' here).
@@ -44,13 +45,9 @@ Commands (type in terminal, press Enter):
     z            — print current encoder readings
     q            — quit
 
-Serial protocol (to STM32):
-    <n>P<val>\\n  — position setpoint (rad)
-    <n>V<val>\\n  — velocity setpoint (rad/s)
-    <n>K<val>\\n  — Kp gain
-    <n>D<val>\\n  — Kd gain
-    <n>T<val>\\n  — torque feedforward (N·m)
-    <n>E\\n       — enable motor
+Serial protocol (to STM32, see serial_interface.py):
+    <n>M<pos>,<vel>,<kp>,<kd>,<tff>*HH\\n  — full MIT frame, applied atomically
+    <n>E*HH\\n                             — enable motor
 
 Requires: mujoco, pyserial, numpy
 """
@@ -123,11 +120,12 @@ ZERO_TFF = True
 # the run ends.  The controller refuses to start without a log.
 CYCLE_LOG_DIRECTORY = Path(__file__).parent / "logs"
 
-# Live slider streaming.  A full P/V/K/D/T frame for all four motors every
-# tick is ~220 bytes x 84 Hz = ~18 kB/s, but 115200 baud carries ~11.5 kB/s,
-# so the serial write blocks and slider motion reaches the motors late.
-# Instead, each tick sends only the fields that changed (P/V while a slider
-# move is in progress), plus a full frame per motor every KEEPALIVE_S.
+# Live slider streaming.  A motor gets a frame only when one of its fields
+# changed by more than these thresholds (during a slider move), plus a
+# keepalive frame every KEEPALIVE_S.  Each frame is one checksummed
+# "<n>M<pos>,<vel>,<kp>,<kd>,<tff>" line (~45 bytes) that the firmware
+# applies whole or not at all: separate per-field lines could arrive in part,
+# as on 2026-10-26 when an overrun dropped 3D/3T but kept 3P/3V.
 STREAM_POS_EPS_RAD   = 1e-4   # resend P when it moves more than this (motor side)
 STREAM_VEL_EPS_RAD_S = 1e-3   # resend V when it changes more than this
 STREAM_GAIN_REL_EPS  = 0.02   # resend K/D on a >2% change
@@ -165,9 +163,15 @@ ECHO_MISMATCH_COUNT = 2
 # An echo may show any value sent within this long before it arrived (serial
 # and firmware-loop latency), or the value current before that.
 ECHO_WINDOW_S = 0.15
-# Allowed |echo - sent| per field: the echo's printf rounding (pos %.3f,
-# vel %.2f, kp %.1f, kd %.2f, tff %.2f) plus margin.  Motor side.
-ECHO_TOLERANCE = {"pos": 0.01, "vel": 0.02, "kp": 0.1, "kd": 0.01, "tau_ff": 0.02}
+# Allowed |echo - sent| per field, in CAN counts (si.command_resolution).
+# The echo is the frame as packed for CAN: the firmware truncates to a count
+# (up to 1 below) and the PC rounds what it sends (well under half a count).
+ECHO_TOLERANCE_COUNTS = 2.0
+
+# A motor that reports a nonzero CubeMars fault code (si.MOTOR_ERROR_TEXT)
+# while control is active trips the same stop.  Fault codes are always
+# logged (m<n>_encoder_err) and every change is a run-log event.
+MOTOR_FAULT_STOP = True
 
 # Motor index → joint name (driven joints only)
 MOTOR_TO_JOINT = {
@@ -323,7 +327,7 @@ def _compute_tau_ff(
     return tau_ff
 
 class _CommandStreamer:
-    """Send each motor's MIT fields only when they change, plus a keepalive."""
+    """Send a motor's full MIT frame when any field changes, plus a keepalive."""
 
     def __init__(self) -> None:
         self._last: dict[int, dict[str, float]] = {}
@@ -360,23 +364,19 @@ class _CommandStreamer:
         }
         # When a move finishes, the exact final P and V=0 must reach the motor
         # even if they differ from the last sent values by less than eps.
-        if last is not None and vel == 0.0 and last["vel"] != 0.0:
-            fields["vel"] = 0.0
-            fields["pos"] = pos
-        self.last_sent_fields[motor] = "".join(
-            letter for letter, key in zip("PVKDT", fields) if fields[key] is not None
-        )
-        self.last_sent_values[motor] = {k: v for k, v in fields.items() if v is not None}
-        if all(v is None for v in fields.values()):
+        move_finished = last is not None and vel == 0.0 and last["vel"] != 0.0
+        if all(v is None for v in fields.values()) and not move_finished:
+            self.last_sent_fields[motor] = ""
+            self.last_sent_values[motor] = {}
             return False
 
-        si.send_mit_update(motor, **fields)
-        entry = self._last.setdefault(motor, {})
-        for key, value in fields.items():
-            if value is not None:
-                entry[key] = value
-        if full:
-            self._last_full[motor] = now
+        # One atomic frame with every field, whichever ones changed.
+        values = {"pos": pos, "vel": vel, "kp": kp, "kd": kd, "tau_ff": tau_ff}
+        si.send_mit_frame(motor, **values)
+        self.last_sent_fields[motor] = "PVKDT"
+        self.last_sent_values[motor] = values
+        self._last[motor] = dict(values)
+        self._last_full[motor] = now
         return True
 
 
@@ -461,9 +461,12 @@ class _EchoMonitor:
     def record_sent(self, motor: int, values: dict[str, float], now: float) -> None:
         for key, value in values.items():
             if key == "tau_ff":
-                # send_mit_update clamps T before writing it.
+                # send_mit_frame clamps T before writing it.
                 limit = si.TAU_FF_LIMIT[motor]
                 value = max(-limit, min(limit, value))
+            # The firmware clamps every field to its CAN range before packing.
+            lo, hi = si.command_range(motor, key)
+            value = max(lo, min(hi, value))
             history = self._sent.setdefault(motor, {}).setdefault(key, [])
             history.append((now, value))
             while len(history) > 1 and history[1][0] < now - 2.0 * ECHO_WINDOW_S:
@@ -473,7 +476,8 @@ class _EchoMonitor:
         """Return a trip reason, or None. Call once per echo, in arrival order."""
         mismatched = []
         judged = False
-        for key, tolerance in ECHO_TOLERANCE.items():
+        for key in self._LETTER:
+            tolerance = ECHO_TOLERANCE_COUNTS * si.command_resolution(motor, key)
             history = self._sent.get(motor, {}).get(key)
             window_start = received - ECHO_WINDOW_S
             # Inconclusive until the first sent value is older than the
@@ -585,6 +589,8 @@ def _open_cycle_log(
                 f"m{motor}_encoder_velocity_rad_s",
                 f"m{motor}_encoder_current_a",
                 f"m{motor}_encoder_torque_nm",
+                f"m{motor}_encoder_temp_c",
+                f"m{motor}_encoder_err",
                 f"m{motor}_feedback_age_s",
             ]
         )
@@ -665,6 +671,8 @@ def _write_cycle_log(
     feedback_torque: dict[int, float | None] | None = None,
     command_echo: dict[int, "si.CommandEcho | None"] | None = None,
     command_echo_age: dict[int, float | None] | None = None,
+    feedback_temp: dict[int, int | None] | None = None,
+    feedback_err: dict[int, int | None] | None = None,
 ) -> None:
     """Append one controller-cycle record and flush it to disk."""
     status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
@@ -686,6 +694,8 @@ def _write_cycle_log(
         row[f"m{motor}_encoder_velocity_rad_s"] = raw_vel[motor]
         row[f"m{motor}_encoder_current_a"] = feedback_current[motor] if feedback_current else None
         row[f"m{motor}_encoder_torque_nm"] = feedback_torque[motor] if feedback_torque else None
+        row[f"m{motor}_encoder_temp_c"] = feedback_temp[motor] if feedback_temp else None
+        row[f"m{motor}_encoder_err"] = feedback_err[motor] if feedback_err else None
         row[f"m{motor}_feedback_age_s"] = feedback_age[motor]
         echo = command_echo.get(motor) if command_echo else None
         if echo is not None:
@@ -1060,7 +1070,9 @@ def main() -> None:
             "ECHO_CHECK": ECHO_CHECK,
             "ECHO_MISMATCH_COUNT": ECHO_MISMATCH_COUNT,
             "ECHO_WINDOW_S": ECHO_WINDOW_S,
-            "ECHO_TOLERANCE": ECHO_TOLERANCE,
+            "ECHO_TOLERANCE_COUNTS": ECHO_TOLERANCE_COUNTS,
+            "MOTOR_FAULT_STOP": MOTOR_FAULT_STOP,
+            "MOTOR_TYPE": si.MOTOR_TYPE,
         },
     }
     try:
@@ -1086,6 +1098,7 @@ def main() -> None:
     latest_command_gains: dict[int, tuple[float, float] | None] = {
         motor: None for motor in MOTOR_TO_JOINT
     }
+    last_motor_err: dict[int, int | None] = {motor: None for motor in MOTOR_TO_JOINT}
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
         next_tick  = time.perf_counter()
@@ -1185,6 +1198,8 @@ def main() -> None:
                 log_age = {motor: None for motor in MOTOR_TO_JOINT}
                 log_current: dict[int, float | None] = {motor: None for motor in MOTOR_TO_JOINT}
                 log_torque: dict[int, float | None] = {motor: None for motor in MOTOR_TO_JOINT}
+                log_temp: dict[int, int | None] = {motor: None for motor in MOTOR_TO_JOINT}
+                log_err: dict[int, int | None] = {motor: None for motor in MOTOR_TO_JOINT}
                 log_echo = None
                 log_echo_age = None
                 new_echoes = []
@@ -1200,6 +1215,16 @@ def main() -> None:
                 log_age = {m: (fb_now - fb.time[m] if log_pos[m] is not None else None) for m in MOTOR_TO_JOINT}
                 log_current = fb.current
                 log_torque = fb.torque
+                log_temp = fb.temp
+                log_err = fb.err
+                # Every fault-code change is a run-log event, active or not.
+                for m in MOTOR_TO_JOINT:
+                    if log_err[m] is not None and log_err[m] != last_motor_err[m]:
+                        text = si.MOTOR_ERROR_TEXT.get(log_err[m], "unknown code")
+                        _log_events.append(f"M{m} fault code err={log_err[m]} ({text})")
+                        if log_err[m] != 0 or last_motor_err[m] is not None:
+                            print(f"[ctrl] M{m} fault code err={log_err[m]} ({text})")
+                        last_motor_err[m] = log_err[m]
                 # Drained every tick, so the echo check never sees echoes
                 # from before a start or while paused.
                 new_echoes = si.drain_echoes()
@@ -1259,9 +1284,15 @@ def main() -> None:
                 # sent this tick.  Only motors with feedback at sync are
                 # monitored; unpowered motors never report and are skipped.
                 trip_reason = None
+                if MOTOR_FAULT_STOP and not simulation_only:
+                    for motor in sorted(_encoder_feedback_at_sync):
+                        if log_err[motor]:
+                            text = si.MOTOR_ERROR_TEXT.get(log_err[motor], "unknown code")
+                            trip_reason = f"M{motor} motor fault err={log_err[motor]} ({text})"
+                            break
                 # A command the STM32 latched wrongly shows in its echo before
                 # the motor moves, so check echoes first.
-                if ECHO_CHECK and not simulation_only:
+                if ECHO_CHECK and not simulation_only and not trip_reason:
                     for received, motor, echo in new_echoes:
                         trip_reason = echo_monitor.check(motor, echo, received)
                         if trip_reason:
@@ -1400,6 +1431,8 @@ def main() -> None:
                         log_torque,
                         log_echo,
                         log_echo_age,
+                        log_temp,
+                        log_err,
                     )
                 except OSError as exc:
                     print(f"[ctrl] WARNING: run logging stopped: {exc}")

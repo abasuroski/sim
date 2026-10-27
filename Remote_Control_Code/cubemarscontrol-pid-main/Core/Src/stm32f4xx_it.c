@@ -59,6 +59,7 @@
 /* USER CODE BEGIN EV */
 extern CAN_HandleTypeDef hcan1;
 extern UART_HandleTypeDef huart2;
+extern DMA_HandleTypeDef hdma_usart2_rx;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -206,6 +207,12 @@ void CAN1_RX0_IRQHandler(void)
 void USART2_IRQHandler(void)
 {
     HAL_UART_IRQHandler(&huart2);
+}
+
+// USART2_RX circular DMA (HT/TC events and error aborts)
+void DMA1_Stream5_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler(&hdma_usart2_rx);
 }
 
 void EXTI15_10_IRQHandler(void)

@@ -12,7 +12,8 @@ we send a PING, the STM32 replies immediately with "PONG t=<stm_ms>ms".
     rtt    = pc_recv - pc_send
     offset = (pc_send + rtt/2) - stm_ms   ← NTP formula
 
-After calibration, for every motor message with t=<stm_ms>ms:
+After calibration, for every motor feedback message (F<n> ... <tick hex>,
+or t=<stm_ms>ms from older firmware):
 
     true_lag = (pc_recv_ms - stm_ms) - offset
 
@@ -35,13 +36,15 @@ import serial
 import serial.tools.list_ports
 
 # ── config ────────────────────────────────────────────────────────────────────
-BAUD         = 115200
+BAUD         = 1000000   # must match the firmware (MX_USART2_UART_Init)
 CALIB_PINGS  = 20      # number of pings used to find best clock offset
 PING_PAUSE   = 0.05    # seconds between pings during calibration
 PRINT_EVERY  = 1       # print every Nth motor message (1 = all)
 # ─────────────────────────────────────────────────────────────────────────────
 
 _TS_RE   = re.compile(r't=(\d+)ms')
+# "F<n> <16 hex CAN data> <8 hex tick ms>" from the current firmware
+_HEX_FB_RE = re.compile(r'^F([1-4]) [0-9A-F]{16} ([0-9A-F]{8})$')
 _PONG_RE = re.compile(r'PONG t=(\d+)us')
 
 
@@ -154,18 +157,22 @@ def main():
             if line.startswith("PONG"):
                 continue
 
+            hex_fb = _HEX_FB_RE.match(line)
             m = _TS_RE.search(line)
-            if not m:
+            if hex_fb:
+                motor  = hex_fb.group(1)
+                stm_ms = float(int(hex_fb.group(2), 16))
+            elif m:
+                stm_ms = float(m.group(1))  # already ms
+                motor_m = re.match(r'\[M(\d+)\]', line)
+                motor   = motor_m.group(1) if motor_m else "?"
+            else:
                 print(f"  (no ts) {line}")
                 continue
 
-            stm_ms = float(m.group(1))  # already ms
             lag_ms = (pc_ms - stm_ms) - offset_ms
             lag_history.append(lag_ms)
             count += 1
-
-            motor_m = re.match(r'\[M(\d+)\]', line)
-            motor   = motor_m.group(1) if motor_m else "?"
 
             if csv_file:
                 csv_file.write(f"{motor},{stm_ms},{pc_ms:.1f},{best_rtt:.2f},{lag_ms:.2f}\n")

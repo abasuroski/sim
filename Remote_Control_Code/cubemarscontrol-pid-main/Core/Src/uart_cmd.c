@@ -10,9 +10,10 @@ static char buf[CMD_BUF_SIZE];
 static uint8_t idx = 0;
 static volatile uint8_t e_stop_pending = 0;
 
-// The serial link has no checksum, and atof() turned any damaged value into
-// 0.0; on 2026-10-22 M1 latched P = 0 and drove toward it at full gain.
-// Damaged lines are now dropped and the motor keeps its previous command.
+// atof() used to turn any damaged value into 0.0; on 2026-10-22 M1 latched
+// P = 0 and drove toward it at full gain. Damaged lines are now dropped and
+// the motor keeps its previous command: value commands must carry a "*HH"
+// XOR checksum, and lines hit by a UART error are rejected.
 static uint8_t line_corrupt  = 0;   // a UART error hit a byte of this line
 static uint8_t line_overflow = 0;   // line longer than CMD_BUF_SIZE - 1
 static volatile uint32_t rejected_count = 0;
@@ -95,6 +96,7 @@ void uart_cmd_init(void)
     motors[0].enabled = 0;
     motors[0].set_origin_pending = 0;
     motors[0].pos_offset = 0.0f;
+    motors[0].pos_offset_counts = 0;
     motors[0].fb_only = 0;
 
     // Motor 2: AK70, CAN ID 1 (needs enable)
@@ -146,18 +148,80 @@ MotorState *uart_cmd_motor(uint8_t motor_idx)
     return &motors[motor_idx];
 }
 
+// Copy one motor's command with the UART ISR held off, so a command line
+// that lands mid-copy cannot mix old and new fields (the M command sets all
+// five together).
+void uart_cmd_read(uint8_t motor_idx, MotorCmd *out)
+{
+    const MotorState *m = uart_cmd_motor(motor_idx);
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    out->pos = m->pos;
+    out->vel = m->vel;
+    out->kp  = m->kp;
+    out->kd  = m->kd;
+    out->tff = m->tff;
+    __set_PRIMASK(primask);
+}
+
 float *uart_cmd_servo_pos(void)
 {
     return servo_pos;
+}
+
+static uint8_t hex_digit(char c)
+{
+    if (c >= '0' && c <= '9') return (uint8_t)(c - '0');
+    if (c >= 'A' && c <= 'F') return (uint8_t)(c - 'A' + 10);
+    if (c >= 'a' && c <= 'f') return (uint8_t)(c - 'a' + 10);
+    return 0xFF;
+}
+
+// Optional "*HH" suffix: HH = XOR of every byte before the '*', in hex.
+// Returns 1 if present and correct (the suffix is cut off buf), 0 if absent,
+// -1 if malformed or wrong. Since UART receive moved to DMA a damaged byte
+// can no longer be pinned to its line, so value commands require it.
+static int8_t strip_checksum(void)
+{
+    char *star = memchr(buf, '*', idx);
+    if (star == NULL) return 0;
+    uint8_t len = (uint8_t)(star - buf);
+    if (len + 3 != idx) return -1;
+    uint8_t hi = hex_digit(buf[len + 1]), lo = hex_digit(buf[len + 2]);
+    if (hi > 0xF || lo > 0xF) return -1;
+    uint8_t sum = 0;
+    for (uint8_t i = 0; i < len; i++) sum ^= (uint8_t)buf[i];
+    if (sum != (uint8_t)((hi << 4) | lo)) return -1;
+    buf[len] = '\0';
+    idx = len;
+    return 1;
+}
+
+// "<pos>,<vel>,<kp>,<kd>,<tff>": all five numbers or nothing.
+static uint8_t parse_mit_frame(const char *s, float out[5])
+{
+    char field[CMD_BUF_SIZE];
+    for (uint8_t k = 0; k < 5; k++) {
+        uint8_t n = 0;
+        while (s[n] != ',' && s[n] != '\0') n++;
+        if ((k < 4) != (s[n] == ',')) return 0;   // comma after the first four only
+        memcpy(field, s, n);
+        field[n] = '\0';
+        if (!parse_value(field, &out[k])) return 0;
+        s += n + 1;
+    }
+    return 1;
 }
 
 static void parse_cmd(void)
 {
     buf[idx] = '\0';
 
-    // Global emergency stop: "0X". Honoured even on a line with a UART
-    // error, because stopping is always the safe direction.
-    if (idx == 2 && buf[0] == '0' && (buf[1] == 'X' || buf[1] == 'x')) {
+    // Global emergency stop: "0X", checksum optional. Honoured even on a
+    // damaged line or with a wrong checksum, because stopping is always the
+    // safe direction.
+    if ((idx == 2 || (idx == 5 && buf[2] == '*')) &&
+        buf[0] == '0' && (buf[1] == 'X' || buf[1] == 'x')) {
         e_stop_pending = 1;
         return;
     }
@@ -174,13 +238,19 @@ static void parse_cmd(void)
     }
 
     uint8_t motor_num = (uint8_t)(buf[0] - '1');
+    // Not addressed to a motor or servo (e.g. "PING"): ignored.
+    if (motor_num >= NUM_MOTORS + NUM_SERVOS) return;
+
+    int8_t checksum = strip_checksum();
+    if (checksum < 0 || idx < 2) { reject_line(); return; }
+
     char cmd = buf[1];
     float val = 0.0f;
 
     // Servo indices: '5','6','7' → motor_num 4,5,6
-    if (motor_num >= NUM_MOTORS && motor_num < NUM_MOTORS + NUM_SERVOS) {
+    if (motor_num >= NUM_MOTORS) {
         if (cmd == 'P' || cmd == 'p') {
-            if (!parse_value(&buf[2], &val)) { reject_line(); return; }
+            if (checksum != 1 || !parse_value(&buf[2], &val)) { reject_line(); return; }
             if (val < -120.0f) val = -120.0f;
             if (val > 120.0f) val = 120.0f;
             servo_pos[motor_num - NUM_MOTORS] = val;
@@ -188,9 +258,8 @@ static void parse_cmd(void)
         return;
     }
 
-    if (motor_num >= NUM_MOTORS) return;
-
     MotorState *m = &motors[motor_num];
+    float frame[5];
 
     switch (cmd) {
         case 'P': case 'p':
@@ -198,7 +267,10 @@ static void parse_cmd(void)
         case 'K': case 'k':
         case 'D': case 'd':
         case 'T': case 't':
-            if (!parse_value(&buf[2], &val)) { reject_line(); return; }
+            if (checksum != 1 || !parse_value(&buf[2], &val)) { reject_line(); return; }
+            break;
+        case 'M': case 'm':
+            if (checksum != 1 || !parse_mit_frame(&buf[2], frame)) { reject_line(); return; }
             break;
         case 'E': case 'e':
         case 'R': case 'r':
@@ -216,6 +288,15 @@ static void parse_cmd(void)
         case 'K': case 'k': m->kp  = val; break;
         case 'D': case 'd': m->kd  = val; break;
         case 'T': case 't': m->tff = val; break;
+        case 'M': case 'm':
+            // Runs in the UART ISR, and the main loop copies commands with
+            // uart_cmd_read(), so the five fields always change together.
+            m->pos = frame[0];
+            m->vel = frame[1];
+            m->kp  = frame[2];
+            m->kd  = frame[3];
+            m->tff = frame[4];
+            break;
         case 'E': case 'e':
             m->enable_pending = 1;
             m->fb_only = 0;
