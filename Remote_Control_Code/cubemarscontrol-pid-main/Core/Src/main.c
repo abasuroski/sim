@@ -598,6 +598,70 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         do_e_stop();
 }
 
+static void send_mit_cmd(MotorState *m)
+{
+    if (m->type == MOTOR_TYPE_AK60)
+        send_ak60_cmd(m);
+    else if (m->type == MOTOR_TYPE_AK40)
+        send_ak40_cmd(m);
+    else
+        send_ak70_cmd(m);
+}
+
+static void clamp_tff(MotorState *m)
+{
+    float t_max;
+    if (m->type == MOTOR_TYPE_AK60)
+        t_max = AK60_T_MAX;
+    else if (m->type == MOTOR_TYPE_AK40)
+        t_max = AK40_T_MAX;
+    else
+        t_max = AK70_T_MAX;
+    if (m->tff > t_max) m->tff = t_max;
+    if (m->tff < -t_max) m->tff = -t_max;
+}
+
+// One main-loop round of frames for every motor except `skip`, used while
+// `skip` is being enabled. The enable sequence blocks for ~1.3 s per motor,
+// and an AK70/AK40 only replies when it receives a frame, so without this an
+// already-enabled motor went silent and the feedback watchdog disabled it
+// (M2 on 2026-10-26, while M3 and M4 were being enabled).
+static void service_other_motors(uint8_t skip)
+{
+    if (uart_cmd_e_stop_requested()) {
+        do_e_stop();
+        uart_cmd_clear_e_stop();
+    }
+    for (uint8_t i = 0; i < NUM_MOTORS; i++) {
+        if (i == skip) continue;
+        MotorState *m = uart_cmd_motor(i);
+        if (m->fb_only) {
+            if (m->type != MOTOR_TYPE_AK60)
+                send_ak70_enable(m);  // 0xFC poll, as in the main loop
+        } else if (!m->enabled) {
+            float saved_kp = m->kp, saved_kd = m->kd, saved_tff = m->tff;
+            m->kp = 0.0f; m->kd = 0.0f; m->tff = 0.0f;
+            send_mit_cmd(m);
+            m->kp = saved_kp; m->kd = saved_kd; m->tff = saved_tff;
+        } else {
+            clamp_tff(m);
+            send_mit_cmd(m);
+        }
+    }
+}
+
+// HAL_Delay for the enable sequence: keeps the other motors serviced at
+// least every 10 ms, the main loop's normal rate.
+static void enable_delay(uint8_t enabling, uint32_t ms)
+{
+    while (ms > 0) {
+        uint32_t step = ms < 10 ? ms : 10;
+        service_other_motors(enabling);
+        HAL_Delay(step);
+        ms -= step;
+    }
+}
+
 /* USER CODE END 0 */
 
 int main(void)
@@ -687,15 +751,16 @@ int main(void)
                 m->set_origin_pending = 0;
             }
 
-            // Handle pending enable with soft-start
+            // Handle pending enable with soft-start. Every wait goes through
+            // enable_delay so the other motors keep receiving frames.
             if (m->enable_pending) {
                 // AK70/AK40 need MIT mode entry frame
                 if (m->type != MOTOR_TYPE_AK60) {
                     for (int j = 0; j < 10; j++) {
                         send_ak70_enable(m);
-                        HAL_Delay(10);
+                        enable_delay(i, 10);
                     }
-                    HAL_Delay(100);
+                    enable_delay(i, 100);
                 }
 
                 m->fb_received = 0;
@@ -709,13 +774,8 @@ int main(void)
                 m->tff = 0.0f;
                 uint32_t probe_end = HAL_GetTick() + 300;
                 while (!m->fb_received && HAL_GetTick() < probe_end) {
-                    if (m->type == MOTOR_TYPE_AK60)
-                        send_ak60_cmd(m);
-                    else if (m->type == MOTOR_TYPE_AK40)
-                        send_ak40_cmd(m);
-                    else
-                        send_ak70_cmd(m);
-                    HAL_Delay(10);
+                    send_mit_cmd(m);
+                    enable_delay(i, 10);
                 }
                 if (m->fb_received)
                     m->pos = m->fb_pos;
@@ -729,14 +789,8 @@ int main(void)
                     m->kp = kp_target * (float)j / 50.0f;
                     m->kd = kd_target * (float)j / 50.0f;
 
-                    if (m->type == MOTOR_TYPE_AK60)
-                        send_ak60_cmd(m);
-                    else if (m->type == MOTOR_TYPE_AK40)
-                        send_ak40_cmd(m);
-                    else
-                        send_ak70_cmd(m);
-
-                    HAL_Delay(20);
+                    send_mit_cmd(m);
+                    enable_delay(i, 20);
                 }
                 m->kp = kp_target;
                 m->kd = kd_target;
@@ -782,22 +836,8 @@ int main(void)
             }
 
             // Clamp torque to motor limits
-            float t_max;
-            if (m->type == MOTOR_TYPE_AK60)
-                t_max = AK60_T_MAX;
-            else if (m->type == MOTOR_TYPE_AK40)
-                t_max = AK40_T_MAX;
-            else
-                t_max = AK70_T_MAX;
-            if (m->tff > t_max) m->tff = t_max;
-            if (m->tff < -t_max) m->tff = -t_max;
-
-            if (m->type == MOTOR_TYPE_AK60)
-                send_ak60_cmd(m);
-            else if (m->type == MOTOR_TYPE_AK40)
-                send_ak40_cmd(m);
-            else
-                send_ak70_cmd(m);
+            clamp_tff(m);
+            send_mit_cmd(m);
 
 #if TX_ECHO
             log_tx_cmd(i, m);
