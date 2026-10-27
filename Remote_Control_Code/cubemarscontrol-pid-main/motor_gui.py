@@ -13,6 +13,10 @@ Protocol (motor index prefix):
   <n>I<val>\n  — set CAN ID
   <n>A<val>\n  — set motor type (60, 70, or 40)
 
+  Every line is sent with a "*HH" suffix (XOR of the bytes before '*', in
+  hex); the firmware rejects value commands without it. G/H/J (outer PID)
+  are retired in the firmware and ignored.
+
   Body motors: n=1 (Base), 2 (Shoulder), 3 (Elbow), 4 (Linkage)
   End effector servos: n=5 (Wrist 1), 6 (Wrist 2), 7 (Gripper)
 
@@ -21,7 +25,8 @@ Servo PWM reference (from servotest project):
   Pulse 250 = 0 deg (500us), Pulse 1250 = 180 deg (2500us)
   MG995 TowerPro servos, channels TIM2_CH2, TIM2_CH3, TIM2_CH4
 
-Feedback from STM32 is prefixed: [M<n>] ...
+Feedback from the STM32 arrives as hex CAN data ("F<n> ...", "C<n> ...") and
+is shown in the old text form: [M<n>] pos=... and [TX M<n>] pos=...
 
 Usage:
   pip install pyserial
@@ -40,6 +45,76 @@ from datetime import datetime
 
 
 AK60_LIMIT_DEG = 45.0
+
+BAUD_RATE = 1000000   # must match the firmware (MX_USART2_UART_Init)
+
+# Motor type per index, as in the firmware's uart_cmd_init().
+MOTOR_TYPES = {1: "AK60", 2: "AK70", 3: "AK70", 4: "AK40"}
+# MIT ranges per type (firmware main.c): pos, vel, torque.
+MIT_RANGES = {
+    "AK60": ((-12.56, 12.56), (-60.0, 60.0), (-12.0, 12.0)),
+    "AK70": ((-12.5, 12.5), (-30.0, 30.0), (-18.0, 18.0)),
+    "AK40": ((-12.5, 12.5), (-45.5, 45.5), (-5.0, 5.0)),
+}
+HEX_FEEDBACK_RE = re.compile(r'^F([1-4]) ([0-9A-F]{16}) ([0-9A-F]{8})$')
+HEX_ECHO_RE = re.compile(r'^C([1-4]) ([0-9A-F]{16})$')
+
+
+def checksum_frame(cmd):
+    """Add the "*HH" checksum the firmware requires to every line of cmd."""
+    out = []
+    for line in cmd.splitlines():
+        if not line:
+            continue
+        total = 0
+        for byte in line.encode("ascii"):
+            total ^= byte
+        out.append(f"{line}*{total:02X}\n")
+    return "".join(out)
+
+
+def _uint_to_float(x, lo, hi, bits):
+    return x * (hi - lo) / ((1 << bits) - 1) + lo
+
+
+def _signed(value, bits):
+    return value - (1 << bits) if value >= 1 << (bits - 1) else value
+
+
+def hex_to_text(line):
+    """Turn the firmware's hex feedback/echo lines into the old text lines."""
+    m = HEX_FEEDBACK_RE.match(line)
+    if m:
+        motor, d, tick = int(m.group(1)), bytes.fromhex(m.group(2)), int(m.group(3), 16)
+        temp, err = _signed((d[6] - 40) & 0xFF, 8), _signed(d[7], 8)
+        if MOTOR_TYPES[motor] == "AK60":
+            pos_deg = _signed((d[0] << 8) | d[1], 16) * 0.1
+            spd = _signed((d[2] << 8) | d[3], 16) * 10.0
+            cur = _signed((d[4] << 8) | d[5], 16) * 0.01
+            return (f"[M{motor}] pos={pos_deg:.1f} deg  spd={spd:.0f} eRPM  I={cur:.2f} A  "
+                    f"T={_signed(d[6], 8)}  err={err}  t={tick}ms")
+        (p_lo, p_hi), (v_lo, v_hi), (_, t_hi) = MIT_RANGES[MOTOR_TYPES[motor]]
+        pos = _uint_to_float((d[1] << 8) | d[2], p_lo, p_hi, 16)
+        vel = _uint_to_float((d[3] << 4) | (d[4] >> 4), v_lo, v_hi, 12)
+        tau = _uint_to_float(((d[4] & 0xF) << 8) | d[5], -t_hi, t_hi, 12)
+        return (f"[M{motor}] pos={pos:.3f} rad  vel={vel:.2f}  tau={tau:.2f}  "
+                f"T={temp}  err={err}  t={tick}ms")
+    m = HEX_ECHO_RE.match(line)
+    if m:
+        motor, d = int(m.group(1)), bytes.fromhex(m.group(2))
+        (p_lo, p_hi), (v_lo, v_hi), (t_lo, t_hi) = MIT_RANGES[MOTOR_TYPES[motor]]
+        if MOTOR_TYPES[motor] == "AK60":
+            kp, kd = (d[0] << 4) | (d[1] >> 4), ((d[1] & 0xF) << 8) | d[2]
+            p, v, t = (d[3] << 8) | d[4], (d[5] << 4) | (d[6] >> 4), ((d[6] & 0xF) << 8) | d[7]
+        else:
+            p, v, kp = (d[0] << 8) | d[1], (d[2] << 4) | (d[3] >> 4), ((d[3] & 0xF) << 8) | d[4]
+            kd, t = (d[5] << 4) | (d[6] >> 4), ((d[6] & 0xF) << 8) | d[7]
+        return (f"[TX M{motor}] pos={_uint_to_float(p, p_lo, p_hi, 16):6.3f} "
+                f"vel={_uint_to_float(v, v_lo, v_hi, 12):5.2f} "
+                f"kp={_uint_to_float(kp, 0.0, 500.0, 12):5.1f} "
+                f"kd={_uint_to_float(kd, 0.0, 5.0, 12):4.2f} "
+                f"tff={_uint_to_float(t, t_lo, t_hi, 12):5.2f}")
+    return line
 
 # All angular params (P, V) use degrees in the GUI; converted to rad before sending
 ANGULAR_CMDS = {"P", "V"}
@@ -597,7 +672,7 @@ class RobotArmGUI:
 
     def _demo_send(self, cmd):
         if self.ser and self.ser.is_open:
-            self.ser.write(cmd.encode())
+            self.ser.write(checksum_frame(cmd).encode())
 
     def _demo_log(self, msg):
         if self.log_file:
@@ -817,7 +892,7 @@ class RobotArmGUI:
             if not port:
                 return
             try:
-                self.ser = serial.Serial(port, 115200, timeout=0.1)
+                self.ser = serial.Serial(port, BAUD_RATE, timeout=0.1)
                 time.sleep(0.05)
                 # Freeze motors at current position to prevent stale commands
                 # from a previous session causing unexpected motion
@@ -829,7 +904,7 @@ class RobotArmGUI:
 
     def send_cmd(self, cmd):
         if self.ser and self.ser.is_open:
-            self.ser.write(cmd.encode())
+            self.ser.write(checksum_frame(cmd).encode())
 
     def read_serial(self):
         while self.running:
@@ -837,7 +912,7 @@ class RobotArmGUI:
                 try:
                     line = self.ser.readline().decode(errors="replace").strip()
                     if line:
-                        self.route_feedback(line)
+                        self.route_feedback(hex_to_text(line))
                 except Exception:
                     pass
 
