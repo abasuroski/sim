@@ -157,11 +157,24 @@ RUNAWAY_FEEDBACK_TIMEOUT_S = 0.5
 # Command echo check (needs TX_ECHO=1 firmware).  On 2026-10-22 the STM32
 # latched P = 0 that the PC never sent (a damaged serial line), and the
 # encoder checks above only tripped 45 ms later, after a 17.5 A slam.  Each
-# "[TX Mn]" echo is compared with what the PC sent; ECHO_MISMATCH_COUNT
-# consecutive mismatching echoes trip the same stop.  Two, so one damaged
-# echo line on the way back cannot trip it alone.
+# "[TX Mn]" echo is compared with what the PC sent.  A mismatching field is
+#   - foreign: a value the PC never sent and the firmware did not hold before
+#     start.  ECHO_MISMATCH_COUNT consecutive such echoes trip the stop.  Two,
+#     so one damaged echo line on the way back cannot trip it alone.
+#   - stale: an older value (the firmware rejected a damaged line and kept the
+#     previous one; 2026-10-26 M1 kept its default Kp 3 when the K line was
+#     lost).  The motor is resent a full frame; the stop trips only if the
+#     mismatch outlasts ECHO_STALE_S.
 ECHO_CHECK = True
 ECHO_MISMATCH_COUNT = 2
+ECHO_STALE_S = 0.4
+# How far back sent values count as "stale" rather than "foreign".  A dropped
+# line leaves the value sent just before it, so this only needs to cover a
+# few keepalives; longer would let a damaged P that happens to equal an old
+# position pass as stale.
+ECHO_KNOWN_HISTORY_S = 1.0
+# Least time between echo-triggered full-frame resends to one motor.
+ECHO_RESEND_MIN_S = 0.05
 # An echo may show any value sent within this long before it arrived (serial
 # and firmware-loop latency), or the value current before that.
 ECHO_WINDOW_S = 0.15
@@ -339,6 +352,13 @@ class _CommandStreamer:
         self.last_sent_fields.clear()
         self.last_sent_values.clear()
 
+    def force_full(self, motor: int | None = None) -> None:
+        """Make the next send() a full frame for one motor (None = all)."""
+        if motor is None:
+            self._last_full.clear()
+        else:
+            self._last_full.pop(motor, None)
+
     def send(self, motor: int, pos: float, vel: float, kp: float, kd: float, tau_ff: float) -> bool:
         """Return True if anything was written for this motor."""
         now = time.perf_counter()
@@ -449,14 +469,32 @@ class _EchoMonitor:
     _LETTER = {"pos": "P", "vel": "V", "kp": "K", "kd": "D", "tau_ff": "T"}
 
     def __init__(self) -> None:
-        # motor -> field -> [(PC send time, value)], oldest first.  Pruned to
-        # the window plus the one value current before it.
+        # motor -> field -> [(PC send time, value)], oldest first, covering
+        # ECHO_KNOWN_HISTORY_S plus the one value current before it.
         self._sent: dict[int, dict[str, list[tuple[float, float]]]] = {}
-        self._mismatches: dict[int, int] = {}
+        # The latest echo seen while not controlling: what the firmware held
+        # before start (its defaults, or the hold position after a 0X).
+        self._baseline: dict[int, "si.CommandEcho"] = {}
+        self._foreign_count: dict[int, int] = {}
+        self._stale_since: dict[int, float] = {}
+        self._last_resend: dict[int, float] = {}
+        # Motors the caller should resend a full frame to (see take_resends).
+        self._resend: set[int] = set()
 
     def reset(self) -> None:
+        """Start of control: forget sent values, keep the baseline."""
         self._sent.clear()
-        self._mismatches.clear()
+        self._foreign_count.clear()
+        self._stale_since.clear()
+        self._last_resend.clear()
+        self._resend.clear()
+
+    def note_idle_echo(self, motor: int, echo: "si.CommandEcho") -> None:
+        self._baseline[motor] = echo
+
+    def take_resends(self) -> set[int]:
+        resends, self._resend = self._resend, set()
+        return resends
 
     def record_sent(self, motor: int, values: dict[str, float], now: float) -> None:
         for key, value in values.items():
@@ -466,12 +504,13 @@ class _EchoMonitor:
                 value = max(-limit, min(limit, value))
             history = self._sent.setdefault(motor, {}).setdefault(key, [])
             history.append((now, value))
-            while len(history) > 1 and history[1][0] < now - 2.0 * ECHO_WINDOW_S:
+            while len(history) > 1 and history[1][0] < now - ECHO_KNOWN_HISTORY_S:
                 history.pop(0)
 
     def check(self, motor: int, echo: "si.CommandEcho", received: float) -> str | None:
         """Return a trip reason, or None. Call once per echo, in arrival order."""
-        mismatched = []
+        foreign = []
+        stale = []
         judged = False
         for key, tolerance in ECHO_TOLERANCE.items():
             history = self._sent.get(motor, {}).get(key)
@@ -480,24 +519,55 @@ class _EchoMonitor:
             # window: the firmware may still show what it held before.
             if not history or history[0][0] > window_start:
                 continue
-            candidates = [v for t, v in history if window_start <= t <= received]
-            older = [v for t, v in history if t < window_start]
-            candidates.append(older[-1])
+            # Values sent in the window, plus the one current before it.
+            # Scanned from the newest end: history is long while moving.
+            candidates = []
+            for t, v in reversed(history):
+                if t > received:
+                    continue
+                candidates.append(v)
+                if t < window_start:
+                    break
             judged = True
             echoed = getattr(echo, key)
-            if all(abs(echoed - v) > tolerance for v in candidates):
-                mismatched.append(f"{self._LETTER[key]} echo {echoed:+.3f} vs sent {candidates[-1]:+.3f}")
+            if any(abs(echoed - v) <= tolerance for v in candidates):
+                continue
+            text = f"{self._LETTER[key]} echo {echoed:+.3f} vs sent {candidates[0]:+.3f}"
+            known = [v for t, v in history if t <= received]
+            # The pre-start value counts for gains, V and T (e.g. the
+            # firmware's default Kp), but not P: an old hold position
+            # is not a safe place to be driven back to.
+            if motor in self._baseline and key != "pos":
+                known.append(getattr(self._baseline[motor], key))
+            if any(abs(echoed - v) <= tolerance for v in known):
+                stale.append(text)
+            else:
+                foreign.append(text)
         if not judged:
             return None
-        if not mismatched:
-            self._mismatches[motor] = 0
-            return None
-        self._mismatches[motor] = self._mismatches.get(motor, 0) + 1
-        if self._mismatches[motor] >= ECHO_MISMATCH_COUNT:
-            return (
-                f"M{motor} command echo mismatch on {self._mismatches[motor]} echoes: "
-                + ", ".join(mismatched)
-            )
+
+        if foreign:
+            self._foreign_count[motor] = self._foreign_count.get(motor, 0) + 1
+            if self._foreign_count[motor] >= ECHO_MISMATCH_COUNT:
+                return (
+                    f"M{motor} command echo shows values never sent, on "
+                    f"{self._foreign_count[motor]} echoes: " + ", ".join(foreign)
+                )
+        else:
+            self._foreign_count[motor] = 0
+
+        if foreign or stale:
+            since = self._stale_since.setdefault(motor, received)
+            if received - since >= ECHO_STALE_S:
+                return (
+                    f"M{motor} command echo mismatch for {received - since:.2f} s "
+                    f"despite resending: " + ", ".join(foreign + stale)
+                )
+            if received - self._last_resend.get(motor, -1e9) >= ECHO_RESEND_MIN_S:
+                self._last_resend[motor] = received
+                self._resend.add(motor)
+        else:
+            self._stale_since.pop(motor, None)
         return None
 
 # ---------------------------------------------------------------------------
@@ -1059,6 +1129,9 @@ def main() -> None:
             "RUNAWAY_FEEDBACK_TIMEOUT_S": RUNAWAY_FEEDBACK_TIMEOUT_S,
             "ECHO_CHECK": ECHO_CHECK,
             "ECHO_MISMATCH_COUNT": ECHO_MISMATCH_COUNT,
+            "ECHO_STALE_S": ECHO_STALE_S,
+            "ECHO_KNOWN_HISTORY_S": ECHO_KNOWN_HISTORY_S,
+            "ECHO_RESEND_MIN_S": ECHO_RESEND_MIN_S,
             "ECHO_WINDOW_S": ECHO_WINDOW_S,
             "ECHO_TOLERANCE": ECHO_TOLERANCE,
         },
@@ -1203,6 +1276,9 @@ def main() -> None:
                 # Drained every tick, so the echo check never sees echoes
                 # from before a start or while paused.
                 new_echoes = si.drain_echoes()
+                if not _control_active:
+                    for _, motor, echo in new_echoes:
+                        echo_monitor.note_idle_echo(motor, echo)
                 log_echo, echo_time = si.echo_snapshot()
                 log_echo_age = {
                     m: (fb_now - echo_time[m] if log_echo[m] is not None else None) for m in MOTOR_TO_JOINT
@@ -1211,6 +1287,11 @@ def main() -> None:
                 # unknown CAN ids): always logged, printed at a capped rate.
                 for _, text in si.drain_other_lines():
                     _log_events.append(f"stm32: {text}")
+                    # The firmware dropped a damaged command line and kept
+                    # the previous values; resend everything now rather
+                    # than waiting up to STREAM_KEEPALIVE_S.
+                    if text.startswith("[UART]") and _control_active:
+                        streamer.force_full()
                     if fb_now - stm32_print_window_s >= 1.0:
                         stm32_print_window_s, stm32_print_count = fb_now, 0
                     stm32_print_count += 1
@@ -1266,6 +1347,9 @@ def main() -> None:
                         trip_reason = echo_monitor.check(motor, echo, received)
                         if trip_reason:
                             break
+                    for motor in sorted(echo_monitor.take_resends()):
+                        streamer.force_full(motor)
+                        _log_events.append(f"echo mismatch: full frame resent to M{motor}")
                 if RUNAWAY_STOP and not simulation_only and not trip_reason:
                     check_now = time.perf_counter()
                     for actuator, motor in ACTUATOR_TO_MOTOR.items():
