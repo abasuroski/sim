@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="126" viewBox="0 0 1200 126" role="img">
+<style>
+text { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #0b0b0b; }
+.title { font-size: 20px; font-weight: 600; } .subtitle, .note { font-size: 12px; fill: #52514e; }
+.group { font-size: 16px; font-weight: 600; } .panel { font-size: 13px; font-weight: 600; }
+.tick { font-size: 11px; fill: #52514e; font-variant-numeric: tabular-nums; } .legend { font-size: 12px; fill: #52514e; }
+.grid { stroke: #e1e0d9; stroke-width: 1; } .frame { fill: none; stroke: #c3c2b7; stroke-width: 1; }
+.trace { fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.event { stroke: #898781; stroke-width: 1; stroke-dasharray: 3 3; } .event-label { font-size: 11px; fill: #52514e; }
+.watchdog { stroke: #dc2626; stroke-width: 1.5; opacity: 0.75; }
+</style>
+<rect width="1200" height="126" fill="#fcfcfb"/>
+<text x="84" y="34" class="title">uart-dma-checksum-protocol_2026-10-27_21-31-01.csv</text>
+<text x="84" y="56" class="subtitle">2026-10-27T21:31:01.780705+00:00   ·   port COM5   ·   git d15355b-dirty   ·   CLOSED_LOOP=True  ZERO_TFF=True</text>
+<line x1="84" y1="76" x2="102" y2="76" stroke="#2a78d6" stroke-width="2.5"/>
+<text x="108" y="80" class="legend">Encoder (measured)</text>
+<line x1="231.0" y1="76" x2="249.0" y2="76" stroke="#eb6834" stroke-width="2.5"/>
+<text x="255.0" y="80" class="legend">Desired (commanded)</text>
+<rect x="384.5" y="70" width="18" height="12" fill="#e34948" fill-opacity="0.15"/>
+<text x="408.5" y="80" class="legend">Stale feedback (&gt; 0.1 s old)</text>
+<line x1="605.5" y1="69" x2="605.5" y2="83" class="event"/>
+<text x="620.5" y="80" class="legend">Command / message</text>
+<text x="84" y="126" class="group">No motor feedback or commands in this run.</text>
+</svg>

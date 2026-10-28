@@ -194,8 +194,10 @@ ACTUATOR_TO_MOTOR = {
 # Keep this mapping symmetric: it applies to feedback, position/velocity
 # commands, and feedforward torque. Change M4 only after a low-risk direction
 # test demonstrates that the physical encoder sign is opposite.
-MOTOR_DIRECTION = {1: 1.0, 2: 1.0, 3: 1.0, 4: -1.0}
-MOTOR_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: MOTOR_DIRECTION[4] / 1.25}
+# M2 is -1 only because the MJCF revolute_2 coordinate is reversed (hard stop
+# = 0, see REVOLUTE_2_REVERSED_REF_RAD); the physical motor sign is unchanged.
+MOTOR_DIRECTION = {1: 1.0, 2: -1.0, 3: 1.0, 4: -1.0}
+MOTOR_SCALE = {1: 1.0, 2: MOTOR_DIRECTION[2], 3: 1.0, 4: MOTOR_DIRECTION[4] / 1.25}
 
 # Constrained (passive) joints driven kinematically from revolute_4.
 # Format: joint_name → (source_joint, scale)
@@ -210,7 +212,7 @@ CONSTRAINED_JOINTS = {
 
 # Torque feedforward scale per motor (sign + gear ratio applied to mj_inverse output).
 # mj_inverse gives joint-side torques; M4 actuator is on the motor side (÷ gear).
-TORQUE_FF_SCALE = {1: 1.0, 2: 1.0, 3: 1.0, 4: MOTOR_DIRECTION[4] / 1.25}
+TORQUE_FF_SCALE = {1: 1.0, 2: MOTOR_DIRECTION[2], 3: 1.0, 4: MOTOR_DIRECTION[4] / 1.25}
 
 # Default PD gains used if no gain_schedule.json is found.
 # These are joint-output values (N·m/rad and N·m·s/rad).
