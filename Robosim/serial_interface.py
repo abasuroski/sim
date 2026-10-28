@@ -515,13 +515,45 @@ def send_mit_frame(
     return len(line)
 
 
+# The firmware's enable soft-start blocks its main loop for ~1.1 s (AK60) to
+# ~1.3 s (AK70/AK40), and no other motor is sent a frame meanwhile.  An AK70 or
+# AK40 only replies when commanded, so back-to-back enables starved M2 of
+# feedback for 2.57 s and its 2 s watchdog disabled it (run 2026-10-27
+# 21-31-36: "[M2] feedback lost — disabled").  Each enable is therefore sent
+# only after the previous motor's first post-enable echo, which the firmware
+# emits once that enable has finished; the loop then services every enabled
+# motor before the next enable starts, so no motor waits through more than one.
+# Echoes earlier than ENABLE_MIN_S after the E line are ignored: an already
+# enabled motor keeps sending 250 ms heartbeats until its new soft-start (at
+# least 1.0 s of ramp) begins, and those must not end the wait early.
+ENABLE_MIN_S = 0.5
+ENABLE_ECHO_TIMEOUT_S = 3.0
+ENABLE_SETTLE_S = 0.1
+
+
 def enable_motors(motors: list[int]) -> None:
-    """Enable motors (the firmware soft-starts each one)."""
+    """Enable motors one at a time (the firmware soft-starts each one)."""
+    enabled: list[int] = []
     for m in motors:
         print(f"[serial] Enabling M{m}...")
+        sent_at = time.perf_counter()
         send(f"{m}E\n")
-        time.sleep(0.1)
-    print(f"[serial] Motors enabled: {motors}")
+        deadline = sent_at + ENABLE_ECHO_TIMEOUT_S
+        while True:
+            with _fb_lock:
+                echoed = _motor_echo_time[m] > sent_at + ENABLE_MIN_S
+            if echoed or time.perf_counter() > deadline:
+                break
+            time.sleep(0.01)
+        if echoed:
+            enabled.append(m)
+        else:
+            print(
+                f"[serial] WARNING: no command echo from M{m} within {ENABLE_ECHO_TIMEOUT_S:g} s "
+                "of its enable; it may not be enabled"
+            )
+        time.sleep(ENABLE_SETTLE_S)
+    print(f"[serial] Motors enabled: {enabled}")
 
 
 def enable_passive_feedback(motors: list[int]) -> None:

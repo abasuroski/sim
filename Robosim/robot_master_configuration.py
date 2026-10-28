@@ -8,18 +8,26 @@ from __future__ import annotations
 # the motor side of its 1.25:1 reduction, while the other three are joint-side.
 # Edit this one block to change the common simulation/hardware starting pose.
 HARDWARE_ZERO_KEYFRAME_NAME = "hardware_zero"
+
+# revolute_2 (shoulder) uses a reversed joint coordinate: the URDF hard stop at
+# +0.153038 rad becomes 0 and travel away from the stop is positive, so the
+# viewer slider starts at the stop.  revolute_2 = REF - urdf_revolute_2, which
+# the MJCF expresses as a flipped hinge axis with ref=REF (identical poses).
+REVOLUTE_2_REVERSED_REF_RAD = 0.153038
+
 HARDWARE_ZERO_ACTUATOR_CTRL_RAD = {
     "ak60_revolute_1": 1.45,
-    "ak70_revolute_2": 0.113,
+    "ak70_revolute_2": REVOLUTE_2_REVERSED_REF_RAD - 0.113,  # 0.113 rad in the URDF frame
     "ak70_revolute_3": -1.29,
     "ak40_revolute_4": 1.94,
 }
 
 # STM32 feedback readings at the same home configuration. M4 reports the
-# motor-side coordinate, matching its actuator control above.
+# motor-side coordinate, matching its actuator control above.  M2's encoder is
+# unaffected by the reversed sim coordinate, so it keeps its original value.
 HARDWARE_ZERO_ENCODER_RAD = {
     "revolute_1": HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak60_revolute_1"],
-    "revolute_2": HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak70_revolute_2"],
+    "revolute_2": 0.113,
     "revolute_3": HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak70_revolute_3"],
     "revolute_4": HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak40_revolute_4"],
 }
@@ -49,6 +57,17 @@ AK40_MOTOR_TORQUE_LIMIT_NM = 1.0
 # in N m/rad.  The MuJoCo force range remains the non-negotiable torque cap.
 SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_RAD = 1.0
 SCHEDULED_PD_VELOCITY_ERROR_FOR_FULL_TORQUE_RAD_S = 1.0
+
+# Per-actuator overrides of the position error above (joint side).  At 1 rad
+# the AK40's cap was 1.25 N m/rad joint (0.8 motor side), far below the 4.41
+# its schedule requests, and with ZERO_TFF the ~0.2 N m motor-side linkage load
+# plus friction held M4 still (run 2026-10-27 21-31-36: a 0.136 rad motor-side
+# command moved it 0.0015 rad).  At 0.25 rad the cap is 5.0 joint, so the
+# scheduled gain (~2.8 N m/rad motor side) is used; the motor reaches its
+# 1.0 N m limit at about 0.35 rad motor-side error.
+SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_OVERRIDES_RAD = {
+    "ak40_revolute_4": 0.25,
+}
 
 # Native MuJoCo Control-panel commands pass through a joint-space trapezoidal
 # reference generator before reaching the position actuators.  These values

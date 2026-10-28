@@ -149,7 +149,7 @@
                       <geom type="mesh" mesh="mesh_034" contype="0" conaffinity="0" pos="0.04425 0 0" quat="1 0 0 0" rgba="0.972549 0.529412 0.00392157 1" />
                       <body name="part_9" pos="-0.006 -3.33067e-16 -1.94289e-16" quat="1.326794897e-06 -1.481408517e-16 -2.372830197e-15 -1">
                         <inertial pos="0.00663052 -0.0119115 0.003982" mass="0.0001" diaginertia="1.55577e-07 6.17153e-08 9.57232e-08" quat="0.05435452685 0.9985217 0 0" />
-                        <joint name="revolute_2" type="hinge" axis="-1 0 0" range="-6.28319 0.153038" />
+                        <joint name="revolute_2" type="hinge" axis="1 0 0" ref="0.153038" range="0 6.436228" />
                         <geom type="mesh" mesh="mesh_054" contype="0" conaffinity="0" pos="-0.414 -3.47649e-18 1.41501e-18" quat="0.05435452685 0.9985217 0 0" rgba="0.615686 0.811765 0.929412 1" />
                         <body name="proximal_limb__1_" pos="2.77556e-16 -5.55112e-17 5.55112e-17" quat="1.324833519e-06 7.211687536e-08 -0.05435420054 -0.9985217178">
                           <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
@@ -1038,11 +1038,11 @@
   </equality>
   <actuator>
     <position name="ak60_revolute_1" joint="revolute_1" gear="1" kp="9" dampratio="1" ctrllimited="false" ctrlrange="-6.283185307 6.283185307" forcelimited="true" forcerange="-9 9" />
-    <position name="ak70_revolute_2" joint="revolute_2" gear="1" kp="24.8" dampratio="1" ctrllimited="true" ctrlrange="-6.28319 0.153038" forcelimited="true" forcerange="-24.8 24.8" />
+    <position name="ak70_revolute_2" joint="revolute_2" gear="1" kp="24.8" dampratio="1" ctrllimited="true" ctrlrange="0 6.436228" forcelimited="true" forcerange="-24.8 24.8" />
     <position name="ak70_revolute_3" joint="revolute_3" gear="1" kp="24.8" dampratio="1" ctrllimited="false" ctrlrange="-6.283185307 6.283185307" forcelimited="true" forcerange="-24.8 24.8" />
-    <position name="ak40_revolute_4" joint="revolute_4" gear="1.25" kp="1.6" dampratio="1" ctrllimited="true" ctrlrange="-0.0047722125 1.94" forcelimited="true" forcerange="-0.5 0.5" />
+    <position name="ak40_revolute_4" joint="revolute_4" gear="1.25" kp="1.6" dampratio="1" ctrllimited="true" ctrlrange="-0.0047722125 1.94" forcelimited="true" forcerange="-1 1" />
   </actuator>
   <keyframe>
-    <key name="hardware_zero" qpos="1.450000154 0.1387150103 -1.312360264 -1.560619574 1.568504788 -1.568543691 1.545295464 1.560617289 1.546544617 -1.5465837 1.546586033 -1.79835218" ctrl="1.45 0.113 -1.29 1.94" />
+    <key name="hardware_zero" qpos="1.450000154 0.0143229897 -1.312360264 -1.560619574 1.568504788 -1.568543691 1.545295464 1.560617289 1.546544617 -1.5465837 1.546586033 -1.79835218" ctrl="1.45 0.040038 -1.29 1.94" />
   </keyframe>
 </mujoco>

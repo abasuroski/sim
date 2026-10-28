@@ -17,6 +17,7 @@ from robot_master_configuration import (
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
     HARDWARE_ZERO_KEYFRAME_NAME,
     JOINT_RANGE_OVERRIDES_RAD,
+    REVOLUTE_2_REVERSED_REF_RAD,
     hardware_zero_joint_positions,
 )
 
@@ -61,6 +62,11 @@ AK40_10_ACTUATOR_POSITION_KP = AK40_10_POSITION_KP / AK40_10_REDUCTION**2
 # when ``ctrllimited`` is false.  Give continuous joints a two-turn-wide
 # (-2*pi to +2*pi) slider without clamping their actual controller inputs.
 CONTINUOUS_JOINT_SLIDER_RANGE = "-6.283185307 6.283185307"
+
+# Joints whose MJCF coordinate is reversed relative to the URDF (see
+# REVOLUTE_2_REVERSED_REF_RAD).  The URDF lower limit is -6.28319 rad.
+REVERSED_JOINT_REFS_RAD = {"revolute_2": REVOLUTE_2_REVERSED_REF_RAD}
+REVOLUTE_2_CTRL_RANGE = f"0 {REVOLUTE_2_REVERSED_REF_RAD + 6.28319:.10g}"
 
 # The source URDF only contains visual meshes.  MuJoCo treats a collidable mesh
 # as a convex hull, which makes its gears, bolts, and nested hardware collide
@@ -290,6 +296,16 @@ def joint_element(joint: ET.Element) -> ET.Element:
         attributes["range"] = format_values(list(override_range))
     elif limit is not None and joint_type != "continuous":
         attributes["range"] = f"{limit.attrib['lower']} {limit.attrib['upper']}"
+
+    # Reverse revolute_2 so its hard stop is 0 and travel is positive. Negating
+    # the axis and setting ref keeps every pose identical:
+    # q_mjcf = ref - q_urdf.
+    reversed_ref = REVERSED_JOINT_REFS_RAD.get(joint.attrib["name"])
+    if reversed_ref is not None:
+        attributes["axis"] = format_values([0.0 - float(value) for value in attributes["axis"].split()])
+        attributes["ref"] = f"{reversed_ref:g}"
+        lower, upper = (float(value) for value in attributes["range"].split())
+        attributes["range"] = format_values([reversed_ref - upper, reversed_ref - lower])
     return ET.Element("joint", attributes)
 
 
@@ -497,7 +513,7 @@ def main() -> None:
         kp=f"{AK70_10_POSITION_KP:g}",
         dampratio="1",
         ctrllimited="true",
-        ctrlrange="-6.28319 0.153038",
+        ctrlrange=REVOLUTE_2_CTRL_RANGE,
         forcelimited="true",
         forcerange=f"{-AK70_10_PEAK_TORQUE_NM:g} {AK70_10_PEAK_TORQUE_NM:g}",
     )

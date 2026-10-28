@@ -25,6 +25,7 @@ import mujoco
 import numpy as np
 
 from robot_master_configuration import (
+    SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_OVERRIDES_RAD,
     SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_RAD,
     SCHEDULED_PD_VELOCITY_ERROR_FOR_FULL_TORQUE_RAD_S,
 )
@@ -272,13 +273,16 @@ class MasterController:
             output_torque_limit = max(abs(value) for value in model.actuator_forcerange[actuator_id]) * abs(
                 actuator_gear(model, actuator_id)
             )
+            position_error_for_full_torque_rad = SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_OVERRIDES_RAD.get(
+                schedule.actuator, self.position_error_for_full_torque_rad
+            )
             bindings.append(
                 (
                     schedule,
                     actuator_id,
                     int(model.jnt_qposadr[joint_id]),
                     int(model.jnt_dofadr[joint_id]),
-                    output_torque_limit / self.position_error_for_full_torque_rad,
+                    output_torque_limit / position_error_for_full_torque_rad,
                     output_torque_limit / self.velocity_error_for_full_torque_rad_s,
                 )
             )
