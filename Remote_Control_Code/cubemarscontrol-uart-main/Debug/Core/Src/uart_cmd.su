@@ -1,5 +1,0 @@
-../Core/Src/uart_cmd.c:12:6:uart_cmd_init	4	static
-../Core/Src/uart_cmd.c:66:13:uart_cmd_motor	16	static
-../Core/Src/uart_cmd.c:72:8:uart_cmd_servo_pos	4	static
-../Core/Src/uart_cmd.c:77:13:parse_cmd	32	static
-../Core/Src/uart_cmd.c:122:6:uart_cmd_feed	16	static

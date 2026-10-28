@@ -1,5 +1,0 @@
-../Core/Src/uart_cmd.c:12:6:uart_cmd_init	1
-../Core/Src/uart_cmd.c:66:13:uart_cmd_motor	2
-../Core/Src/uart_cmd.c:72:8:uart_cmd_servo_pos	1
-../Core/Src/uart_cmd.c:77:13:parse_cmd	21
-../Core/Src/uart_cmd.c:122:6:uart_cmd_feed	4
