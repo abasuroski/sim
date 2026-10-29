@@ -60,6 +60,7 @@
 extern CAN_HandleTypeDef hcan1;
 extern UART_HandleTypeDef huart2;
 extern DMA_HandleTypeDef hdma_usart2_rx;
+extern DMA_HandleTypeDef hdma_usart2_tx;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -213,6 +214,12 @@ void USART2_IRQHandler(void)
 void DMA1_Stream5_IRQHandler(void)
 {
     HAL_DMA_IRQHandler(&hdma_usart2_rx);
+}
+
+// USART2_TX DMA (feedback chunks from fb_buf)
+void DMA1_Stream6_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler(&hdma_usart2_tx);
 }
 
 void EXTI15_10_IRQHandler(void)

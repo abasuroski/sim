@@ -11,7 +11,13 @@
   * Controls up to 4 CubeMars motors (AK60, AK70/80, or AK40) via CAN bus,
   * and 3 MG995 servos via TIM2 PWM (end effector).
   *
-  * PC -> STM32 protocol: <motor_num><cmd><value>[*HH]\n
+  * Timing: the main loop runs every 2 ms (LOOP_HZ, paced by the DWT cycle
+  * counter). Each pass sends every motor one CAN frame and, at the end of the
+  * pass, one "FB" line with the replies to the PC.
+  *
+  * PC -> STM32 protocol (2 Mbaud): <motor_num><cmd><value>[*HH]\n
+  *   A<64 hex> = all four motors' MIT commands, packed for CAN (8 bytes
+  *               each, motor 1 first, mit_pack_cmd layout), applied together
   *   motor_num = 1-4 (Body: Base, Shoulder, Elbow, Linkage)
   *   motor_num = 5-7 (End Effector: Wrist1, Wrist2, Gripper)
   *   P=position (rad for motors, degrees for servos)
@@ -20,12 +26,15 @@
   *   E=enable, R=passive feedback (0xFC poll, no torque), O=set origin
   *   0X = emergency stop (hold all motors at current position)
   *   *HH = XOR of every byte before '*', two hex digits. Required on value
-  *         commands (P/V/K/D/T/M and servo P); optional on E/R/O/0X.
+  *         commands (A/P/V/K/D/T/M and servo P); optional on E/R/O/0X.
   *
   * STM32 -> PC: CAN data as hex, decoded on the PC:
-  *   F<n> <8 bytes of feedback CAN data> <HAL tick ms, 4 bytes>\r\n
-  *        AK60 data has its position made relative to the software origin.
-  *   C<n> <8 bytes of MIT command as packed for CAN>\r\n   (TX_ECHO, on change)
+  *   FB <m1> <m2> <m3> <m4> <HAL tick ms, 8 hex>\r\n   (once per 2 ms pass)
+  *        each <mN> = the 16-hex feedback CAN data of that motor's latest
+  *        reply this pass, or "-" if none. AK60 data has its position made
+  *        relative to the software origin.
+  *   C<n> <8 bytes of MIT command as packed for CAN>\r\n   (TX_ECHO: on
+  *        change, at most every ECHO_MIN_INTERVAL_MS, plus a heartbeat)
   *   [UART] ..., [Mn] ..., PONG ... stay plain text.
   *
   * AK60 uses extended CAN ID:  ExtId = CAN_ID | (8 << 8)
@@ -43,6 +52,7 @@
 
 #include "main.h"
 #include "uart_cmd.h"
+#include "mit_frame.h"
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
@@ -54,41 +64,17 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-// USART2_RX DMA (MX_USART2_RX_DMA_Init; not in the .ioc)
+// USART2 DMA (MX_USART2_DMA_Init; not in the .ioc)
 DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
-// AK60 parameter limits
-#define AK60_P_MIN    -12.56f
-#define AK60_P_MAX     12.56f
-#define AK60_V_MIN    -60.0f
-#define AK60_V_MAX     60.0f
-#define AK60_T_MIN    -12.0f
-#define AK60_T_MAX     12.0f
+// Main loop rate. Every pass sends each motor one CAN frame.
+#define LOOP_HZ  500
+static uint32_t loop_period_cycles;    // SystemCoreClock / LOOP_HZ
+static volatile uint32_t loop_overruns = 0;   // passes that took longer than one period
 
 // AK60 servo-mode feedback reports position in 0.1 deg counts
 #define AK60_RAD_PER_COUNT  (0.1f * 0.01745329f)
-
-// AK70/80 parameter limits
-#define AK70_P_MIN    -12.5f
-#define AK70_P_MAX     12.5f
-#define AK70_V_MIN    -30.0f
-#define AK70_V_MAX     30.0f
-#define AK70_T_MIN    -18.0f
-#define AK70_T_MAX     18.0f
-
-// AK40 parameter limits
-#define AK40_P_MIN    -12.5f
-#define AK40_P_MAX     12.5f
-#define AK40_V_MIN    -45.5f
-#define AK40_V_MAX     45.5f
-#define AK40_T_MIN    -5.0f
-#define AK40_T_MAX     5.0f
-
-// Shared limits
-#define KP_MIN    0.0f
-#define KP_MAX    500.0f
-#define KD_MIN    0.0f
-#define KD_MAX    5.0f
 
 #define CAN_PACKET_MIT 8
 
@@ -99,10 +85,13 @@ DMA_HandleTypeDef hdma_usart2_rx;
 
 // Set to 1 to echo outgoing CAN command frames back to the PC over UART.
 // Only for enabled motors (not zero-torque idle or soft-start frames), and
-// only when the packed frame changes, plus every ECHO_HEARTBEAT_MS so the PC
-// can tell an unchanged command from a silent STM32.
+// only when the packed frame changes, at most every ECHO_MIN_INTERVAL_MS (an
+// echo per 2 ms pass would cost as much UART as the feedback itself), plus
+// every ECHO_HEARTBEAT_MS so the PC can tell an unchanged command from a
+// silent STM32.
 #define TX_ECHO  1
-#define ECHO_HEARTBEAT_MS  250
+#define ECHO_MIN_INTERVAL_MS  20
+#define ECHO_HEARTBEAT_MS     250
 
 // Servo PWM: 50Hz, 1us resolution (prescaler=84-1, period=20000-1)
 // MG995: center at 1500us, ~8.33us per degree
@@ -123,20 +112,23 @@ uint32_t txMailbox;
 // busy CPU can no longer overrun the UART (2026-10-26: printf in the CAN ISR
 // held off the receive ISR for up to 200 us, and 7-20 command bytes were lost
 // at a time). HAL_UARTEx_RxEventCallback parses at line idle, half and full.
-#define UART_RX_DMA_SIZE 512
+// 1024 bytes is 5 ms of the line at 2 Mbaud.
+#define UART_RX_DMA_SIZE 1024
 static uint8_t  uart_rx_dma[UART_RX_DMA_SIZE];
 static uint16_t uart_rx_pos = 0;   // next byte of uart_rx_dma to parse
 
-// A PONG the ISR could not send because the main loop was transmitting;
-// the main loop sends it next.
+// A PONG the ISR could not send because a transmit was in progress; the
+// main loop queues it next.
 static char             pong_pending[32];
 static volatile uint8_t pong_pending_len = 0;
 
-// Feedback ring buffer — written and transmitted by the main loop only.
-#define FB_BUF_SIZE 1024
+// Feedback ring buffer — written by the main loop, sent by DMA. fb_tail
+// advances in HAL_UART_TxCpltCallback when a DMA chunk has gone out.
+#define FB_BUF_SIZE 2048
 static char fb_buf[FB_BUF_SIZE];
 static uint16_t fb_head = 0;
-static uint16_t fb_tail = 0;
+static volatile uint16_t fb_tail = 0;
+static volatile uint16_t fb_tx_len = 0;   // bytes of the DMA transfer in flight, 0 = idle
 static uint32_t fb_dropped_lines = 0;
 
 // Whole lines or nothing: a line cut short by a full buffer used to run
@@ -170,6 +162,12 @@ static volatile uint8_t  can_rxq_head = 0;   // written by the CAN ISR
 static volatile uint8_t  can_rxq_tail = 0;   // written by the main loop
 static volatile uint32_t can_rxq_dropped = 0;
 
+// Latest reply per motor since the last "FB" line.
+static uint8_t  fb_frame[NUM_MOTORS][8];
+static uint8_t  fb_frame_new[NUM_MOTORS];
+static uint32_t fb_frame_tick = 0;
+static uint32_t fb_replaced = 0;   // replies overwritten by a second one in the same pass
+
 // UART receive error counters (incremented in HAL_UART_ErrorCallback) and
 // how often the main loop may report them.
 static volatile uint32_t uart_err_ore = 0;   // overrun: a byte was lost
@@ -202,11 +200,8 @@ static void MX_TIM2_Init(void);
 static void MX_USART2_UART_Init(void);
 
 /* USER CODE BEGIN PFP */
-static void         MX_USART2_RX_DMA_Init(void);
-static unsigned int float_to_uint(float x, float x_min, float x_max, unsigned int bits);
-static float        uint_to_float(int x_int, float x_min, float x_max, int bits);
+static void         MX_USART2_DMA_Init(void);
 static void         send_can_frame(void);
-static void         pack_cmd(MotorType type, const MotorCmd *c, float pos_offset, uint8_t out[8]);
 static void         send_motor_cmd(const MotorState *m, const MotorCmd *c);
 static void         send_ak70_enable(MotorState *m);
 static void         send_ak70_set_origin(MotorState *m);
@@ -238,20 +233,6 @@ static void update_servos(void)
     TIM2->CCR3 = servo_angle_to_pulse(spos[2]);
 }
 
-static unsigned int float_to_uint(float x, float x_min, float x_max, unsigned int bits)
-{
-    float span = x_max - x_min;
-    if (x < x_min) x = x_min;
-    else if (x > x_max) x = x_max;
-    return (unsigned int)((x - x_min) / span * (float)((1u << bits) - 1));
-}
-
-static float uint_to_float(int x_int, float x_min, float x_max, int bits)
-{
-    float span = x_max - x_min;
-    return ((float)x_int) * span / ((float)((1 << bits) - 1)) + x_min;
-}
-
 static int put_hex(char *dst, const uint8_t *src, int n)
 {
     static const char digits[] = "0123456789ABCDEF";
@@ -271,56 +252,10 @@ static void send_can_frame(void)
     HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
 }
 
-// Pack one MIT command into the 8 CAN data bytes for this motor type.
-// AK60: KP/KD/Pos/Vel/Torque byte order. AK70/80 and AK40: Pos/Vel/KP/KD/Torque.
-static void pack_cmd(MotorType type, const MotorCmd *c, float pos_offset, uint8_t out[8])
-{
-    if (type == MOTOR_TYPE_AK60) {
-        uint16_t kp_int = float_to_uint(c->kp,  KP_MIN, KP_MAX, 12);
-        uint16_t kd_int = float_to_uint(c->kd,  KD_MIN, KD_MAX, 12);
-        uint16_t p_int  = float_to_uint(c->pos + pos_offset, AK60_P_MIN, AK60_P_MAX, 16);
-        uint16_t v_int  = float_to_uint(c->vel, AK60_V_MIN, AK60_V_MAX, 12);
-        uint16_t t_int  = float_to_uint(c->tff, AK60_T_MIN, AK60_T_MAX, 12);
-
-        out[0] = (kp_int >> 4) & 0xFF;
-        out[1] = ((kp_int & 0xF) << 4) | ((kd_int >> 8) & 0xF);
-        out[2] = kd_int & 0xFF;
-        out[3] = (p_int >> 8) & 0xFF;
-        out[4] = p_int & 0xFF;
-        out[5] = (v_int >> 4) & 0xFF;
-        out[6] = ((v_int & 0xF) << 4) | ((t_int >> 8) & 0xF);
-        out[7] = t_int & 0xFF;
-        return;
-    }
-
-    float p_min = AK70_P_MIN, p_max = AK70_P_MAX;
-    float v_min = AK70_V_MIN, v_max = AK70_V_MAX;
-    float t_min = AK70_T_MIN, t_max = AK70_T_MAX;
-    if (type == MOTOR_TYPE_AK40) {
-        p_min = AK40_P_MIN; p_max = AK40_P_MAX;
-        v_min = AK40_V_MIN; v_max = AK40_V_MAX;
-        t_min = AK40_T_MIN; t_max = AK40_T_MAX;
-    }
-    unsigned int p_int  = float_to_uint(c->pos, p_min, p_max, 16);
-    unsigned int v_int  = float_to_uint(c->vel, v_min, v_max, 12);
-    unsigned int kp_int = float_to_uint(c->kp,  KP_MIN, KP_MAX, 12);
-    unsigned int kd_int = float_to_uint(c->kd,  KD_MIN, KD_MAX, 12);
-    unsigned int t_int  = float_to_uint(c->tff, t_min, t_max, 12);
-
-    out[0] = p_int >> 8;
-    out[1] = p_int & 0xFF;
-    out[2] = v_int >> 4;
-    out[3] = ((v_int & 0xF) << 4) | (kp_int >> 8);
-    out[4] = kp_int & 0xFF;
-    out[5] = kd_int >> 4;
-    out[6] = ((kd_int & 0xF) << 4) | (t_int >> 8);
-    out[7] = t_int & 0xFF;
-}
-
 // AK60: extended CAN ID; AK70/80 and AK40: standard CAN ID.
 static void send_motor_cmd(const MotorState *m, const MotorCmd *c)
 {
-    pack_cmd(m->type, c, m->type == MOTOR_TYPE_AK60 ? m->pos_offset : 0.0f, txData);
+    mit_pack_cmd(m->type, c, m->type == MOTOR_TYPE_AK60 ? m->pos_offset : 0.0f, txData);
 
     if (m->type == MOTOR_TYPE_AK60) {
         txHeader.StdId = 0;
@@ -343,12 +278,16 @@ static void send_motor_cmd(const MotorState *m, const MotorCmd *c)
 static void log_tx_cmd(uint8_t motor_idx, const MotorState *m, const MotorCmd *c)
 {
     uint8_t frame[8];
-    pack_cmd(m->type, c, 0.0f, frame);
+    mit_pack_cmd(m->type, c, 0.0f, frame);
     uint32_t now = HAL_GetTick();
-    if (!echo_force[motor_idx] &&
-        memcmp(frame, echo_last[motor_idx], sizeof(frame)) == 0 &&
-        now - echo_last_ms[motor_idx] < ECHO_HEARTBEAT_MS)
-        return;
+    uint32_t since = now - echo_last_ms[motor_idx];
+    if (!echo_force[motor_idx]) {
+        uint8_t same = memcmp(frame, echo_last[motor_idx], sizeof(frame)) == 0;
+        // A change waits for the next allowed slot; it is not dropped,
+        // because the loop calls this again every pass.
+        if (same ? since < ECHO_HEARTBEAT_MS : since < ECHO_MIN_INTERVAL_MS)
+            return;
+    }
     echo_force[motor_idx] = 0;
     memcpy(echo_last[motor_idx], frame, sizeof(frame));
     echo_last_ms[motor_idx] = now;
@@ -433,7 +372,7 @@ static void decode_mit_reply(MotorState *m, const uint8_t *data, uint32_t ts)
     int p_int = (data[1] << 8) | data[2];
     float p_min = (m->type == MOTOR_TYPE_AK40) ? AK40_P_MIN : AK70_P_MIN;
     float p_max = (m->type == MOTOR_TYPE_AK40) ? AK40_P_MAX : AK70_P_MAX;
-    m->fb_pos = uint_to_float(p_int, p_min, p_max, 16);
+    m->fb_pos = mit_uint_to_float(p_int, p_min, p_max, 16);
     m->fb_received = 1;
     m->fb_tick = ts;
 }
@@ -490,34 +429,57 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 }
 
-// Format queued CAN replies into fb_buf (main loop).
+// Move queued CAN replies into fb_frame for the next "FB" line (main loop).
+// Replies from unknown CAN ids become their own debug line.
 static void drain_can_queue(void)
 {
     while (can_rxq_tail != can_rxq_head) {
         const CanReply *r = &can_rxq[can_rxq_tail];
-        char line[48];
-        int len = 0;
         if (r->motor < NUM_MOTORS) {
-            // "F<n> <16 hex data> <8 hex tick>"
-            uint8_t ts[4] = {
-                (uint8_t)(r->tick >> 24), (uint8_t)(r->tick >> 16),
-                (uint8_t)(r->tick >> 8),  (uint8_t)r->tick,
-            };
-            line[len++] = 'F';
-            line[len++] = (char)('1' + r->motor);
-            line[len++] = ' ';
-            len += put_hex(&line[len], r->data, 8);
-            line[len++] = ' ';
-            len += put_hex(&line[len], ts, 4);
-            line[len++] = '\r';
-            line[len++] = '\n';
+            if (fb_frame_new[r->motor]) fb_replaced++;
+            memcpy(fb_frame[r->motor], r->data, 8);
+            fb_frame_new[r->motor] = 1;
+            fb_frame_tick = r->tick;
         } else {
-            len = snprintf(line, sizeof(line), "[M0] unknown CAN id=%d ide=%lu\r\n",
-                           (int)r->rx_id, (unsigned long)r->ide);
+            char line[48];
+            int len = snprintf(line, sizeof(line), "[M0] unknown CAN id=%d ide=%lu\r\n",
+                               (int)r->rx_id, (unsigned long)r->ide);
+            fb_write(line, len);
         }
-        fb_write(line, len);
         can_rxq_tail = (uint8_t)((can_rxq_tail + 1) % CAN_RXQ_SIZE);
     }
+}
+
+// "FB <m1> <m2> <m3> <m4> <tick>": this pass's replies, one line for all
+// four motors (four separate lines cost a third more UART at 500 Hz).
+static void emit_feedback_line(void)
+{
+    drain_can_queue();
+    uint8_t any = 0;
+    for (uint8_t i = 0; i < NUM_MOTORS; i++) any |= fb_frame_new[i];
+    if (!any) return;
+
+    char line[96];
+    int len = 0;
+    line[len++] = 'F';
+    line[len++] = 'B';
+    for (uint8_t i = 0; i < NUM_MOTORS; i++) {
+        line[len++] = ' ';
+        if (fb_frame_new[i])
+            len += put_hex(&line[len], fb_frame[i], 8);
+        else
+            line[len++] = '-';
+        fb_frame_new[i] = 0;
+    }
+    uint8_t ts[4] = {
+        (uint8_t)(fb_frame_tick >> 24), (uint8_t)(fb_frame_tick >> 16),
+        (uint8_t)(fb_frame_tick >> 8),  (uint8_t)fb_frame_tick,
+    };
+    line[len++] = ' ';
+    len += put_hex(&line[len], ts, 4);
+    line[len++] = '\r';
+    line[len++] = '\n';
+    fb_write(line, len);
 }
 
 // One received byte (UART IDLE / DMA ISR context).
@@ -537,7 +499,8 @@ static void uart_rx_byte(uint8_t byte)
             char pong[32];
             int plen = snprintf(pong, sizeof(pong), "PONG t=%luus\r\n",
                                 (unsigned long)get_us());
-            // HAL_BUSY while the main loop is transmitting: it sends it next.
+            // HAL_BUSY while a feedback DMA transfer is running: the main
+            // loop queues it next.
             if (HAL_UART_Transmit(&huart2, (uint8_t *)pong, (uint16_t)plen, 10) != HAL_OK) {
                 memcpy(pong_pending, pong, (size_t)plen);
                 pong_pending_len = (uint8_t)plen;
@@ -574,16 +537,31 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     uart_rx_parse_to(Size);
 }
 
+// A feedback DMA chunk has gone out.
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance != USART2) return;
+    fb_tail = (uint16_t)((fb_tail + fb_tx_len) % FB_BUF_SIZE);
+    fb_tx_len = 0;
+}
+
 // In DMA mode the HAL treats every receive error as blocking: it aborts the
-// DMA and ends here. The byte the error hit cannot be identified, so the line
-// in progress is marked corrupt before and after the bytes still unparsed;
-// value commands also need a valid checksum. Then reception restarts.
+// RX DMA and ends here. The byte the error hit cannot be identified, so the
+// line in progress is marked corrupt before and after the bytes still
+// unparsed; value commands also need a valid checksum. Then reception
+// restarts. A TX DMA error also ends here, with receive still running: then
+// only the feedback chunk is retried.
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance != USART2) return;
     uint32_t err = huart->ErrorCode;
     count_uart_errors(err);
 
+    if (huart->gState == HAL_UART_STATE_READY)
+        fb_tx_len = 0;   // no transmit running: resend from fb_tail
+
+    if (huart->RxState != HAL_UART_STATE_READY)
+        return;          // receive was not stopped
     uart_cmd_mark_line_corrupt();
     if (huart->hdmarx != NULL)
         uart_rx_parse_to((uint16_t)(UART_RX_DMA_SIZE - __HAL_DMA_GET_COUNTER(huart->hdmarx)));
@@ -594,11 +572,13 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     uart_rx_start();
 }
 
-// Report UART receive errors, rejected command lines and dropped feedback to
-// the PC, only when something changed and at most every UART_REPORT_MIN_MS.
+// Report UART receive errors, rejected command lines, dropped feedback and
+// loop overruns to the PC, only when something changed and at most every
+// UART_REPORT_MIN_MS.
 static void report_uart_errors(void)
 {
     static uint32_t last_ore, last_fe, last_ne, last_pe, last_rej, last_fb_drop, last_can_drop;
+    static uint32_t last_replaced, last_overruns;
     static uint32_t last_report_ms;
     uint32_t now = HAL_GetTick();
     if (now - last_report_ms < UART_REPORT_MIN_MS) return;
@@ -606,19 +586,24 @@ static void report_uart_errors(void)
     uint32_t ore = uart_err_ore, fe = uart_err_fe, ne = uart_err_ne, pe = uart_err_pe;
     uint32_t rej = uart_cmd_rejected_count();
     uint32_t fb_drop = fb_dropped_lines, can_drop = can_rxq_dropped;
+    uint32_t replaced = fb_replaced, overruns = loop_overruns;
     if (ore == last_ore && fe == last_fe && ne == last_ne && pe == last_pe && rej == last_rej &&
-        fb_drop == last_fb_drop && can_drop == last_can_drop)
+        fb_drop == last_fb_drop && can_drop == last_can_drop &&
+        replaced == last_replaced && overruns == last_overruns)
         return;
     last_ore = ore; last_fe = fe; last_ne = ne; last_pe = pe; last_rej = rej;
     last_fb_drop = fb_drop; last_can_drop = can_drop;
+    last_replaced = replaced; last_overruns = overruns;
     last_report_ms = now;
 
-    char line[160];
+    char line[200];
     int len = snprintf(line, sizeof(line),
-        "[UART] rx errors ore=%lu fe=%lu ne=%lu pe=%lu rejected=%lu fb_drop=%lu can_drop=%lu t=%lums\r\n",
+        "[UART] rx errors ore=%lu fe=%lu ne=%lu pe=%lu rejected=%lu fb_drop=%lu can_drop=%lu "
+        "fb_replaced=%lu loop_over=%lu t=%lums\r\n",
         (unsigned long)ore, (unsigned long)fe, (unsigned long)ne,
         (unsigned long)pe, (unsigned long)rej, (unsigned long)fb_drop,
-        (unsigned long)can_drop, (unsigned long)now);
+        (unsigned long)can_drop, (unsigned long)replaced,
+        (unsigned long)overruns, (unsigned long)now);
     fb_write(line, len);
 
     // The latest rejected line, with non-printable bytes as \xNN, so the
@@ -638,8 +623,8 @@ static void report_uart_errors(void)
     }
 }
 
-// Transmit fb_buf over UART (main loop only), in contiguous chunks to avoid
-// per-byte function call overhead.
+// Start a DMA transfer of the next contiguous part of fb_buf, unless one is
+// still running (main loop only). Never blocks.
 static void drain_fb(void)
 {
     if (pong_pending_len) {
@@ -650,18 +635,16 @@ static void drain_fb(void)
         memcpy(pong, pong_pending, plen);
         pong_pending_len = 0;
         __enable_irq();
-        HAL_UART_Transmit(&huart2, (uint8_t *)pong, plen, 10);
+        fb_write(pong, plen);
     }
 
-    while (fb_tail != fb_head) {
-        uint16_t chunk;
-        if (fb_head > fb_tail)
-            chunk = fb_head - fb_tail;
-        else
-            chunk = FB_BUF_SIZE - fb_tail;
-        HAL_UART_Transmit(&huart2, (uint8_t *)&fb_buf[fb_tail], chunk, 50);
-        fb_tail = (fb_tail + chunk) % FB_BUF_SIZE;
-    }
+    if (fb_tx_len != 0 || huart2.gState != HAL_UART_STATE_READY) return;
+    uint16_t tail = fb_tail;
+    if (tail == fb_head) return;
+    uint16_t chunk = (fb_head > tail) ? (uint16_t)(fb_head - tail) : (uint16_t)(FB_BUF_SIZE - tail);
+    fb_tx_len = chunk;
+    if (HAL_UART_Transmit_DMA(&huart2, (uint8_t *)&fb_buf[tail], chunk) != HAL_OK)
+        fb_tx_len = 0;   // try again on the next call
 }
 
 static void service_io(void)
@@ -671,14 +654,22 @@ static void service_io(void)
     drain_fb();
 }
 
-// HAL_Delay that keeps forwarding feedback, so the CAN queue and fb_buf do
-// not fill up during the enable sequence's long waits.
+// HAL_Delay that keeps forwarding feedback (startup and set-origin waits).
 static void delay_serviced(uint32_t ms)
 {
     uint32_t start = HAL_GetTick();
     do {
         service_io();
+        emit_feedback_line();
     } while (HAL_GetTick() - start <= ms);
+}
+
+// Service I/O until one loop period has passed since `start` (a DWT count).
+static void wait_period(uint32_t start)
+{
+    do {
+        service_io();
+    } while ((uint32_t)(DWT->CYCCNT - start) < loop_period_cycles);
 }
 
 // Freeze all enabled motors at their last known feedback position.
@@ -701,17 +692,79 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         do_e_stop();
 }
 
+static void clamp_tff(const MotorState *m, MotorCmd *c)
+{
+    float t_max;
+    if (m->type == MOTOR_TYPE_AK60)
+        t_max = AK60_T_MAX;
+    else if (m->type == MOTOR_TYPE_AK40)
+        t_max = AK40_T_MAX;
+    else
+        t_max = AK70_T_MAX;
+    if (c->tff > t_max) c->tff = t_max;
+    if (c->tff < -t_max) c->tff = -t_max;
+}
+
+// One main-loop round of frames for every motor except `skip`, used while
+// `skip` is being enabled. The enable sequence blocks for ~1.3 s per motor,
+// and an AK70/AK40 only replies when it receives a frame, so without this an
+// already-enabled motor went silent and the feedback watchdog disabled it
+// (M2 on 2026-10-26 and on 2026-10-27, while M3 and M4 were being enabled).
+static void service_other_motors(uint8_t skip)
+{
+    if (uart_cmd_e_stop_requested()) {
+        do_e_stop();
+        uart_cmd_clear_e_stop();
+    }
+    for (uint8_t i = 0; i < NUM_MOTORS; i++) {
+        if (i == skip) continue;
+        MotorState *m = uart_cmd_motor(i);
+        if (m->fb_only) {
+            if (m->type != MOTOR_TYPE_AK60)
+                send_ak70_enable(m);  // 0xFC poll, as in the main loop
+            continue;
+        }
+        MotorCmd c;
+        uart_cmd_read(i, &c);
+        if (!m->enabled) {
+            c.kp = 0.0f; c.kd = 0.0f; c.tff = 0.0f;
+            send_motor_cmd(m, &c);
+            continue;
+        }
+        clamp_tff(m, &c);
+        send_motor_cmd(m, &c);
+#if TX_ECHO
+        log_tx_cmd(i, m, &c);
+#endif
+    }
+}
+
+// The enable sequence's waits: whole loop periods in which the other motors
+// keep their 500 Hz frames and the PC its "FB" lines.
+static void enable_delay(uint8_t enabling, uint32_t ms)
+{
+    uint32_t periods = (ms * LOOP_HZ + 999) / 1000;
+    for (uint32_t p = 0; p < periods; p++) {
+        uint32_t start = DWT->CYCCNT;
+        service_other_motors(enabling);
+        wait_period(start);
+        emit_feedback_line();
+    }
+}
+
 // Enable with soft-start. Sends copies of the command (uart_cmd_read), so
 // K/D lines that arrive from the PC meanwhile are kept, not overwritten.
+// Every wait goes through enable_delay so the other motors keep receiving
+// frames.
 static void enable_motor(uint8_t motor_idx, MotorState *m)
 {
     // AK70/AK40 need MIT mode entry frame
     if (m->type != MOTOR_TYPE_AK60) {
         for (int j = 0; j < 10; j++) {
             send_ak70_enable(m);
-            delay_serviced(10);
+            enable_delay(motor_idx, 10);
         }
-        delay_serviced(100);
+        enable_delay(motor_idx, 100);
     }
 
     m->fb_received = 0;
@@ -727,7 +780,7 @@ static void enable_motor(uint8_t motor_idx, MotorState *m)
         c.kd  = 0.0f;
         c.tff = 0.0f;
         send_motor_cmd(m, &c);
-        delay_serviced(10);
+        enable_delay(motor_idx, 10);
     }
     if (m->fb_received)
         m->pos = m->fb_pos;
@@ -741,7 +794,7 @@ static void enable_motor(uint8_t motor_idx, MotorState *m)
         c.kd = c.kd * (float)j / 50.0f;
         send_motor_cmd(m, &c);
 
-        delay_serviced(20);
+        enable_delay(motor_idx, 20);
     }
 
     // The watchdog counts from here, so a motor that never answered is
@@ -754,9 +807,10 @@ static void enable_motor(uint8_t motor_idx, MotorState *m)
 #endif
 }
 
-// USART2_RX: DMA1 Stream 5, Channel 4, circular. Set up here rather than in
-// CubeMX-generated code.
-static void MX_USART2_RX_DMA_Init(void)
+// USART2 DMA, set up here rather than in CubeMX-generated code:
+//   RX: DMA1 Stream 5, Channel 4, circular.
+//   TX: DMA1 Stream 6, Channel 4, normal (one transfer per fb_buf chunk).
+static void MX_USART2_DMA_Init(void)
 {
     __HAL_RCC_DMA1_CLK_ENABLE();
 
@@ -773,10 +827,25 @@ static void MX_USART2_RX_DMA_Init(void)
     if (HAL_DMA_Init(&hdma_usart2_rx) != HAL_OK) Error_Handler();
     __HAL_LINKDMA(&huart2, hdmarx, hdma_usart2_rx);
 
-    // Same level as USART2: both call HAL_UARTEx_RxEventCallback, which must
-    // not interrupt itself.
+    hdma_usart2_tx.Instance                 = DMA1_Stream6;
+    hdma_usart2_tx.Init.Channel             = DMA_CHANNEL_4;
+    hdma_usart2_tx.Init.Direction           = DMA_MEMORY_TO_PERIPH;
+    hdma_usart2_tx.Init.PeriphInc           = DMA_PINC_DISABLE;
+    hdma_usart2_tx.Init.MemInc              = DMA_MINC_ENABLE;
+    hdma_usart2_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_usart2_tx.Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
+    hdma_usart2_tx.Init.Mode                = DMA_NORMAL;
+    hdma_usart2_tx.Init.Priority            = DMA_PRIORITY_MEDIUM;
+    hdma_usart2_tx.Init.FIFOMode            = DMA_FIFOMODE_DISABLE;
+    if (HAL_DMA_Init(&hdma_usart2_tx) != HAL_OK) Error_Handler();
+    __HAL_LINKDMA(&huart2, hdmatx, hdma_usart2_tx);
+
+    // RX at the USART2 level: both call HAL_UARTEx_RxEventCallback, which
+    // must not interrupt itself. TX completion is not urgent.
     HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+    HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 1, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
 }
 
 /* USER CODE END 0 */
@@ -792,12 +861,13 @@ int main(void)
 
     /* USER CODE BEGIN 2 */
 
-    MX_USART2_RX_DMA_Init();
+    MX_USART2_DMA_Init();
 
-    // Enable DWT cycle counter for microsecond timestamps
+    // Enable DWT cycle counter for microsecond timestamps and loop pacing
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
     DWT->CYCCNT       = 0;
     DWT->CTRL        |= DWT_CTRL_CYCCNTENA_Msk;
+    loop_period_cycles = SystemCoreClock / LOOP_HZ;
 
     HAL_CAN_Start(&hcan1);
     HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -841,6 +911,8 @@ int main(void)
     /* USER CODE BEGIN WHILE */
     while (1)
     {
+        uint32_t loop_start = DWT->CYCCNT;
+
         // UART-triggered emergency stop
         if (uart_cmd_e_stop_requested()) {
             do_e_stop();
@@ -902,31 +974,23 @@ int main(void)
             }
 
             // Clamp torque to motor limits
-            float t_max;
-            if (m->type == MOTOR_TYPE_AK60)
-                t_max = AK60_T_MAX;
-            else if (m->type == MOTOR_TYPE_AK40)
-                t_max = AK40_T_MAX;
-            else
-                t_max = AK70_T_MAX;
-            if (c.tff > t_max) c.tff = t_max;
-            if (c.tff < -t_max) c.tff = -t_max;
-
+            clamp_tff(m, &c);
             send_motor_cmd(m, &c);
 
 #if TX_ECHO
             log_tx_cmd(i, m, &c);
 #endif
-
-            delay_serviced(2);
         }
 
         // Update servo PWM outputs
         update_servos();
 
-        service_io();
-
-        delay_serviced(2);
+        // Wait out the rest of the 2 ms period, forwarding feedback
+        // meanwhile; the replies to this pass's frames arrive within it.
+        if ((uint32_t)(DWT->CYCCNT - loop_start) >= loop_period_cycles)
+            loop_overruns++;
+        wait_period(loop_start);
+        emit_feedback_line();
     }
     /* USER CODE END WHILE */
 }
@@ -1046,7 +1110,7 @@ static void MX_TIM2_Init(void)
 static void MX_USART2_UART_Init(void)
 {
     huart2.Instance          = USART2;
-    huart2.Init.BaudRate     = 1000000;
+    huart2.Init.BaudRate     = 2000000;   // 42 MHz / 16 / 2 M = 1.3125: exact BRR, 0% error
     huart2.Init.WordLength   = UART_WORDLENGTH_8B;
     huart2.Init.StopBits     = UART_STOPBITS_1;
     huart2.Init.Parity       = UART_PARITY_NONE;

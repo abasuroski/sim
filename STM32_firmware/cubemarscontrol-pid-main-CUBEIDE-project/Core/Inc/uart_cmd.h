@@ -52,8 +52,8 @@ void         uart_cmd_clear_e_stop(void);
 // Line validation. A line is rejected (and its command ignored) when a UART
 // error hit one of its bytes, it overflowed the buffer, its checksum is wrong
 // or missing (value commands), or its value is not a complete finite number.
-// Room for "1M-12.5000,-45.500,500.00,5.0000,-18.0000*HH".
-#define UART_CMD_LINE_MAX 64
+// Room for "A<64 hex>*HH" (the all-motor frame, 68 characters).
+#define UART_CMD_LINE_MAX 80
 void         uart_cmd_mark_line_corrupt(void);   // call from the UART error ISR
 uint32_t     uart_cmd_rejected_count(void);
 uint8_t      uart_cmd_take_rejected(char *out, uint8_t out_size);  // 1 if a new rejected line was copied

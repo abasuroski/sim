@@ -36,7 +36,7 @@ import serial
 import serial.tools.list_ports
 
 # ── config ────────────────────────────────────────────────────────────────────
-BAUD         = 1000000   # must match the firmware (MX_USART2_UART_Init)
+BAUD         = 2000000   # must match the firmware (MX_USART2_UART_Init)
 CALIB_PINGS  = 20      # number of pings used to find best clock offset
 PING_PAUSE   = 0.05    # seconds between pings during calibration
 PRINT_EVERY  = 1       # print every Nth motor message (1 = all)
@@ -45,6 +45,8 @@ PRINT_EVERY  = 1       # print every Nth motor message (1 = all)
 _TS_RE   = re.compile(r't=(\d+)ms')
 # "F<n> <16 hex CAN data> <8 hex tick ms>" from the current firmware
 _HEX_FB_RE = re.compile(r'^F([1-4]) [0-9A-F]{16} ([0-9A-F]{8})$')
+# "FB <m1> <m2> <m3> <m4> <8 hex tick ms>": all motors, one line per 2 ms pass
+_HEX_FB_ALL_RE = re.compile(r'^FB((?: (?:[0-9A-F]{16}|-)){4}) ([0-9A-F]{8})$')
 _PONG_RE = re.compile(r'PONG t=(\d+)us')
 
 
@@ -157,9 +159,13 @@ def main():
             if line.startswith("PONG"):
                 continue
 
+            hex_all = _HEX_FB_ALL_RE.match(line)
             hex_fb = _HEX_FB_RE.match(line)
             m = _TS_RE.search(line)
-            if hex_fb:
+            if hex_all:
+                motor  = "".join(str(i) for i, f in enumerate(hex_all.group(1).split(), start=1) if f != "-")
+                stm_ms = float(int(hex_all.group(2), 16))
+            elif hex_fb:
                 motor  = hex_fb.group(1)
                 stm_ms = float(int(hex_fb.group(2), 16))
             elif m:

@@ -59,6 +59,7 @@ import csv
 import json
 import math
 import platform
+import queue
 import subprocess
 import sys
 import threading
@@ -86,8 +87,20 @@ import serial_interface as si
 MODEL_PATH = Path(__file__).parent / "robot_master_urdf_table" / "mjcf" / "robot_master.xml"
 SCHEDULE_PATH = Path(__file__).parent / "master_controller_schedule.json"
 
-UPDATE_HZ  = 84   # control loop rate (Hz)
+UPDATE_HZ  = 500  # control loop rate (Hz); the firmware loop runs at the same rate
 SEND_EVERY = 1    # send commands every N control ticks (1 = every tick)
+
+# Ticks run on a fixed 2 ms schedule.  A tick that starts late is not made up
+# by running the next ones back to back: at 84 Hz that sprint ran the
+# trajectory 1.6x faster than real time (2026-10-27 logs, up to 11 s behind).
+# The schedule restarts from now, the tick counts in the log's late_ticks, and
+# the reference advances by the real time since the last tick (capped at
+# MAX_TICK_DT_S so a long stall cannot make it jump).
+MAX_TICK_DT_S = 4.0 / UPDATE_HZ
+# viewer.sync() is far too slow to run every 2 ms tick; the display only
+# refreshes at about this rate anyway.  Slider edits reach data.ctrl through
+# it, so they arrive up to 1/VIEWER_HZ late.
+VIEWER_HZ = 60
 
 # Set to False to run open-loop: the sim tracks the reference trajectory
 # instead of encoder feedback. Commands still go to the real motors.
@@ -114,23 +127,20 @@ STM32_PRINT_MAX_PER_S = 5
 # Useful for initial testing before verifying TFF sign and magnitude.
 ZERO_TFF = True
 
-# Every run writes logs/<branch>_<YYYY-MM-DD>_<HH-MM-SS UTC>.csv (one row per
-# control tick, flushed immediately), a matching .json with the run's
-# settings and git revision, and a .svg graph (plot_run_log.py) written when
-# the run ends.  The controller refuses to start without a log.
+# Every run writes logs/<branch>_<YYYY-MM-DD>_<HH-MM-SS UTC>.csv (LOG_HZ rows
+# per second, written by a background thread so disk writes never delay a
+# tick), a matching .json with the run's settings and git revision, and a
+# .svg graph (plot_run_log.py) written when the run ends.  Events (commands,
+# trips, STM32 messages) are never dropped: each goes into the next row.
+# The controller refuses to start without a log.
 CYCLE_LOG_DIRECTORY = Path(__file__).parent / "logs"
+LOG_HZ = 100
 
-# Live slider streaming.  A motor gets a frame only when one of its fields
-# changed by more than these thresholds (during a slider move), plus a
-# keepalive frame every KEEPALIVE_S.  Each frame is one checksummed
-# "<n>M<pos>,<vel>,<kp>,<kd>,<tff>" line (~45 bytes) that the firmware
-# applies whole or not at all: separate per-field lines could arrive in part,
-# as on 2026-10-26 when an overrun dropped 3D/3T but kept 3P/3V.
-STREAM_POS_EPS_RAD   = 1e-4   # resend P when it moves more than this (motor side)
-STREAM_VEL_EPS_RAD_S = 1e-3   # resend V when it changes more than this
-STREAM_GAIN_REL_EPS  = 0.02   # resend K/D on a >2% change
-STREAM_TFF_EPS_NM    = 0.01   # resend T when it changes more than this
-STREAM_KEEPALIVE_S   = 0.25   # full frame per motor at least this often
+# Command streaming: every tick sends all four motors' commands as one
+# checksummed "A" line, the CAN frames packed on the PC (~70 bytes, ~35 kB/s
+# at 500 Hz on a 2 Mbaud link that carries 200 kB/s).  The firmware applies
+# all four together or, if the line is damaged, none of them; the next line
+# replaces it 2 ms later.
 
 # Runaway stop.  On 2026-10-21 M1 accelerated to 21 rad/s at 19-37 A while
 # its command was constant, and the controller kept streaming for 10 s.  Any
@@ -147,8 +157,10 @@ RUNAWAY_POS_ERROR_S   = 0.25
 # packets trips.  References are limited to 1 rad/s joint (1.25 rad/s motor
 # side on M4).  M1 has shown 1-2 packet glitches up to 5.6 rad/s that
 # recover on their own; the 2026-10-21 runaway gave 3 fast packets in 46 ms.
+# Feedback now arrives at up to 500 Hz, so 15 packets is ~30 ms (M1, which
+# replies at about half rate, ~60 ms), close to the old 3 packets at 84 Hz.
 RUNAWAY_SPEED_RAD_S   = 3.0
-RUNAWAY_SPEED_PACKETS = 3
+RUNAWAY_SPEED_PACKETS = 15
 # No new feedback packet for this long trips: the checks above are blind.
 RUNAWAY_FEEDBACK_TIMEOUT_S = 0.5
 
@@ -164,8 +176,8 @@ ECHO_MISMATCH_COUNT = 2
 # and firmware-loop latency), or the value current before that.
 ECHO_WINDOW_S = 0.15
 # Allowed |echo - sent| per field, in CAN counts (si.command_resolution).
-# The echo is the frame as packed for CAN: the firmware truncates to a count
-# (up to 1 below) and the PC rounds what it sends (well under half a count).
+# The echo is the frame as packed for CAN, from the counts the PC packed
+# itself, so it should match exactly; two counts leave margin.
 ECHO_TOLERANCE_COUNTS = 2.0
 
 # A motor that reports a nonzero CubeMars fault code (si.MOTOR_ERROR_TEXT)
@@ -327,60 +339,6 @@ def _compute_tau_ff(
         dof = qvel_idx[jname]
         tau_ff[motor] = float(data.qfrc_inverse[dof]) * TORQUE_FF_SCALE[motor]
     return tau_ff
-
-class _CommandStreamer:
-    """Send a motor's full MIT frame when any field changes, plus a keepalive."""
-
-    def __init__(self) -> None:
-        self._last: dict[int, dict[str, float]] = {}
-        self._last_full: dict[int, float] = {}
-        # Field letters written on each motor's latest send() ("" = nothing), for the cycle log.
-        self.last_sent_fields: dict[int, str] = {}
-        # Values written on each motor's latest send(), for the echo check.
-        self.last_sent_values: dict[int, dict[str, float]] = {}
-
-    def reset(self) -> None:
-        self._last.clear()
-        self._last_full.clear()
-        self.last_sent_fields.clear()
-        self.last_sent_values.clear()
-
-    def send(self, motor: int, pos: float, vel: float, kp: float, kd: float, tau_ff: float) -> bool:
-        """Return True if anything was written for this motor."""
-        now = time.perf_counter()
-        last = self._last.get(motor)
-        full = last is None or now - self._last_full.get(motor, 0.0) >= STREAM_KEEPALIVE_S
-
-        def changed(key: str, value: float, eps: float, relative: bool = False) -> bool:
-            if full:
-                return True
-            tol = eps * max(abs(last[key]), 1e-6) if relative else eps
-            return abs(value - last[key]) > tol
-
-        fields = {
-            "pos":    pos    if changed("pos", pos, STREAM_POS_EPS_RAD) else None,
-            "vel":    vel    if changed("vel", vel, STREAM_VEL_EPS_RAD_S) else None,
-            "kp":     kp     if changed("kp", kp, STREAM_GAIN_REL_EPS, relative=True) else None,
-            "kd":     kd     if changed("kd", kd, STREAM_GAIN_REL_EPS, relative=True) else None,
-            "tau_ff": tau_ff if changed("tau_ff", tau_ff, STREAM_TFF_EPS_NM) else None,
-        }
-        # When a move finishes, the exact final P and V=0 must reach the motor
-        # even if they differ from the last sent values by less than eps.
-        move_finished = last is not None and vel == 0.0 and last["vel"] != 0.0
-        if all(v is None for v in fields.values()) and not move_finished:
-            self.last_sent_fields[motor] = ""
-            self.last_sent_values[motor] = {}
-            return False
-
-        # One atomic frame with every field, whichever ones changed.
-        values = {"pos": pos, "vel": vel, "kp": kp, "kd": kd, "tau_ff": tau_ff}
-        si.send_mit_frame(motor, **values)
-        self.last_sent_fields[motor] = "PVKDT"
-        self.last_sent_values[motor] = values
-        self._last[motor] = dict(values)
-        self._last_full[motor] = now
-        return True
-
 
 class _RunawayMonitor:
     """Detect a motor that is not following its command (see RUNAWAY_* above)."""
@@ -548,7 +506,39 @@ def _git_branch() -> str:
 _finished_logs: set[Path] = set()
 
 
-def _finish_run_log(log_file: object, path: Path) -> None:
+class _CycleLogWriter:
+    """Write cycle-log rows on a background thread, so CSV formatting and disk
+    writes never delay a 2 ms control tick."""
+
+    def __init__(self, writer: csv.DictWriter) -> None:
+        self._writer = writer
+        self._queue: queue.Queue[dict[str, object] | None] = queue.Queue()
+        self.error: OSError | None = None
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def put(self, row: dict[str, object]) -> None:
+        self._queue.put(row)
+
+    def _run(self) -> None:
+        while True:
+            row = self._queue.get()
+            if row is None:
+                return
+            try:
+                self._writer.writerow(row)
+            except OSError as exc:
+                self.error = exc
+                return
+
+    def close(self) -> None:
+        """Write every queued row, then stop.  Safe to call twice."""
+        if self._thread.is_alive():
+            self._queue.put(None)
+            self._thread.join(timeout=10.0)
+
+
+def _finish_run_log(log_file: object, path: Path, log_writer: _CycleLogWriter | None = None) -> None:
     """Close the run's CSV and write its graph next to it. Safe to call twice.
 
     Registered with atexit as well as called at the normal end, so a crash or
@@ -557,6 +547,8 @@ def _finish_run_log(log_file: object, path: Path) -> None:
     if path in _finished_logs:
         return
     _finished_logs.add(path)
+    if log_writer is not None:
+        log_writer.close()
     try:
         log_file.close()
     except OSError:
@@ -583,6 +575,11 @@ def _open_cycle_log(
         "mode",
         "control_state",
         "contact_count",
+        # Timing of the most recent tick: start-to-start interval, time spent
+        # before sleeping, and late ticks so far (see MAX_TICK_DT_S).
+        "loop_dt_ms",
+        "loop_work_ms",
+        "late_ticks",
     ]
     for motor in MOTOR_TO_JOINT:
         fieldnames.extend(
@@ -655,9 +652,7 @@ def _open_cycle_log(
     return log_file, writer, path
 
 
-def _write_cycle_log(
-    log_file: object,
-    writer: csv.DictWriter,
+def _cycle_log_row(
     start_time: float,
     tick: int,
     simulation_only: bool,
@@ -675,8 +670,9 @@ def _write_cycle_log(
     command_echo_age: dict[int, float | None] | None = None,
     feedback_temp: dict[int, int | None] | None = None,
     feedback_err: dict[int, int | None] | None = None,
-) -> None:
-    """Append one controller-cycle record and flush it to disk."""
+    loop_timing: tuple[float, float, int] | None = None,
+) -> dict[str, object]:
+    """One controller-cycle record; drains the pending events into it."""
     status = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
     events = []
     while _log_events:
@@ -691,6 +687,8 @@ def _write_cycle_log(
         "contact_count": int(data.ncon),
         "events": " | ".join(events),
     }
+    if loop_timing is not None:
+        row["loop_dt_ms"], row["loop_work_ms"], row["late_ticks"] = loop_timing
     for motor in MOTOR_TO_JOINT:
         row[f"m{motor}_encoder_position_rad"] = raw_pos[motor]
         row[f"m{motor}_encoder_velocity_rad_s"] = raw_vel[motor]
@@ -723,8 +721,7 @@ def _write_cycle_log(
         row[f"{actuator}_requested_joint_rad"] = reference.requested_position_rad
         row[f"{actuator}_reference_joint_rad"] = reference.position_rad
         row[f"{actuator}_reference_velocity_joint_rad_s"] = reference.velocity_rad_s
-    writer.writerow(row)
-    log_file.flush()
+    return row
 
 def _encoder_position_in_sim_coordinates(motor: int, raw_position_rad: float | None) -> float | None:
     """Project one raw encoder value into the synchronized MuJoCo joint frame."""
@@ -799,12 +796,50 @@ def _build_default_controller() -> MasterController:
     return MasterController(schedules)
 
 # ---------------------------------------------------------------------------
+# Loop timing
+# ---------------------------------------------------------------------------
+
+def _request_fine_timer() -> None:
+    """Ask Windows for 1 ms timer resolution.  The default ~15.6 ms made
+    time.sleep() overshoot the old 11.9 ms tick (59-75 Hz measured before
+    's' on 2026-10-27) and is useless for a 2 ms tick."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        winmm = ctypes.WinDLL("winmm")
+        if winmm.timeBeginPeriod(1) == 0:
+            atexit.register(winmm.timeEndPeriod, 1)
+    except OSError:
+        pass
+
+
+def _sleep_until(deadline: float) -> None:
+    """Sleep until time.perf_counter() reaches deadline.  The OS sleeps in ~1 ms
+    steps at best, so the last ~1.5 ms is a spin that yields (sleep(0)) so the
+    serial reader thread still gets the GIL."""
+    while True:
+        remaining = deadline - time.perf_counter()
+        if remaining <= 0.0:
+            return
+        if remaining > 0.0015:
+            time.sleep(remaining - 0.001)
+        else:
+            time.sleep(0)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main() -> None:
     global _ser, _control_active, _request_start, _request_pause
     global _paused, _request_goal, _request_home, _request_rezero
+
+    _request_fine_timer()
+    # The serial reader thread parses up to 500 feedback lines per second;
+    # let it take the GIL within 0.5 ms instead of the default 5 ms.
+    sys.setswitchinterval(0.0005)
 
     arguments = sys.argv[1:]
     enable_motors_on_start = "--enable-motors" in arguments
@@ -1062,7 +1097,10 @@ def main() -> None:
             "DEFAULT_GAINS": DEFAULT_GAINS,
             "CONSTRAINED_JOINTS": CONSTRAINED_JOINTS,
             "HARDWARE_ZERO_ACTUATOR_CTRL_RAD": HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
-            "STREAM_KEEPALIVE_S": STREAM_KEEPALIVE_S,
+            "VIEWER_HZ": VIEWER_HZ,
+            "LOG_HZ": LOG_HZ,
+            "MAX_TICK_DT_S": MAX_TICK_DT_S,
+            "BAUD_RATE": si.BAUD_RATE,
             "RUNAWAY_STOP": RUNAWAY_STOP,
             "RUNAWAY_POS_ERROR_RAD": RUNAWAY_POS_ERROR_RAD,
             "RUNAWAY_POS_ERROR_S": RUNAWAY_POS_ERROR_S,
@@ -1086,13 +1124,23 @@ def main() -> None:
         sys.exit(1)
     cycle_log_start_time = time.perf_counter()
     run_log_file, run_log_path = cycle_log[0], cycle_log[2]
-    atexit.register(_finish_run_log, run_log_file, run_log_path)
+    log_writer = _CycleLogWriter(cycle_log[1])
+    atexit.register(_finish_run_log, run_log_file, run_log_path, log_writer)
     print(f"[ctrl] Logging this run to {run_log_path}")
 
     dt = 1.0 / UPDATE_HZ
+    log_every = max(1, round(UPDATE_HZ / LOG_HZ))
     tick = 0
-    streamer = _CommandStreamer()
+    late_ticks = 0
+    last_work_ms = 0.0
     runaway = _RunawayMonitor()
+    # Actuator id and gear per actuator, looked up once instead of every tick.
+    actuators: dict[str, tuple[int, int, float]] = {}
+    for actuator, motor in ACTUATOR_TO_MOTOR.items():
+        actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
+        if actuator_id < 0:
+            raise RuntimeError(f"MJCF has no actuator {actuator!r}; the A line needs all four motors.")
+        actuators[actuator] = (motor, actuator_id, float(model.actuator_gear[actuator_id, 0]))
     echo_monitor = _EchoMonitor()
     idle_slider_hint_shown = False
     stm32_print_window_s = 0.0
@@ -1106,8 +1154,13 @@ def main() -> None:
         next_tick  = time.perf_counter()
         last_print = time.perf_counter()
         last_feedback_print = 0.0
+        last_viewer_sync = 0.0
+        last_tick_start = next_tick
 
         while viewer.is_running():
+            tick_start = time.perf_counter()
+            tick_dt = tick_start - last_tick_start
+            last_tick_start = tick_start
 
             # --- Handle deferred terminal commands ---
 
@@ -1152,8 +1205,6 @@ def main() -> None:
                     f"start snapshot {snap_str}; offsets {off_str}"
                     + (f"; no feedback from {missing}" if missing else "")
                 )
-                # First tick after start sends a full frame to every motor.
-                streamer.reset()
                 runaway.reset()
                 echo_monitor.reset()
 
@@ -1269,8 +1320,9 @@ def main() -> None:
             if _control_active and not _paused:
 
                 # Hardware supplies qpos/qvel directly, so no mj_step advances
-                # the limiter's clock. Advance it at the real control period.
-                data.time += dt
+                # the limiter's clock.  Advance it by the real time since the
+                # last tick, so a late tick does not slow or speed the move.
+                data.time += min(tick_dt, MAX_TICK_DT_S)
 
                 # 1. Schedule PD gains from current inertia + position.
                 gain_updates = controller.update(model, data)
@@ -1301,13 +1353,9 @@ def main() -> None:
                             break
                 if RUNAWAY_STOP and not simulation_only and not trip_reason:
                     check_now = time.perf_counter()
-                    for actuator, motor in ACTUATOR_TO_MOTOR.items():
+                    for actuator, (motor, actuator_id, gear) in actuators.items():
                         if motor not in _encoder_feedback_at_sync:
                             continue
-                        actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
-                        if actuator_id < 0:
-                            continue
-                        gear = float(model.actuator_gear[actuator_id, 0])
                         cmd_pos_motor = (
                             MOTOR_DIRECTION[motor] * limiter.reference_position(actuator) * gear
                             + _pos_cmd_offset.get(motor, 0.0)
@@ -1329,15 +1377,11 @@ def main() -> None:
                     print("[ctrl]     Sent 0X; no commands are being streamed. Check the arm,")
                     print("[ctrl]     then type 'a' and 's' to re-enable and re-synchronize.")
 
-                # 5. Send MIT frames every SEND_EVERY ticks.
+                # 5. Send all four motors' MIT frames, as one "A" line, every
+                # SEND_EVERY ticks.
                 elif not simulation_only and tick % SEND_EVERY == 0:
-                    for actuator, motor in ACTUATOR_TO_MOTOR.items():
-                        actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
-                        if actuator_id < 0:
-                            continue
-
-                        gear = float(model.actuator_gear[actuator_id, 0])
-
+                    frames: dict[int, tuple[float, float, float, float, float]] = {}
+                    for actuator, (motor, actuator_id, gear) in actuators.items():
                         ref_pos_joint = limiter.reference_position(actuator)
                         ref_vel_joint = limiter.reference_velocity(actuator)
                         ref_pos_motor = (
@@ -1356,25 +1400,8 @@ def main() -> None:
                         # The motor-side gains shown in terminal telemetry.
                         latest_command_gains[motor] = (kp_motor, kd_motor)
 
-                        streamer.send(
-                            motor,
-                            ref_pos_motor,
-                            ref_vel_motor,
-                            kp_motor,
-                            kd_motor,
-                            tau_ff_motor,
-                        )
-                        echo_monitor.record_sent(
-                            motor, streamer.last_sent_values.get(motor, {}), time.perf_counter()
-                        )
-                        commanded[motor] = (
-                            ref_pos_motor,
-                            ref_vel_motor,
-                            kp_motor,
-                            kd_motor,
-                            tau_ff_motor,
-                            streamer.last_sent_fields.get(motor, ""),
-                        )
+                        frames[motor] = (ref_pos_motor, ref_vel_motor, kp_motor, kd_motor, tau_ff_motor)
+                        commanded[motor] = (*frames[motor], "PVKDT")
 
                         if DEBUG_COMMANDS and tick % UPDATE_HZ == 0:
                             print(
@@ -1385,6 +1412,13 @@ def main() -> None:
                                 f"Kd={kd_motor:.3f} "
                                 f"T={tau_ff_motor:+.4f}"
                             )
+
+                    si.send_all_frames(frames)
+                    sent_at = time.perf_counter()
+                    for motor, (pos, vel, kp, kd, tau) in frames.items():
+                        echo_monitor.record_sent(
+                            motor, {"pos": pos, "vel": vel, "kp": kp, "kd": kd, "tau_ff": tau}, sent_at
+                        )
 
             else:
                 # Slider edits select the next target while idle or paused,
@@ -1413,11 +1447,12 @@ def main() -> None:
                     simulation_only,
                 )
 
-            if cycle_log is not None:
-                try:
-                    _write_cycle_log(
-                        cycle_log[0],
-                        cycle_log[1],
+            if cycle_log is not None and tick % log_every == 0:
+                if log_writer.error is not None:
+                    print(f"[ctrl] WARNING: run logging stopped: {log_writer.error}")
+                    cycle_log = None
+                else:
+                    log_writer.put(_cycle_log_row(
                         cycle_log_start_time,
                         tick,
                         simulation_only,
@@ -1435,21 +1470,25 @@ def main() -> None:
                         log_echo_age,
                         log_temp,
                         log_err,
-                    )
-                except OSError as exc:
-                    print(f"[ctrl] WARNING: run logging stopped: {exc}")
-                    cycle_log[0].close()
-                    cycle_log = None
+                        (tick_dt * 1000.0, last_work_ms, late_ticks),
+                    ))
 
-            viewer.sync()
+            if tick_start - last_viewer_sync >= 1.0 / VIEWER_HZ:
+                last_viewer_sync = tick_start
+                viewer.sync()
             tick += 1
 
+            now = time.perf_counter()
+            last_work_ms = (now - tick_start) * 1000.0
             next_tick += dt
-            sleep_time = next_tick - time.perf_counter()
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+            if now > next_tick:
+                # Late: restart the schedule from now rather than catching up.
+                late_ticks += 1
+                next_tick = now
+            else:
+                _sleep_until(next_tick)
 
-    _finish_run_log(run_log_file, run_log_path)
+    _finish_run_log(run_log_file, run_log_path, log_writer)
     si.close()
     if simulation_only:
         print("[ctrl] Simulation closed. Bye.")

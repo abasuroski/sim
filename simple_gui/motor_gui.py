@@ -46,7 +46,7 @@ from datetime import datetime
 
 AK60_LIMIT_DEG = 45.0
 
-BAUD_RATE = 1000000   # must match the firmware (MX_USART2_UART_Init)
+BAUD_RATE = 2000000   # must match the firmware (MX_USART2_UART_Init)
 
 # Motor type per index, as in the firmware's uart_cmd_init().
 MOTOR_TYPES = {1: "AK60", 2: "AK70", 3: "AK70", 4: "AK40"}
@@ -57,6 +57,7 @@ MIT_RANGES = {
     "AK40": ((-12.5, 12.5), (-45.5, 45.5), (-5.0, 5.0)),
 }
 HEX_FEEDBACK_RE = re.compile(r'^F([1-4]) ([0-9A-F]{16}) ([0-9A-F]{8})$')
+HEX_FEEDBACK_ALL_RE = re.compile(r'^FB((?: (?:[0-9A-F]{16}|-)){4}) ([0-9A-F]{8})$')
 HEX_ECHO_RE = re.compile(r'^C([1-4]) ([0-9A-F]{16})$')
 
 
@@ -79,6 +80,18 @@ def _uint_to_float(x, lo, hi, bits):
 
 def _signed(value, bits):
     return value - (1 << bits) if value >= 1 << (bits - 1) else value
+
+
+def hex_to_lines(line):
+    """Split an all-motor "FB" line into per-motor lines, each shown as text."""
+    m = HEX_FEEDBACK_ALL_RE.match(line)
+    if not m:
+        return [hex_to_text(line)]
+    return [
+        hex_to_text(f"F{motor} {field} {m.group(2)}")
+        for motor, field in enumerate(m.group(1).split(), start=1)
+        if field != "-"
+    ]
 
 
 def hex_to_text(line):
@@ -912,7 +925,8 @@ class RobotArmGUI:
                 try:
                     line = self.ser.readline().decode(errors="replace").strip()
                     if line:
-                        self.route_feedback(hex_to_text(line))
+                        for text in hex_to_lines(line):
+                            self.route_feedback(text)
                 except Exception:
                     pass
 

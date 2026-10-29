@@ -1,4 +1,5 @@
 #include "uart_cmd.h"
+#include "mit_frame.h"
 #include "stm32f4xx_hal.h"
 #include <string.h>
 
@@ -213,6 +214,33 @@ static uint8_t parse_mit_frame(const char *s, float out[5])
     return 1;
 }
 
+// "A<64 hex>": the four motors' MIT commands as packed for CAN (8 bytes
+// each, motor 1 first, mit_pack_cmd layout). One line for all four instead
+// of four "M" lines, which matters at 500 Hz; applied to all four together.
+static uint8_t parse_all_frames(void)
+{
+    if (idx != 1 + 16 * NUM_MOTORS) return 0;
+    MotorCmd cmd[NUM_MOTORS];
+    for (uint8_t i = 0; i < NUM_MOTORS; i++) {
+        uint8_t frame[8];
+        for (uint8_t b = 0; b < 8; b++) {
+            const char *h = &buf[1 + 16 * i + 2 * b];
+            uint8_t hi = hex_digit(h[0]), lo = hex_digit(h[1]);
+            if (hi > 0xF || lo > 0xF) return 0;
+            frame[b] = (uint8_t)((hi << 4) | lo);
+        }
+        mit_unpack_cmd(motors[i].type, frame, &cmd[i]);
+    }
+    for (uint8_t i = 0; i < NUM_MOTORS; i++) {
+        motors[i].pos = cmd[i].pos;
+        motors[i].vel = cmd[i].vel;
+        motors[i].kp  = cmd[i].kp;
+        motors[i].kd  = cmd[i].kd;
+        motors[i].tff = cmd[i].tff;
+    }
+    return 1;
+}
+
 static void parse_cmd(void)
 {
     buf[idx] = '\0';
@@ -234,6 +262,12 @@ static void parse_cmd(void)
         // A lone fragment such as "1" is what remains of a line whose
         // command letter was lost; a bare terminator ("\r\n") is normal.
         if (idx > 0) reject_line();
+        return;
+    }
+
+    // All-motor frame; checksum required.
+    if (buf[0] == 'A' || buf[0] == 'a') {
+        if (strip_checksum() != 1 || !parse_all_frames()) reject_line();
         return;
     }
 

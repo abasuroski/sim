@@ -8,11 +8,14 @@ Shared between sync_hardware.py and the main controller. Handles:
   - MIT control mode command sending (one checksummed M line per motor)
   - Motor enable
 
-Serial protocol (STM32 UART, 1000000 baud):
+Serial protocol (STM32 UART, 2000000 baud; the firmware loop runs at 500 Hz):
   Incoming feedback (current firmware: raw CAN bytes as hex, decoded here):
-    F<n> <16 hex: 8 feedback data bytes> <8 hex: STM32 tick ms>
+    FB <m1> <m2> <m3> <m4> <8 hex: STM32 tick ms>   (one line per 2 ms pass;
+         each <mN> is 16 hex = 8 feedback data bytes, or "-" for no reply)
+    F<n> <16 hex: 8 feedback data bytes> <8 hex: STM32 tick ms>   (older firmware)
     C<n> <16 hex: 8 bytes of MIT command as packed for CAN>   (TX_ECHO=1;
-         sent when the command changes, plus a heartbeat every 250 ms)
+         sent when the command changes, at most every 20 ms, plus a
+         heartbeat every 250 ms)
     [UART] rx errors ore=<n> fe=<n> ne=<n> pe=<n> rejected=<n> fb_drop=<n> can_drop=<n> t=<val>ms
     [UART] rejected "<line>"   (latest command line the firmware refused)
     [M<n>] feedback lost — disabled ... / [M<n>] no feedback since enable — disabled ...
@@ -24,6 +27,8 @@ Serial protocol (STM32 UART, 1000000 baud):
 
   Outgoing commands, each line ending "*HH" = XOR of the bytes before '*'
   (required by the firmware on value commands):
+    A<64 hex>     — all four motors' MIT commands packed for CAN (8 bytes each,
+                    motor 1 first), applied together; what the controller sends
     <n>M<pos>,<vel>,<kp>,<kd>,<tff>  — all five MIT fields, applied together
     <n>P / V / K / D / T<val>        — single fields (still accepted)
     <n>E          — enable motor
@@ -57,7 +62,7 @@ except ModuleNotFoundError:
 # Constants
 # ---------------------------------------------------------------------------
 
-BAUD_RATE = 1000000
+BAUD_RATE = 2000000
 
 # Safety: maximum torque feedforward sent per motor (N·m, motor side).
 TAU_FF_LIMIT: dict[int, float] = {1: 9.0, 2: 18.0, 3: 18.0, 4: AK40_MOTOR_TORQUE_LIMIT_NM}
@@ -128,9 +133,39 @@ def command_range(motor: int, field: str) -> tuple[float, float]:
     return _COMMAND_RANGE[MOTOR_TYPE[motor]][field]
 
 
+def _float_to_uint(x: float, x_min: float, x_max: float, bits: int) -> int:
+    """The firmware's float_to_uint() (mit_frame.c): clamp, then round to the nearest count."""
+    x = max(x_min, min(x_max, x))
+    return int((x - x_min) / (x_max - x_min) * ((1 << bits) - 1) + 0.5)
+
+
+def pack_command(motor: int, pos: float, vel: float, kp: float, kd: float, tau_ff: float) -> bytes:
+    """Pack one MIT command into the motor's 8 CAN data bytes, as mit_pack_cmd()
+    does (tau_ff first clamped to TAU_FF_LIMIT)."""
+    tau_ff = max(-TAU_FF_LIMIT[motor], min(TAU_FF_LIMIT[motor], tau_ff))
+    c = {
+        field: _float_to_uint(value, *command_range(motor, field), _COMMAND_BITS[field])
+        for field, value in (("pos", pos), ("vel", vel), ("kp", kp), ("kd", kd), ("tau_ff", tau_ff))
+    }
+    if MOTOR_TYPE[motor] == "AK60":
+        # KP/KD/Pos/Vel/Torque byte order.
+        return bytes([
+            c["kp"] >> 4, ((c["kp"] & 0xF) << 4) | (c["kd"] >> 8), c["kd"] & 0xFF,
+            c["pos"] >> 8, c["pos"] & 0xFF,
+            c["vel"] >> 4, ((c["vel"] & 0xF) << 4) | (c["tau_ff"] >> 8), c["tau_ff"] & 0xFF,
+        ])
+    # Pos/Vel/KP/KD/Torque byte order.
+    return bytes([
+        c["pos"] >> 8, c["pos"] & 0xFF,
+        c["vel"] >> 4, ((c["vel"] & 0xF) << 4) | (c["kp"] >> 8), c["kp"] & 0xFF,
+        c["kd"] >> 4, ((c["kd"] & 0xF) << 4) | (c["tau_ff"] >> 8), c["tau_ff"] & 0xFF,
+    ])
+
+
 def command_resolution(motor: int, field: str) -> float:
-    """One CAN count of this MIT command field.  The firmware truncates, so a
-    value read back from the CAN frame is up to one count below what was sent."""
+    """One CAN count of this MIT command field.  The firmware rounds to the
+    nearest count, so a value read back from the CAN frame is within half a
+    count of what was sent."""
     lo, hi = command_range(motor, field)
     return (hi - lo) / ((1 << _COMMAND_BITS[field]) - 1)
 
@@ -138,6 +173,7 @@ def command_resolution(motor: int, field: str) -> float:
 # Feedback parsing
 # ---------------------------------------------------------------------------
 
+_HEX_FB_ALL_RE = re.compile(r'^FB((?: (?:[0-9A-F]{16}|-)){4}) ([0-9A-F]{8})$')
 _HEX_FB_RE   = re.compile(r'^F([1-4]) ([0-9A-F]{16}) ([0-9A-F]{8})$')
 _HEX_ECHO_RE = re.compile(r'^C([1-4]) ([0-9A-F]{16})$')
 
@@ -281,6 +317,13 @@ def _store_echo(motor: int, values: CommandEcho) -> None:
 
 def _parse_line(line: str) -> None:
     """Parse one STM32 line: motor feedback, a command echo, or anything else."""
+    hex_all = _HEX_FB_ALL_RE.match(line)
+    if hex_all:
+        for motor, field in enumerate(hex_all.group(1).split(), start=1):
+            if field != "-":
+                _store_feedback(motor, decode_feedback(motor, bytes.fromhex(field)))
+        return
+
     hex_fb = _HEX_FB_RE.match(line)
     if hex_fb:
         motor = int(hex_fb.group(1))
@@ -529,6 +572,29 @@ def send_mit_frame(
 ENABLE_MIN_S = 0.5
 ENABLE_ECHO_TIMEOUT_S = 3.0
 ENABLE_SETTLE_S = 0.1
+
+
+def format_all_frames(frames: dict[int, tuple[float, float, float, float, float]]) -> str:
+    """The "A<64 hex>" body for all four motors; frames[motor] = (pos, vel, kp, kd, tau_ff)."""
+    return "A" + "".join(pack_command(motor, *frames[motor]).hex().upper() for motor in (1, 2, 3, 4))
+
+
+def send_all_frames(frames: dict[int, tuple[float, float, float, float, float]]) -> int:
+    """Send all four motors' MIT commands as one checksummed "A" line.
+
+    The firmware applies all four together or, if the line is damaged, none
+    of them.  One ~70-byte line instead of four ~40-byte "M" lines is what
+    lets the controller send every tick at 500 Hz.  Returns the bytes written.
+
+    Args:
+        frames: motor (1-4) → (pos, vel, kp, kd, tau_ff), motor side;
+                tau_ff is clamped to TAU_FF_LIMIT.
+    """
+    line = checksum_line(format_all_frames(frames))
+    with _ser_lock:
+        if _ser and _ser.is_open:
+            _ser.write(line.encode())
+    return len(line)
 
 
 def enable_motors(motors: list[int]) -> None:

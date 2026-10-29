@@ -115,6 +115,13 @@ def _mock_send_mit_frame(motor: int, pos: float, vel: float,
         _cmd_pos[motor] = pos
 
 
+def _mock_send_all_frames(frames: dict) -> int:
+    with _sim_lock:
+        for motor, (pos, _vel, _kp, _kd, _tau) in frames.items():
+            _cmd_pos[motor] = pos
+    return 0
+
+
 def _mock_emergency_stop() -> None:
     with _sim_lock:
         for m in [1, 2, 3, 4]:
@@ -127,6 +134,7 @@ si.close                   = lambda: None
 si.is_connected            = lambda: True
 si.send                    = lambda cmd: None
 si.send_mit_frame          = _mock_send_mit_frame
+si.send_all_frames         = _mock_send_all_frames
 si.enable_motors           = lambda motors: print(f"[spoof] enable_motors({motors}) — no-op")
 si.enable_passive_feedback = lambda motors: print(f"[spoof] enable_passive_feedback({motors}) — no-op")
 si.emergency_stop          = _mock_emergency_stop
