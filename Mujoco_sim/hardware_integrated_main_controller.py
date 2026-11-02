@@ -19,7 +19,11 @@ Control loop (runs at UPDATE_HZ):
   7. Pack and send MIT control frame per motor: P, V, Kp, Kd, tau_ff
 
 Usage:
-    python3 hardware_integrated_main_controller.py [serial_port] [--enable-motors]
+    python3 hardware_integrated_main_controller.py [serial_port] [--enable-motors] [--gui]
+
+    --gui opens a control panel (control_panel.py): enable / start / pause /
+    hold / disable buttons, and tool-point targets that are solved and
+    previewed in the MuJoCo viewer (orange ghost) before they are run.
 
 Runaway stop (RUNAWAY_STOP): a motor that leaves its command, moves too fast
 or stops reporting triggers 0X and returns to IDLE; type 'a' then 's' again.
@@ -39,6 +43,9 @@ Commands (type in terminal, press Enter):
     a            — enable all body motors
     s            — start control loop
     g <j> <rad>  — go: move joint j (1-4) to position in radians
+    ik <x> <y> <z> — move the gripper tool point to a base-frame position (m,
+                   or mm/cm suffixes); see inverse_kinematics.py
+    w            — print the tool point position (base frame)
     h            — go to hardware_zero pose
     p            — pause control
     r            — resume control
@@ -64,16 +71,20 @@ import sys
 import threading
 import time
 from collections import deque
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 import mujoco
 import mujoco.viewer
+import numpy as np
 
 from robot_master_configuration import (
     HARDWARE_ZERO_KEYFRAME_NAME,
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
 )
+from control_panel import ControlPanel, MotorRow, PanelStatus
+from inverse_kinematics import ArmIK, IKResult
 from master_controller import MasterController, PositionSchedule
 from trapezoidal_motion import TrapezoidalReferenceLimiter
 from plot_run_log import plot_run_log
@@ -173,6 +184,10 @@ ECHO_TOLERANCE_COUNTS = 2.0
 # logged (m<n>_encoder_err) and every change is a run-log event.
 MOTOR_FAULT_STOP = True
 
+# After a control-panel Disable, wait this long, then check that every motor's
+# command echo shows zero gains (TX_ECHO heartbeats come every 250 ms).
+DISABLE_ECHO_CHECK_S = 1.0
+
 # Motor index → joint name (driven joints only)
 MOTOR_TO_JOINT = {
     1: "revolute_1",
@@ -234,6 +249,15 @@ _paused          = False
 _request_goal: dict[str, float] | None = None   # actuator → target (rad, joint side)
 _request_home    = False
 _request_rezero  = False
+_request_start_home = False   # reset the reference to hardware_zero before the start sync
+_request_hold    = False      # send 0X and stop streaming (control panel HOLD)
+_request_disable = False      # stop streaming, then send zero-gain frames (limp)
+
+# Motor power as far as this program knows: "not enabled", "enabling",
+# "enabled", "limp (disabled)" or "held (0X)".  Shown by the control panel.
+_motor_power = "not enabled"
+# Latest event worth showing in the control panel: (text, is_alert).
+_notice: tuple[str, bool] = ("", False)
 
 # Snapshots captured at the moment 's' is pressed.
 # All subsequent encoder readings are treated as deltas from these values,
@@ -799,18 +823,416 @@ def _build_default_controller() -> MasterController:
     return MasterController(schedules)
 
 # ---------------------------------------------------------------------------
+# Shared command helpers (terminal and control panel)
+# ---------------------------------------------------------------------------
+
+def _start_enable() -> None:
+    """Enable M1-M4 in a background thread (each enable blocks the STM32 ~1.3 s)."""
+    global _motor_power
+    _motor_power = "enabling"
+
+    def run() -> None:
+        global _motor_power
+        si.enable_motors([1, 2, 3, 4])
+        _motor_power = "enabled"
+        _log_events.append("motors enabled")
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+def _limiter_moving(limiter: "TrapezoidalReferenceLimiter") -> bool:
+    """True while a goal is pending or any reference is not at rest on its request."""
+    return _request_goal is not None or any(
+        limiter.reference_velocity(a) != 0.0
+        or abs(limiter.requested_position(a) - limiter.reference_position(a)) > 1e-9
+        for a in ACTUATOR_TO_MOTOR
+    )
+
+
+def _measured_references(
+    limiter: "TrapezoidalReferenceLimiter",
+    actuator_gear: dict[str, float],
+    simulation_only: bool,
+) -> dict[str, float] | None:
+    """Encoder positions in the limiter's reference coordinates (joint side).
+
+    Inverts the P command (P = dir * ref * gear + offset), so with perfect
+    tracking this equals the reference.  Motors without feedback at sync
+    report their reference.  None when there is nothing to measure.
+    """
+    if simulation_only or not _control_active or not _encoder_feedback_at_sync:
+        return None
+    pos_raw, _ = si.raw_snapshot()
+    measured = {}
+    for actuator, motor in ACTUATOR_TO_MOTOR.items():
+        if motor in _encoder_feedback_at_sync and pos_raw[motor] is not None:
+            measured[actuator] = (pos_raw[motor] - _pos_cmd_offset[motor]) / (
+                MOTOR_DIRECTION[motor] * actuator_gear[actuator]
+            )
+        else:
+            measured[actuator] = limiter.reference_position(actuator)
+    return measured
+
+
+# ---------------------------------------------------------------------------
+# Control panel backend (--gui; the UI itself is control_panel.py)
+# ---------------------------------------------------------------------------
+
+GHOST_RGBA = (1.0, 0.55, 0.1, 0.35)       # preview pose
+PATH_RGBA = (1.0, 0.85, 0.1, 0.9)         # preview tool-point path
+TARGET_OK_RGBA = (0.1, 0.9, 0.1, 0.6)
+TARGET_BAD_RGBA = (0.9, 0.1, 0.1, 0.8)
+PATH_MAX_SEGMENTS = 200
+
+
+@dataclass
+class _Preview:
+    target_base_m: tuple[float, float, float]
+    start: dict[str, float]                 # references the solve started from
+    result: IKResult
+    qpos: np.ndarray | None = None          # full qpos of the solved pose
+    path_world: list[np.ndarray] = field(default_factory=list)
+    executed: bool = False
+
+
+class _GuiBackend:
+    """Controller side of control_panel.PanelBackend.
+
+    Called on the main thread (panel callbacks run inside ControlPanel.pump),
+    except the IK solve, which runs in a worker thread under ``ik_lock``.
+    Actions only set request flags; the control loop carries them out, as it
+    does for the terminal commands.
+    """
+
+    def __init__(
+        self,
+        model: mujoco.MjModel,
+        limiter: "TrapezoidalReferenceLimiter",
+        arm_ik: ArmIK,
+        ik_lock: threading.Lock,
+        actuator_gear: dict[str, float],
+        simulation_only: bool,
+        port: str | None,
+        viewer: object,
+    ) -> None:
+        self.model = model
+        self.limiter = limiter
+        self.arm_ik = arm_ik
+        self.ik_lock = ik_lock
+        self.actuator_gear = actuator_gear
+        self.simulation_only = simulation_only
+        self.port = port
+        self.viewer = viewer
+        self._display_data = mujoco.MjData(model)   # main-thread FK for the status
+        self._ghost_data = mujoco.MjData(model)     # preview pose for drawing
+        self._opt = mujoco.MjvOption()
+        self._pert = mujoco.MjvPerturb()
+        self._preview_lock = threading.Lock()
+        self._preview: _Preview | None = None
+        self._preview_busy = False
+        self._preview_version = 0
+        self._drawn_version = 0
+
+    # --- helpers ---
+
+    def _references(self) -> dict[str, float]:
+        return {a: self.limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR}
+
+    def _set_preview(self, preview: _Preview | None) -> None:
+        with self._preview_lock:
+            self._preview = preview
+            self._preview_version += 1
+
+    def _run_refusal(self) -> str | None:
+        """Why the current preview cannot run now, or None if it can."""
+        preview = self._preview
+        if preview is None or not preview.result.success:
+            return "No valid preview to run."
+        if preview.executed:
+            return "Refused: this preview was already run. Preview again."
+        if not _control_active:
+            return "Refused: control is not active. Start control first."
+        if _paused:
+            return "Refused: control is paused. Resume first."
+        if _limiter_moving(self.limiter):
+            return "Refused: a move is in progress."
+        current = self._references()
+        if any(abs(current[a] - preview.start[a]) > 1e-9 for a in ACTUATOR_TO_MOTOR):
+            return "Refused: the arm reference moved since this preview. Preview again."
+        return None
+
+    # --- PanelBackend ---
+
+    def status(self) -> PanelStatus:
+        raw_pos: dict[int, float | None] = {m: None for m in MOTOR_TO_JOINT}
+        ages: dict[int, float | None] = {m: None for m in MOTOR_TO_JOINT}
+        faults: dict[int, int | None] = {m: None for m in MOTOR_TO_JOINT}
+        if not self.simulation_only:
+            fb = si.snapshot()
+            raw_pos, _ = si.raw_snapshot()
+            now = time.perf_counter()
+            for m in MOTOR_TO_JOINT:
+                if raw_pos[m] is not None:
+                    ages[m] = now - fb.time[m]
+                faults[m] = fb.err[m]
+        references = self._references()
+        rows = [
+            MotorRow(motor, MOTOR_TO_JOINT[motor], math.degrees(references[actuator]),
+                     raw_pos[motor], ages[motor], faults[motor])
+            for actuator, motor in ACTUATOR_TO_MOTOR.items()
+        ]
+
+        def fk(q: dict[str, float]) -> tuple[float, float, float]:
+            p = self.arm_ik.tool_position_base_on(self._display_data, q)
+            return (float(p[0]), float(p[1]), float(p[2]))
+
+        tool_reference = fk(references)
+        tool_target = fk({a: self.limiter.requested_position(a) for a in ACTUATOR_TO_MOTOR})
+        measured = _measured_references(self.limiter, self.actuator_gear, self.simulation_only)
+        tool_encoders = None if measured is None else fk(measured)
+
+        with self._preview_lock:
+            preview = self._preview
+            busy = self._preview_busy
+        text, ok = "", False
+        if preview is not None:
+            r = preview.result
+            target = "(" + ", ".join(f"{1000 * v:.1f}" for v in preview.target_base_m) + ") mm"
+            if r.success:
+                ok = True
+                changes = "  ".join(
+                    f"M{ACTUATOR_TO_MOTOR[a]} {math.degrees(q - preview.start[a]):+.1f}°"
+                    for a, q in r.joint_targets.items()
+                )
+                state = "Running on the arm." if preview.executed else "The orange ghost in MuJoCo shows the pose."
+                text = (f"Preview {target}: error {1000 * r.error_m:.3f} mm, move {r.move_duration_s:.2f} s. "
+                        f"{state}\nJoint changes: {changes}")
+            else:
+                text = f"No solution for {target}: {r.message}"
+        if self.simulation_only:
+            control_state = "ACTIVE (simulation)" if not _paused else "PAUSED"
+        else:
+            control_state = "ACTIVE" if (_control_active and not _paused) else ("PAUSED" if _paused else "IDLE")
+        return PanelStatus(
+            mode="SIMULATION (no serial port)" if self.simulation_only else f"HARDWARE ({self.port})",
+            hardware=not self.simulation_only,
+            control_state=control_state,
+            motor_power=_motor_power,
+            moving=_limiter_moving(self.limiter),
+            motors=rows,
+            tool_reference_m=tool_reference,
+            tool_target_m=tool_target,
+            tool_encoders_m=tool_encoders,
+            preview_text=text,
+            preview_ok=ok,
+            preview_runnable=not busy and self._run_refusal() is None,
+            preview_busy=busy,
+            notice=_notice[0],
+            notice_is_alert=_notice[1],
+        )
+
+    def enable(self) -> str:
+        if self.simulation_only:
+            return "Unavailable in simulation."
+        if _control_active:
+            return "Refused: stop control before enabling (each enable blocks the STM32 ~1.3 s)."
+        if _motor_power == "enabling":
+            return "Refused: already enabling."
+        _log_events.append("panel enable")
+        _start_enable()
+        return "Enabling M1-M4 one at a time (several seconds)..."
+
+    def start(self, arm_at_home: bool) -> str:
+        global _request_start, _request_start_home
+        if self.simulation_only:
+            return "Unavailable in simulation: control is always active."
+        if _control_active:
+            return "Refused: already running."
+        if _motor_power != "enabled":
+            return f"Refused: motors are {_motor_power}. Enable them first."
+        self._set_preview(None)
+        _log_events.append(f"panel start ({'arm at home' if arm_at_home else 'keep reference'})")
+        _request_start_home = arm_at_home
+        _request_start = True
+        return "Starting control" + (" from hardware_zero." if arm_at_home else " from the current reference.")
+
+    def pause(self) -> str:
+        global _paused
+        _log_events.append("panel pause")
+        _paused = True
+        return "Paused: no commands are streamed; the motors hold their last command."
+
+    def resume(self) -> str:
+        global _paused
+        _log_events.append("panel resume")
+        _paused = False
+        return "Resumed."
+
+    def home(self) -> str:
+        global _request_home
+        if not _control_active:
+            return "Refused: control is not active."
+        if _paused:
+            return "Refused: control is paused. Resume first."
+        _log_events.append("panel home")
+        _request_home = True
+        return "Going to hardware_zero."
+
+    def hold(self) -> str:
+        global _request_hold
+        if self.simulation_only:
+            return "Unavailable in simulation."
+        _log_events.append("panel hold")
+        _request_hold = True
+        return "HOLD: sending 0X (motors freeze) and stopping streaming. Enable and Start to continue."
+
+    def disable(self) -> str:
+        global _request_disable
+        if self.simulation_only:
+            return "Unavailable in simulation."
+        _log_events.append("panel disable")
+        _request_disable = True
+        return "Disabling: stopping streaming and sending zero-gain frames..."
+
+    def preview(self, target_base_m: tuple[float, float, float]) -> str:
+        if _limiter_moving(self.limiter):
+            return "Refused: wait for the current move to finish."
+        with self._preview_lock:
+            if self._preview_busy:
+                return "Refused: a solve is already running."
+            self._preview_busy = True
+        start = self._references()
+
+        def solve() -> None:
+            preview = _Preview(tuple(target_base_m), start, IKResult(False, "", np.asarray(target_base_m)))
+            try:
+                with self.ik_lock:
+                    result = self.arm_ik.solve(target_base_m, start)
+                    preview.result = result
+                    if result.success:
+                        q_start = self.arm_ik.to_array(start)
+                        q_goal = self.arm_ik.to_array(result.joint_targets)
+                        preview.qpos = self.arm_ik.full_qpos(q_goal)
+                        preview.path_world = [
+                            self.arm_ik.base_to_world(p)
+                            for p in self.arm_ik.path_tool_positions_base(q_start, q_goal)
+                        ]
+            except Exception as exc:   # report it; never kill the controller
+                preview = _Preview(
+                    tuple(target_base_m), start,
+                    IKResult(False, f"solver error: {exc}", np.asarray(target_base_m, dtype=float)),
+                )
+            _log_events.append(
+                f"panel preview {tuple(round(v, 4) for v in target_base_m)}: "
+                + ("ok" if preview.result.success else preview.result.message)
+            )
+            with self._preview_lock:
+                self._preview = preview
+                self._preview_version += 1
+                self._preview_busy = False
+
+        threading.Thread(target=solve, daemon=True).start()
+        return "Solving..."
+
+    def run_preview(self) -> str:
+        global _request_goal
+        with self._preview_lock:
+            if self._preview_busy:
+                return "Refused: a solve is running."
+            refusal = self._run_refusal()
+            if refusal is not None:
+                return refusal
+            preview = self._preview
+            preview.executed = True
+            self._preview_version += 1
+        _request_goal = dict(preview.result.joint_targets)
+        _log_events.append(
+            f"panel run {preview.target_base_m} -> "
+            + ", ".join(f"{a}={q:+.5f}" for a, q in preview.result.joint_targets.items())
+        )
+        print(f"[ctrl] Panel: running the preview to {preview.target_base_m} m")
+        return f"Running: move {preview.result.move_duration_s:.2f} s."
+
+    def clear_preview(self) -> str:
+        with self._preview_lock:
+            if self._preview_busy:
+                return "Refused: a solve is running."
+        self._set_preview(None)
+        return "Preview cleared."
+
+    def quit(self) -> None:
+        _log_events.append("panel quit")
+        self.viewer.close()
+
+    # --- drawing (main thread, every tick) ---
+
+    def render(self) -> None:
+        """Redraw the preview in the viewer's user scene when it changes."""
+        with self._preview_lock:
+            preview = self._preview
+            # An executed preview is removed once its move has finished.
+            if preview is not None and preview.executed and not _limiter_moving(self.limiter):
+                self._preview = preview = None
+                self._preview_version += 1
+            version = self._preview_version
+        if version == self._drawn_version:
+            return
+        self._drawn_version = version
+        scn = self.viewer.user_scn
+        with self.viewer.lock():
+            scn.ngeom = 0
+            if preview is None:
+                return
+            if preview.qpos is not None:
+                self._ghost_data.qpos[:] = preview.qpos
+                mujoco.mj_kinematics(self.model, self._ghost_data)
+                first = scn.ngeom
+                mujoco.mjv_addGeoms(
+                    self.model, self._ghost_data, self._opt, self._pert, mujoco.mjtCatBit.mjCAT_DYNAMIC, scn
+                )
+                for i in range(first, scn.ngeom):
+                    geom = scn.geoms[i]
+                    geom.rgba[:] = GHOST_RGBA
+                    geom.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN   # not selectable
+                    geom.objid = -1
+            points = preview.path_world
+            if len(points) > PATH_MAX_SEGMENTS + 1:
+                step = math.ceil((len(points) - 1) / PATH_MAX_SEGMENTS)
+                points = points[::step] + [points[-1]]
+            for a, b in zip(points, points[1:]):
+                if scn.ngeom >= scn.maxgeom - 1 or np.linalg.norm(b - a) < 1e-6:
+                    continue
+                geom = scn.geoms[scn.ngeom]
+                mujoco.mjv_initGeom(
+                    geom, mujoco.mjtGeom.mjGEOM_CAPSULE, np.zeros(3), np.zeros(3), np.eye(3).flatten(),
+                    np.array(PATH_RGBA, dtype=np.float32),
+                )
+                mujoco.mjv_connector(geom, mujoco.mjtGeom.mjGEOM_CAPSULE, 0.0015, a, b)
+                scn.ngeom += 1
+            if scn.ngeom < scn.maxgeom:
+                mujoco.mjv_initGeom(
+                    scn.geoms[scn.ngeom], mujoco.mjtGeom.mjGEOM_SPHERE, np.array([0.006, 0.0, 0.0]),
+                    self.arm_ik.base_to_world(np.array(preview.target_base_m)), np.eye(3).flatten(),
+                    np.array(TARGET_OK_RGBA if preview.result.success else TARGET_BAD_RGBA, dtype=np.float32),
+                )
+                scn.ngeom += 1
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main() -> None:
     global _ser, _control_active, _request_start, _request_pause
     global _paused, _request_goal, _request_home, _request_rezero
+    global _request_start_home, _request_hold, _request_disable, _motor_power, _notice
 
     arguments = sys.argv[1:]
     enable_motors_on_start = "--enable-motors" in arguments
-    port_arguments = [argument for argument in arguments if argument != "--enable-motors"]
+    use_gui = "--gui" in arguments
+    port_arguments = [argument for argument in arguments if argument not in ("--enable-motors", "--gui")]
     if len(port_arguments) > 1:
-        print("Usage: python3 hardware_integrated_main_controller.py [serial_port] [--enable-motors]")
+        print("Usage: python3 hardware_integrated_main_controller.py [serial_port] [--enable-motors] [--gui]")
         sys.exit(1)
     port = port_arguments[0] if port_arguments else None
     simulation_only = port is None
@@ -827,6 +1249,7 @@ def main() -> None:
         if enable_motors_on_start:
             print("[ctrl] Enabling M1-M4; control targets remain inactive until started.")
             si.enable_motors([1, 2, 3, 4])
+            _motor_power = "enabled"
     else:
         print("[ctrl] Simulation-only mode: no serial port and no hardware commands.")
 
@@ -875,6 +1298,22 @@ def main() -> None:
     # --- Trapezoidal reference ---
     limiter = TrapezoidalReferenceLimiter(model, controller)
 
+    # --- Inverse kinematics (own MjData; the lock serializes the stdin and
+    # named-pipe threads, which can both run commands) ---
+    arm_ik = ArmIK(
+        model,
+        MODEL_PATH,
+        {actuator: MOTOR_TO_JOINT[motor] for actuator, motor in ACTUATOR_TO_MOTOR.items()},
+        CONSTRAINED_JOINTS,
+        limiter.max_velocity_rad_s,
+        limiter.max_acceleration_rad_s2,
+    )
+    ik_lock = threading.Lock()
+    actuator_gear = {
+        actuator: float(model.actuator_gear[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator), 0])
+        for actuator in ACTUATOR_TO_MOTOR
+    }
+
     # Initialise ctrl to hardware_zero.
     for actuator, ctrl_val in HARDWARE_ZERO_ACTUATOR_CTRL_RAD.items():
         actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
@@ -903,6 +1342,9 @@ def main() -> None:
         print("         a            — enable all body motors (M1-M4)")
     print("         s            — start control loop")
     print("         g <j> <pos>  — move joint j (1-4); pos examples: 0.35  20deg  +20deg (relative)")
+    print("         ik <x> <y> <z> — move the gripper tool point to a base-frame position;")
+    print("                        metres, or with mm/cm, e.g.  ik 0.05 0.25 0.22   ik 50mm 250mm 220mm")
+    print("         w            — print the tool point position (base frame)")
     print("         h            — go to hardware_zero pose")
     print("         p            — pause control loop")
     print("         r            — resume control loop")
@@ -912,6 +1354,21 @@ def main() -> None:
     print("         d            — toggle command debug printout")
     print("         q            — quit")
     print()
+    home_tool = arm_ik.tool_position_base(arm_ik.home_references_array())
+    print("[ctrl] IK base frame: origin on the base yaw axis at the base housing's underside")
+    print(f"[ctrl]     ({1000 * (arm_ik.base_pos[2] - arm_ik.table_top_z_world):.1f} mm above the table top); "
+          "axes = table axes, +z up.")
+    print(f"[ctrl]     Tool point (between the finger tips) at hardware_zero: "
+          f"({home_tool[0]:+.4f}, {home_tool[1]:+.4f}, {home_tool[2]:+.4f}) m")
+    print()
+
+    def _parse_length_m(text: str) -> float:
+        """'0.25', '0.25m', '25cm' or '250mm' -> metres. Raises ValueError."""
+        value = text.lower().strip()
+        for suffix, scale in (("mm", 1e-3), ("cm", 1e-2), ("m", 1.0)):
+            if value.endswith(suffix):
+                return float(value[: -len(suffix)]) * scale
+        return float(value)
 
     # --- Shared command handler (used by both stdin and named pipe) ---
     def _handle_command(raw: str) -> None:
@@ -927,10 +1384,10 @@ def main() -> None:
         if cmd == "a":
             if simulation_only:
                 print("[ctrl] Motor enable is unavailable in simulation-only mode.")
+            elif _motor_power == "enabling":
+                print("[ctrl] Already enabling.")
             else:
-                threading.Thread(
-                    target=si.enable_motors, args=([1, 2, 3, 4],), daemon=True
-                ).start()
+                _start_enable()
 
         elif cmd == "s":
             if _control_active:
@@ -973,6 +1430,69 @@ def main() -> None:
             unit_str = f"{math.degrees(value):+.1f}°" if in_deg else f"{value:+.4f} rad"
             _request_goal = {actuator: target_rad}
             print(f"[ctrl] Goal: {actuator} → {target_rad:.4f} rad  ({'relative ' + unit_str if relative else unit_str})")
+
+        elif cmd == "ik" or cmd.startswith("ik "):
+            usage = "[ctrl] Usage: ik <x> <y> <z>  (base frame; metres, or mm/cm)  e.g.  ik 0.05 0.25 0.22"
+            parts = raw.split()
+            if len(parts) != 4:
+                print(usage)
+                return
+            try:
+                target = [_parse_length_m(p) for p in parts[1:]]
+            except ValueError:
+                print(usage)
+                return
+            if not _control_active:
+                # A goal stored while idle would start moving the arm the
+                # moment 's' is pressed.
+                print("[ctrl] IK needs an active control loop — type 's' first.")
+                return
+            if _limiter_moving(limiter):
+                # The clearance check assumes a rest-to-rest move from the
+                # current reference.
+                print("[ctrl] A move is still in progress — wait for it to finish, then retry.")
+                return
+            start = {a: limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR}
+            with ik_lock:
+                result = arm_ik.solve(target, start)
+            target_text = f"({target[0]:+.4f}, {target[1]:+.4f}, {target[2]:+.4f}) m"
+            if not result.success:
+                print(f"[ctrl] IK {target_text}: not moving — {result.message}")
+                _log_events.append(f"ik {target_text} rejected: {result.message}")
+                return
+            _request_goal = dict(result.joint_targets)
+            print(
+                f"[ctrl] IK {target_text}: model error {1000 * result.error_m:.3f} mm, "
+                f"move {result.move_duration_s:.2f} s"
+            )
+            for actuator, q in result.joint_targets.items():
+                motor = ACTUATOR_TO_MOTOR[actuator]
+                print(
+                    f"[ctrl]     M{motor} {actuator}: {start[actuator]:+.4f} -> {q:+.4f} rad joint "
+                    f"({math.degrees(q - start[actuator]):+.1f}°)"
+                )
+            if _paused:
+                print("[ctrl]     Control is paused — type 'r' to move.")
+            _log_events.append(
+                f"ik {target_text} -> "
+                + ", ".join(f"{a}={q:+.5f}" for a, q in result.joint_targets.items())
+            )
+
+        elif cmd == "w":
+            with ik_lock:
+                reference = arm_ik.tool_position_base(
+                    {a: limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR}
+                )
+                goal = arm_ik.tool_position_base(
+                    {a: limiter.requested_position(a) for a in ACTUATOR_TO_MOTOR}
+                )
+                measured_refs = _measured_references(limiter, actuator_gear, simulation_only)
+                measured = None if measured_refs is None else arm_ik.tool_position_base(measured_refs)
+            fmt = lambda p: f"({p[0]:+.4f}, {p[1]:+.4f}, {p[2]:+.4f}) m"
+            print(f"[ctrl] Tool point, base frame: reference {fmt(reference)}  target {fmt(goal)}")
+            if measured is not None:
+                print(f"[ctrl]     from encoders {fmt(measured)}  "
+                      f"(reference - encoders = {1000 * math.dist(reference, measured):.1f} mm)")
 
         elif cmd == "h":
             _request_home = True
@@ -1102,7 +1622,18 @@ def main() -> None:
     }
     last_motor_err: dict[int, int | None] = {motor: None for motor in MOTOR_TO_JOINT}
 
+    disable_pending_check = False
+    disable_sent_at = 0.0
+
     with mujoco.viewer.launch_passive(model, data) as viewer:
+        panel: ControlPanel | None = None
+        panel_backend: _GuiBackend | None = None
+        if use_gui:
+            panel_backend = _GuiBackend(
+                model, limiter, arm_ik, ik_lock, actuator_gear, simulation_only, port, viewer
+            )
+            panel = ControlPanel(panel_backend, title=f"Robot arm control - {port or 'simulation'}")
+            print("[ctrl] Control panel open (closing it twice quits the controller).")
         next_tick  = time.perf_counter()
         last_print = time.perf_counter()
         last_feedback_print = 0.0
@@ -1112,6 +1643,17 @@ def main() -> None:
             # --- Handle deferred terminal commands ---
 
             if _request_start and not _control_active:
+                if _request_start_home:
+                    # Control panel "Start - arm is at home": the operator
+                    # confirmed the arm is at hardware_zero, so make the
+                    # reference match it before the sync below.
+                    _request_start_home = False
+                    for actuator, ctrl_val in HARDWARE_ZERO_ACTUATOR_CTRL_RAD.items():
+                        actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
+                        if actuator_id >= 0:
+                            data.ctrl[actuator_id] = ctrl_val
+                    limiter.reset(data)
+                    _log_events.append("reference reset to hardware_zero for start")
                 # Capture a pending native Control-tab edit before establishing
                 # the no-jump hardware-position offset.
                 limiter.update(data)
@@ -1160,6 +1702,65 @@ def main() -> None:
                 # Keep the synchronized reference while retaining the target
                 # selected through MuJoCo's Control tab.
                 print("[ctrl] Control loop active — sim moves relative to sync position.")
+
+            if _request_hold:
+                _request_hold = False
+                _request_goal = None
+                if not simulation_only:
+                    si.emergency_stop()
+                    _motor_power = "held (0X)"
+                _control_active = False
+                _paused = False
+                _notice = ("HOLD: 0X sent, motors frozen, streaming stopped. Enable and Start to continue.", True)
+                _log_events.append("HOLD: 0X sent")
+                print("[ctrl] HOLD: 0X sent; no commands are being streamed.")
+
+            if _request_disable:
+                _request_disable = False
+                _request_goal = None
+                _control_active = False
+                _paused = False
+                if not simulation_only:
+                    # Stop streaming first (above), so nothing overwrites the
+                    # zero-gain frames.  Kp = Kd = T = 0 is what the firmware
+                    # itself sends to a disabled motor: zero torque.  Each
+                    # frame is sent twice in case one line is damaged.
+                    pos_raw, _ = si.raw_snapshot()
+                    disable_sent_at = time.perf_counter()
+                    for _ in range(2):
+                        for motor in MOTOR_TO_JOINT:
+                            si.send_mit_frame(
+                                motor, pos_raw[motor] if pos_raw[motor] is not None else 0.0, 0.0, 0.0, 0.0, 0.0
+                            )
+                    disable_pending_check = True
+                    _motor_power = "limp (disabled)"
+                    _notice = ("Disabled: zero-gain frames sent; checking the command echoes...", False)
+                    _log_events.append("DISABLE: zero-gain frames sent")
+                    print("[ctrl] DISABLE: streaming stopped; zero-gain (limp) frames sent to M1-M4.")
+
+            if disable_pending_check and time.perf_counter() - disable_sent_at >= DISABLE_ECHO_CHECK_S:
+                # The firmware echoes the CAN frame it sends to each enabled
+                # motor; a zero-gain echo newer than the disable confirms it.
+                disable_pending_check = False
+                echoes, echo_times = si.echo_snapshot()
+                confirmed, unconfirmed = [], []
+                for motor in MOTOR_TO_JOINT:
+                    echo = echoes[motor]
+                    limp = (
+                        echo is not None and echo_times[motor] > disable_sent_at
+                        and abs(echo.kp) < 1e-6 and abs(echo.kd) < 1e-6 and abs(echo.tau_ff) < 0.01
+                    )
+                    (confirmed if limp else unconfirmed).append(motor)
+                if unconfirmed:
+                    text = (f"Disable: zero-gain echo confirmed for {confirmed or 'no motor'}; none from "
+                            f"{unconfirmed} (a motor that is not enabled already gets zero torque from the "
+                            "firmware). Check those motors.")
+                    _notice = (text, True)
+                else:
+                    text = "Disable confirmed: every motor echoes zero gains (limp)."
+                    _notice = (text, False)
+                _log_events.append(text)
+                print(f"[ctrl] {text}")
 
             if _request_goal is not None and _control_active:
                 for actuator, target in _request_goal.items():
@@ -1324,6 +1925,8 @@ def main() -> None:
                     si.emergency_stop()
                     _control_active = False
                     _paused = False
+                    _motor_power = "held (0X)"
+                    _notice = (f"RUNAWAY STOP: {trip_reason}. 0X sent; Enable and Start to continue.", True)
                     _log_events.append(f"RUNAWAY STOP: {trip_reason}")
                     print(f"[ctrl] *** RUNAWAY STOP: {trip_reason} ***")
                     print("[ctrl]     Sent 0X; no commands are being streamed. Check the arm,")
@@ -1441,6 +2044,11 @@ def main() -> None:
                     cycle_log[0].close()
                     cycle_log = None
 
+            if panel is not None:
+                # Pumped every tick on this thread; the panel never blocks.
+                panel.pump()
+                panel_backend.render()
+
             viewer.sync()
             tick += 1
 
@@ -1449,6 +2057,8 @@ def main() -> None:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
+    if panel is not None:
+        panel.destroy()
     _finish_run_log(run_log_file, run_log_path)
     si.close()
     if simulation_only:

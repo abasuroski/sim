@@ -41,7 +41,7 @@ python, and by headless MuJoCo scripts (load the model, set `qpos`, call
 |---|---|
 | `hardware_integrated_main_controller.py` | **The main program.** Control loop at `UPDATE_HZ=84`, serial command streaming, per-run logging, terminal and named-pipe commands. Behavior flags are at the top. |
 | `serial_interface.py` | Serial link to the STM32: connect (sends `0X` freeze), feedback parser thread, `snapshot()`/`raw_snapshot()`, `send_mit_update()` (only changed fields), `enable_motors()`. `BAUD_RATE = 1000000`. |
-| `robot_master_configuration.py` | Shared constants: `hardware_zero` pose, `AK40_MOTOR_TORQUE_LIMIT_NM` (0.5), trapezoid velocity/acceleration limits (1 rad/s, 2 rad/s²), joint-range overrides. |
+| `robot_master_configuration.py` | Shared constants: `hardware_zero` pose, `AK40_MOTOR_TORQUE_LIMIT_NM` (1.0; MJCF M4 `forcerange` matches), per-actuator gain-cap overrides, trapezoid velocity/acceleration limits (1 rad/s, 2 rad/s²), joint-range overrides. |
 | `master_controller.py` + `master_controller_schedule.json` | Position-scheduled PD gains: `kp = I_eff(q)·ωn(q)²`, `kd = 2·I_eff·ζ·ωn`, capped by torque limits. Outputs are joint-side gains. |
 | `trapezoidal_motion.py` | `TrapezoidalReferenceLimiter`: turns slider/goal changes into smooth references. Shares `data.ctrl` with the viewer; after `update()`, `data.ctrl` holds the *reference*, not the slider target. |
 | `plot_run_log.py` | Builds an SVG graph from a run CSV (called automatically when a run ends). Stdlib only. |
@@ -59,7 +59,7 @@ live model is the one under `Robosim/`.
 | Motor | Joint | Motor model | Gear | Direction |
 |---|---|---|---|---|
 | M1 | `revolute_1` (base) | AK60 (`ak60_revolute_1`) | 1 | +1 |
-| M2 | `revolute_2` (shoulder) | AK70 | 1 | +1 |
+| M2 | `revolute_2` (shoulder) | AK70 | 1 | -1 (sim coordinate reversed: hard stop = 0, see `REVOLUTE_2_REVERSED_REF_RAD`) |
 | M3 | `revolute_3` (elbow) | AK70 | 1 | +1 |
 | M4 | `revolute_4` (linkage) | AK40 | 1.25 | -1 |
 
@@ -112,8 +112,12 @@ Current flags on `main`: `CLOSED_LOOP = True`, `ZERO_TFF = True`, `DEBUG_COMMAND
      exactly for M1–M3.
   3. A limiter (`_limit_ak40_command_torque`) that reduces feedforward before
      PD and never zeroes Kp/Kd. `Kp=0, Kd=0` in MIT mode means a limp motor.
-- M4 gains are soft (Kp ≈ 0.4 N·m/rad motor side), so unmodelled load causes
-  noticeable steady-state error.
+- M4 Kp was capped at 0.4 N·m/rad motor side and could not move against its load. It now reaches full torque at 0.25 rad joint error
+  (`SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_OVERRIDES_RAD`), so Kp ≈ 1.8–2.8 motor side. With `ZERO_TFF`, the gravity load still causes
+  ~0.06 rad joint steady-state error.
+- **Each firmware enable blocks the STM32 loop ~1.3 s**, during which no other motor is commanded. AK70/AK40 only reply when
+  commanded, so back-to-back enables tripped M2's 2 s firmware feedback watchdog ("[M2] feedback lost — disabled").
+  `si.enable_motors` now waits for each motor's post-enable echo before sending the next `E`.
 - In the logs, only M4 has reported feedback on some runs. Motors without
   feedback still get commands, using a sync offset that defaults to 0.
 - The named-pipe input (`/tmp/robot_cmd`, `os.mkfifo`) only works on

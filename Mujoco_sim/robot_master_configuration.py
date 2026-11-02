@@ -86,6 +86,40 @@ JOINT_RANGE_OVERRIDES_RAD = {
     "revolute_5": (-HARDWARE_ZERO_ACTUATOR_CTRL_RAD["ak40_revolute_4"] / 1.25, 0.0156052),
 }
 
+# Inverse kinematics (inverse_kinematics.py, terminal command "ik x y z").
+# Base frame: the frame of the fixed base housing body.  Its origin is on the
+# revolute_1 (base yaw) axis at the housing's underside, 7.0 mm above the
+# table top (the top of the 7 mm base plate); its axes are the table/world
+# axes, +z up.  At hardware_zero the tool point is at about
+# (+0.023, +0.267, +0.279) m in this frame.
+IK_BASE_BODY = "part_1_11"
+# The table plate; its top face is the clearance reference.
+IK_TABLE_BODY = "part_1_13"
+# Tool point: midway between the two soft-finger tips (the finger mesh
+# vertices farthest along the gripper's pointing axis, local -z), in the frame
+# of the gripper body, which moves rigidly with the fingers.
+IK_TOOL_BODY = "part_2_6"
+IK_TOOL_POINT_IN_BODY_M = (-0.00587, -0.00500, -0.09676)
+# A solution is accepted only if the tool point lands within this distance of
+# the target (model kinematics; tracking error on the real arm comes on top).
+IK_ACCEPT_ERROR_M = 1e-4
+# Every moving mesh vertex must stay at least this far above the table top,
+# at the target and along the joint-space path to it.
+IK_TABLE_CLEARANCE_M = 0.01
+# Bodies left out of that check.  proximal_limb__1_ is a stray M3x10 screw
+# from the CAD export: its URDF visual origin (0.2526, -0.1491, 0.1277) is an
+# absolute assembly position applied relative to the shoulder link, so it
+# floats ~22 cm from any other part and swings through the table plane
+# whenever the shoulder moves.  The real arm has nothing there.
+IK_CLEARANCE_IGNORE_BODIES = ("proximal_limb__1_",)
+# Largest change of any one joint (joint side) that a single "ik" command may
+# make.  The model has no self-collision geometry and revolute_1/revolute_3
+# are unlimited, so a large reconfiguration (e.g. lowering the tool from
+# hardware_zero, where the shoulder is on its hard stop, gives a ~180 degree
+# elbow flip) cannot be checked for the arm hitting itself.  Moves at and above
+# the hardware_zero height within +-10 cm need at most ~41 degrees.
+IK_MAX_JOINT_CHANGE_RAD = 1.0
+
 def hardware_zero_joint_positions(joint_names: list[str]) -> list[float]:
     """Return the physically consistent zero-qpos keyframe in joint-ID order."""
     return [0.0 for _ in joint_names]
