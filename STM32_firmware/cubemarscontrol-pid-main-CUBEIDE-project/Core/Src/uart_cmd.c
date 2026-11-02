@@ -5,7 +5,18 @@
 #define CMD_BUF_SIZE UART_CMD_LINE_MAX
 
 static MotorState motors[NUM_MOTORS];
-static float servo_pos[NUM_SERVOS] = {0.0f, 0.0f, 0.0f};
+static float servo_pos[NUM_SERVOS] = {0.0f, 0.0f};
+
+// Servo index for a command address ('5'..'7' -> motor_num 4..6), or -1
+// for the removed Wrist 2 address '6'.
+static int8_t servo_index(uint8_t motor_num)
+{
+    switch (motor_num) {
+        case NUM_MOTORS + 0: return SERVO_WRIST;
+        case NUM_MOTORS + 2: return SERVO_GRIPPER;
+        default:             return -1;
+    }
+}
 static char buf[CMD_BUF_SIZE];
 static uint8_t idx = 0;
 static volatile uint8_t e_stop_pending = 0;
@@ -239,7 +250,7 @@ static void parse_cmd(void)
 
     uint8_t motor_num = (uint8_t)(buf[0] - '1');
     // Not addressed to a motor or servo (e.g. "PING"): ignored.
-    if (motor_num >= NUM_MOTORS + NUM_SERVOS) return;
+    if (motor_num >= NUM_MOTORS + SERVO_CMD_SLOTS) return;
 
     int8_t checksum = strip_checksum();
     if (checksum < 0 || idx < 2) { reject_line(); return; }
@@ -247,13 +258,15 @@ static void parse_cmd(void)
     char cmd = buf[1];
     float val = 0.0f;
 
-    // Servo indices: '5','6','7' → motor_num 4,5,6
+    // Servo addresses: '5' wrist, '7' gripper; '6' (removed Wrist 2) is ignored.
     if (motor_num >= NUM_MOTORS) {
+        int8_t servo = servo_index(motor_num);
+        if (servo < 0) return;
         if (cmd == 'P' || cmd == 'p') {
             if (checksum != 1 || !parse_value(&buf[2], &val)) { reject_line(); return; }
             if (val < -120.0f) val = -120.0f;
             if (val > 120.0f) val = 120.0f;
-            servo_pos[motor_num - NUM_MOTORS] = val;
+            servo_pos[servo] = val;
         }
         return;
     }

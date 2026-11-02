@@ -5,7 +5,8 @@ hardware_controller.py — Closed-loop control of the physical robot arm.
 Combines:
   - Serial encoder feedback from the STM32 (same format as sync_hardware.py)
   - Position-scheduled PD gains from master_controller.py
-  - Trapezoidal motion references from trapezoidal_motion.py
+  - Cubic-spline (or trapezoidal) motion references, chosen by MOTION_PROFILE
+    in robot_master_configuration.py
   - Gravity-compensation feedforward via mujoco.mj_inverse
   - MIT control mode command sender (P, V, K, D, T over serial)
 
@@ -14,7 +15,7 @@ Control loop (runs at UPDATE_HZ):
   2. Write encoder state into MuJoCo data.qpos / data.qvel
   3. Run mj_forward to update kinematics and mass matrix
   4. MasterController.update() schedules kp/kd from inertia + position
-  5. TrapezoidalReferenceLimiter.advance() steps the reference trajectory
+  5. The reference limiter's update() steps the reference trajectory
   6. mj_inverse computes gravity-compensation feedforward torques
   7. Pack and send MIT control frame per motor: P, V, Kp, Kd, tau_ff
 
@@ -82,11 +83,13 @@ import numpy as np
 from robot_master_configuration import (
     HARDWARE_ZERO_KEYFRAME_NAME,
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
+    MOTION_PROFILE,
 )
-from control_panel import ControlPanel, MotorRow, PanelStatus
+from control_panel import ControlPanel, MotorRow, PanelStatus, ServoRow
+from cubic_spline_motion import CubicSplineReferenceLimiter, cubic_duration, cubic_position
 from inverse_kinematics import ArmIK, IKResult
 from master_controller import MasterController, PositionSchedule
-from trapezoidal_motion import TrapezoidalReferenceLimiter
+from trapezoidal_motion import TrapezoidalReferenceLimiter, trapezoidal_duration, trapezoidal_position
 from plot_run_log import plot_run_log
 import serial_interface as si
 
@@ -142,6 +145,56 @@ STREAM_VEL_EPS_RAD_S = 1e-3   # resend V when it changes more than this
 STREAM_GAIN_REL_EPS  = 0.02   # resend K/D on a >2% change
 STREAM_TFF_EPS_NM    = 0.01   # resend T when it changes more than this
 STREAM_KEEPALIVE_S   = 0.25   # full frame per motor at least this often
+
+# End-effector MG995 servos on the STM32's TIM2 PWM.  Positions are servo
+# angles, 0-180 deg over 500-2500 us (the firmware header's MG995 mapping);
+# 90 deg is centre, where the firmware parks both at boot.  The firmware's own
+# servo unit is degrees from centre at 8.333 us/deg (+/-120 = 500-2500 us), so
+# angle S goes out as "<address>P<(S - 90) * 4/3>".  The servos report nothing,
+# and are independent of the CubeMars motors: whenever the serial port is
+# open, a slider move (control panel, or the wrist's MuJoCo Control-tab
+# slider) is sent at once, with or without 'a'/'s'.  Nothing is sent until a
+# slider moves, so connecting never moves a servo.
+SERVOS = True
+SERVO_BOOT_DEG   = 90.0
+SERVO_MIN_DEG    = 0.0
+SERVO_MAX_DEG    = 180.0
+SERVO_RESEND_DEG = 0.5     # send only when the angle changes by this much
+# name: (panel label, firmware address, MuJoCo actuator mirroring it or None)
+SERVO_CHANNELS = {
+    "wrist":   ("Wrist (A0 / PA0)",   5, "mg995_revolute_12"),
+    "gripper": ("Gripper (D6 / PB10)", 7, "mg995_gripper_pinch"),
+}
+# The wrist servo turns revolute_12, which the sim shows at the commanded
+# angle.  Servo 90 deg was first put at the middle of the CAD joint range
+# (-1.79646 .. 0.489918, so -0.65327), then shifted +90 deg on request, with
+# the MJCF upper limit widened by the same 90 deg (to 2.060714).  Still not
+# measured on the arm: set the slider to 90, see where the real wrist sits,
+# and set this so the sim matches.
+WRIST_SERVO_JOINT = "revolute_12"
+WRIST_SERVO_CENTER_JOINT_RAD = -0.65327 + math.pi / 2   # revolute_12 at servo 90 deg (0.91753)
+# -1: the real wrist turned opposite to the sim with +1 (2026-11-02).
+WRIST_SERVO_DIRECTION = -1
+# The gripper servo turns the pinch gear gripper_pinch 1:1 (its meshed idler,
+# gripper_pinch_follower, turns opposite); positive joint angle closes, and
+# the fingers touch at 0.0586 rad.  NOT CALIBRATED: slider 180 is taken as
+# fully closed, so raising the slider closes the gripper; below about 87 the
+# sim shows it fully open (the joint's -1.5708 limit).  The gripper is never
+# part of the IK.
+GRIPPER_SERVO_JOINT = "gripper_pinch"
+GRIPPER_SERVO_FOLLOWER = "gripper_pinch_follower"
+GRIPPER_SERVO_DIRECTION = 1
+GRIPPER_SERVO_CENTER_JOINT_RAD = 0.0586 - GRIPPER_SERVO_DIRECTION * math.pi / 2   # gripper_pinch at servo 90 deg
+# name: (joint, joint angle at servo 90 deg, direction, opposite-turning follower or None)
+SERVO_JOINTS = {
+    "wrist":   (WRIST_SERVO_JOINT, WRIST_SERVO_CENTER_JOINT_RAD, WRIST_SERVO_DIRECTION, None),
+    "gripper": (GRIPPER_SERVO_JOINT, GRIPPER_SERVO_CENTER_JOINT_RAD, GRIPPER_SERVO_DIRECTION, GRIPPER_SERVO_FOLLOWER),
+}
+# Solve the wrist angle in IK too (panel "Move tool point", terminal "ik"):
+# revolute_12 becomes a fifth driven joint, limited to what the servo reaches
+# (0-180 deg), and a run moves it alongside the arm on the same MOTION_PROFILE
+# path the clearance check sampled.  Dragging the wrist slider cancels it.
+WRIST_IK = True
 
 # Runaway stop.  On 2026-10-21 M1 accelerated to 21 rad/s at 19-37 A while
 # its command was constant, and the controller kept streaming for 10 s.  Any
@@ -404,6 +457,163 @@ class _CommandStreamer:
         self._last[motor] = dict(values)
         self._last_full[motor] = now
         return True
+
+
+# Rest-to-rest path of MOTION_PROFILE, for the wrist's IK moves (the limiter
+# runs the same profile for M1-M4, and ArmIK samples it for clearance).
+_PROFILE_DURATION, _PROFILE_POSITION = {
+    "cubic": (cubic_duration, cubic_position),
+    "trapezoidal": (trapezoidal_duration, trapezoidal_position),
+}[MOTION_PROFILE]
+
+# Set in main() when the wrist takes part in IK (WRIST_IK); None otherwise.
+_ik_wrist: "_Servo | None" = None
+
+
+def _ik_joint_label(actuator: str) -> str:
+    """'M<n>' for a CubeMars motor, 'wrist' for the servo joint."""
+    return f"M{ACTUATOR_TO_MOTOR[actuator]}" if actuator in ACTUATOR_TO_MOTOR else "wrist"
+
+
+def _ik_references(arm: dict[str, float], wrist: str = "reference") -> dict[str, float]:
+    """IK references: the given M1-M4 values, plus the wrist's current
+    ('reference') or destination ('goal') angle when it takes part in IK."""
+    if _ik_wrist is None:
+        return arm
+    q = _ik_wrist.joint_reference_rad() if wrist == "reference" else _ik_wrist.joint_goal_rad()
+    return {**arm, SERVO_CHANNELS["wrist"][2]: q}
+
+
+def _servo_firmware_deg(servo_deg: float) -> float:
+    """Servo angle (0-180, 500-2500 us) -> firmware command (deg from centre, 8.333 us/deg)."""
+    return (servo_deg - SERVO_BOOT_DEG) * 4.0 / 3.0
+
+
+def _servo_joint_rad(name: str, servo_deg: float) -> float:
+    """Servo angle -> its joint's angle (SERVO_JOINTS; joint side, rad)."""
+    _, center, direction, _ = SERVO_JOINTS[name]
+    return center + direction * math.radians(servo_deg - SERVO_BOOT_DEG)
+
+
+def _servo_deg_from_joint(name: str, joint_rad: float) -> float:
+    _, center, direction, _ = SERVO_JOINTS[name]
+    return SERVO_BOOT_DEG + direction * math.degrees(joint_rad - center)
+
+
+def _wrist_joint_rad(servo_deg: float) -> float:
+    return _servo_joint_rad("wrist", servo_deg)
+
+
+class _Servo:
+    """One end-effector servo (SERVO_CHANNELS).  ``target_deg`` is the slider
+    value and ``commanded_deg`` what the servo was last sent (in simulation, the
+    target itself); both are servo angles, 0-180 deg."""
+
+    def __init__(self, model: mujoco.MjModel, name: str, label: str, address: int, actuator: str | None) -> None:
+        self.name, self.label, self.address = name, label, address
+        self.actuator_id = -1 if actuator is None else mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
+        # Firmware parks every servo at centre at boot.
+        self.target_deg = SERVO_BOOT_DEG
+        self.commanded_deg = SERVO_BOOT_DEG
+        self.last_sent_deg: float | None = None
+        self._last_written_ctrl: float | None = None
+        self._previous_target_deg: float | None = None
+        # Timed move to an IK goal (the wrist only), in joint radians:
+        # (start, goal, start time on data.time, duration).  data.time only
+        # advances while control runs, so a pause or hold freezes it with the arm.
+        self.move: tuple[float, float, float, float] | None = None
+        self._move_limits = (1.0, 1.0)
+        self._move_elapsed_s = 0.0
+
+    def set_target(self, servo_deg: float) -> None:
+        self.target_deg = round(max(SERVO_MIN_DEG, min(SERVO_MAX_DEG, float(servo_deg))), 1)
+
+    def set_target_by_operator(self, servo_deg: float) -> None:
+        """A slider edit: it wins over any IK move in progress."""
+        self.move = None
+        self.set_target(servo_deg)
+
+    def joint_reference_rad(self) -> float:
+        """Where this servo's joint reference is now (joint side, rad)."""
+        if self.move is not None:
+            return self._move_position(self._move_elapsed_s)
+        return _servo_joint_rad(self.name, self.target_deg)
+
+    def joint_goal_rad(self) -> float:
+        return self.move[1] if self.move is not None else _servo_joint_rad(self.name, self.target_deg)
+
+    def start_move(self, goal_joint_rad: float, now_s: float, max_velocity_rad_s: float,
+                   max_acceleration_rad_s2: float) -> None:
+        """Move to an IK goal on the MOTION_PROFILE rest-to-rest path, the one
+        ArmIK.path_references checks for clearance."""
+        start = self.joint_reference_rad()
+        self._move_limits = (max_velocity_rad_s, max_acceleration_rad_s2)
+        duration = _PROFILE_DURATION(goal_joint_rad - start, max_velocity_rad_s, max_acceleration_rad_s2)
+        self.move = (start, float(goal_joint_rad), now_s, duration)
+        self._move_elapsed_s = 0.0
+
+    def advance_move(self, now_s: float) -> None:
+        if self.move is None:
+            return
+        _, _, t0, duration = self.move
+        self._move_elapsed_s = max(0.0, now_s - t0)
+        self.set_target(_servo_deg_from_joint(self.name, self._move_position(self._move_elapsed_s)))
+        if self._move_elapsed_s >= duration:
+            self.move = None
+
+    def _move_position(self, elapsed_s: float) -> float:
+        start, goal, _, _ = self.move
+        return _PROFILE_POSITION(start, goal, elapsed_s, *self._move_limits)
+
+    def sync_control_tab(self, data: mujoco.MjData) -> None:
+        """Take a MuJoCo Control-tab edit of the mirrored actuator as the target,
+        then write the target back so that slider always shows it."""
+        if self.actuator_id < 0:
+            return
+        ctrl = float(data.ctrl[self.actuator_id])
+        if self._last_written_ctrl is not None and abs(ctrl - self._last_written_ctrl) > 1e-7:
+            self.set_target_by_operator(_servo_deg_from_joint(self.name, ctrl))
+        self._last_written_ctrl = _servo_joint_rad(self.name, self.target_deg)
+        data.ctrl[self.actuator_id] = self._last_written_ctrl
+
+    def update(self, send: bool) -> str | None:
+        """Follow the target.  With send, write "<address>P<firmware deg>" when
+        it moved SERVO_RESEND_DEG, or when the slider stopped short of that;
+        returns the line sent.  Without send (simulation) the sim just follows."""
+        settled = self.target_deg == self._previous_target_deg
+        self._previous_target_deg = self.target_deg
+        if not send:
+            self.commanded_deg = self.target_deg
+            return None
+        if self.last_sent_deg is None:
+            if self.target_deg == SERVO_BOOT_DEG:
+                return None   # still where the firmware parked it; send nothing
+        else:
+            change = abs(self.target_deg - self.last_sent_deg)
+            if change < SERVO_RESEND_DEG and not (settled and change > 0.0):
+                return None
+        line = f"{self.address}P{_servo_firmware_deg(self.target_deg):.1f}"
+        si.send(line)
+        self.last_sent_deg = self.target_deg
+        self.commanded_deg = self.target_deg
+        return line
+
+
+def _apply_servo_state(
+    data: mujoco.MjData, model: mujoco.MjModel, qpos_idx: dict[str, int], qvel_idx: dict[str, int], servo: _Servo
+) -> None:
+    """Show a servo's commanded angle on its joint (the servo reports nothing),
+    clamped to the joint's range; a follower (the idler pinch gear) mirrors it."""
+    joint, _, _, follower = SERVO_JOINTS[servo.name]
+    if joint not in qpos_idx:
+        return
+    q = _servo_joint_rad(servo.name, servo.commanded_deg)
+    for name, value in ((joint, q), (follower, -q)):
+        if name is None or name not in qpos_idx:
+            continue
+        low, high = model.jnt_range[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)]
+        data.qpos[qpos_idx[name]] = min(max(value, low), high)
+        data.qvel[qvel_idx[name]] = 0.0
 
 
 class _RunawayMonitor:
@@ -841,8 +1051,9 @@ def _start_enable() -> None:
 
 
 def _limiter_moving(limiter: "TrapezoidalReferenceLimiter") -> bool:
-    """True while a goal is pending or any reference is not at rest on its request."""
-    return _request_goal is not None or any(
+    """True while a goal is pending, any reference is not at rest on its
+    request, or the wrist is on an IK move."""
+    return _request_goal is not None or (_ik_wrist is not None and _ik_wrist.move is not None) or any(
         limiter.reference_velocity(a) != 0.0
         or abs(limiter.requested_position(a) - limiter.reference_position(a)) > 1e-9
         for a in ACTUATOR_TO_MOTOR
@@ -871,7 +1082,8 @@ def _measured_references(
             )
         else:
             measured[actuator] = limiter.reference_position(actuator)
-    return measured
+    # The wrist servo reports nothing: use its reference.
+    return _ik_references(measured)
 
 
 # ---------------------------------------------------------------------------
@@ -914,10 +1126,12 @@ class _GuiBackend:
         simulation_only: bool,
         port: str | None,
         viewer: object,
+        servos: dict[str, _Servo],
     ) -> None:
         self.model = model
         self.limiter = limiter
         self.arm_ik = arm_ik
+        self.servos = servos
         self.ik_lock = ik_lock
         self.actuator_gear = actuator_gear
         self.simulation_only = simulation_only
@@ -936,7 +1150,8 @@ class _GuiBackend:
     # --- helpers ---
 
     def _references(self) -> dict[str, float]:
-        return {a: self.limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR}
+        """IK references: M1-M4 from the limiter, plus the wrist (WRIST_IK)."""
+        return _ik_references({a: self.limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR})
 
     def _set_preview(self, preview: _Preview | None) -> None:
         with self._preview_lock:
@@ -957,8 +1172,8 @@ class _GuiBackend:
         if _limiter_moving(self.limiter):
             return "Refused: a move is in progress."
         current = self._references()
-        if any(abs(current[a] - preview.start[a]) > 1e-9 for a in ACTUATOR_TO_MOTOR):
-            return "Refused: the arm reference moved since this preview. Preview again."
+        if any(abs(current.get(a, math.inf) - preview.start[a]) > 1e-9 for a in preview.start):
+            return "Refused: the arm or wrist reference moved since this preview. Preview again."
         return None
 
     # --- PanelBackend ---
@@ -987,7 +1202,7 @@ class _GuiBackend:
             return (float(p[0]), float(p[1]), float(p[2]))
 
         tool_reference = fk(references)
-        tool_target = fk({a: self.limiter.requested_position(a) for a in ACTUATOR_TO_MOTOR})
+        tool_target = fk(_ik_references({a: self.limiter.requested_position(a) for a in ACTUATOR_TO_MOTOR}, "goal"))
         measured = _measured_references(self.limiter, self.actuator_gear, self.simulation_only)
         tool_encoders = None if measured is None else fk(measured)
 
@@ -1001,7 +1216,7 @@ class _GuiBackend:
             if r.success:
                 ok = True
                 changes = "  ".join(
-                    f"M{ACTUATOR_TO_MOTOR[a]} {math.degrees(q - preview.start[a]):+.1f}°"
+                    f"{_ik_joint_label(a)} {math.degrees(q - preview.start[a]):+.1f}°"
                     for a, q in r.joint_targets.items()
                 )
                 state = "Running on the arm." if preview.executed else "The orange ghost in MuJoCo shows the pose."
@@ -1029,6 +1244,11 @@ class _GuiBackend:
             preview_busy=busy,
             notice=_notice[0],
             notice_is_alert=_notice[1],
+            servos=[
+                ServoRow(s.name, s.label, s.target_deg, s.commanded_deg if s.last_sent_deg is not None or
+                         self.simulation_only else None)
+                for s in self.servos.values()
+            ],
         )
 
     def enable(self) -> str:
@@ -1160,6 +1380,14 @@ class _GuiBackend:
         self._set_preview(None)
         return "Preview cleared."
 
+    def set_servo(self, name: str, servo_deg: float) -> str:
+        servo = self.servos.get(name)
+        if servo is None:
+            return f"No servo {name!r}."
+        servo.set_target_by_operator(servo_deg)   # the control loop sends it next tick
+        where = "simulation" if self.simulation_only else f"'{servo.address}P'"
+        return f"{servo.label}: {servo.target_deg:.0f} deg ({where})."
+
     def quit(self) -> None:
         _log_events.append("panel quit")
         self.viewer.close()
@@ -1225,7 +1453,7 @@ class _GuiBackend:
 def main() -> None:
     global _ser, _control_active, _request_start, _request_pause
     global _paused, _request_goal, _request_home, _request_rezero
-    global _request_start_home, _request_hold, _request_disable, _motor_power, _notice
+    global _request_start_home, _request_hold, _request_disable, _motor_power, _notice, _ik_wrist
 
     arguments = sys.argv[1:]
     enable_motors_on_start = "--enable-motors" in arguments
@@ -1295,19 +1523,43 @@ def main() -> None:
 
     controller.bind(model)
 
-    # --- Trapezoidal reference ---
-    limiter = TrapezoidalReferenceLimiter(model, controller)
+    # --- Reference limiter (MOTION_PROFILE; the cubic one subclasses the
+    # trapezoidal one, so the annotations below cover both) ---
+    if MOTION_PROFILE == "cubic":
+        limiter = CubicSplineReferenceLimiter(model, controller)
+    elif MOTION_PROFILE == "trapezoidal":
+        limiter = TrapezoidalReferenceLimiter(model, controller)
+    else:
+        raise ValueError(f"unknown MOTION_PROFILE {MOTION_PROFILE!r}")
+    print(f"[ctrl] Motion profile: {MOTION_PROFILE}")
 
     # --- Inverse kinematics (own MjData; the lock serializes the stdin and
     # named-pipe threads, which can both run commands) ---
+    ik_joints = {actuator: MOTOR_TO_JOINT[motor] for actuator, motor in ACTUATOR_TO_MOTOR.items()}
+    ik_extra_bounds: dict[str, tuple[float, float]] = {}
+    wrist_actuator = SERVO_CHANNELS["wrist"][2]
+    wrist_in_ik = (
+        WRIST_IK and SERVOS
+        and mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, wrist_actuator) >= 0
+        and WRIST_SERVO_JOINT in qpos_idx
+    )
+    if wrist_in_ik:
+        # The wrist can only go where the servo's 0-180 deg reaches.
+        ik_joints[wrist_actuator] = WRIST_SERVO_JOINT
+        ik_extra_bounds[wrist_actuator] = (_wrist_joint_rad(SERVO_MIN_DEG), _wrist_joint_rad(SERVO_MAX_DEG))
     arm_ik = ArmIK(
         model,
         MODEL_PATH,
-        {actuator: MOTOR_TO_JOINT[motor] for actuator, motor in ACTUATOR_TO_MOTOR.items()},
+        ik_joints,
         CONSTRAINED_JOINTS,
         limiter.max_velocity_rad_s,
         limiter.max_acceleration_rad_s2,
+        extra_bounds_rad=ik_extra_bounds,
     )
+    if wrist_in_ik:
+        i = arm_ik.actuators.index(wrist_actuator)
+        print(f"[ctrl] IK includes the wrist ({WRIST_SERVO_JOINT} "
+              f"{math.degrees(arm_ik.lower[i]):+.1f}..{math.degrees(arm_ik.upper[i]):+.1f} deg).")
     ik_lock = threading.Lock()
     actuator_gear = {
         actuator: float(model.actuator_gear[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator), 0])
@@ -1320,6 +1572,17 @@ def main() -> None:
         if actuator_id >= 0:
             data.ctrl[actuator_id] = ctrl_val
     limiter.reset(data)
+    # Every servo starts at the firmware's boot angle, not the keyframe ctrl,
+    # so the first send does not move it.
+    servos: dict[str, _Servo] = {}
+    if SERVOS:
+        for name, (label, address, actuator) in SERVO_CHANNELS.items():
+            servos[name] = _Servo(model, name, label, address, actuator)
+            servos[name].sync_control_tab(data)
+        print("[ctrl] Servos (0-180 deg, start at 90): " + ", ".join(
+            f"{s.label} -> '{s.address}P'" for s in servos.values()
+        ) + f"; wrist 90 deg = {WRIST_SERVO_JOINT} {WRIST_SERVO_CENTER_JOINT_RAD:+.3f} rad (uncalibrated)")
+    _ik_wrist = servos["wrist"] if wrist_in_ik else None
     if simulation_only:
         # In simulation mode, the Control-tab reference is safe to run immediately.
         _control_active = True
@@ -1452,7 +1715,7 @@ def main() -> None:
                 # current reference.
                 print("[ctrl] A move is still in progress — wait for it to finish, then retry.")
                 return
-            start = {a: limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR}
+            start = _ik_references({a: limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR})
             with ik_lock:
                 result = arm_ik.solve(target, start)
             target_text = f"({target[0]:+.4f}, {target[1]:+.4f}, {target[2]:+.4f}) m"
@@ -1466,9 +1729,8 @@ def main() -> None:
                 f"move {result.move_duration_s:.2f} s"
             )
             for actuator, q in result.joint_targets.items():
-                motor = ACTUATOR_TO_MOTOR[actuator]
                 print(
-                    f"[ctrl]     M{motor} {actuator}: {start[actuator]:+.4f} -> {q:+.4f} rad joint "
+                    f"[ctrl]     {_ik_joint_label(actuator)} {actuator}: {start[actuator]:+.4f} -> {q:+.4f} rad joint "
                     f"({math.degrees(q - start[actuator]):+.1f}°)"
                 )
             if _paused:
@@ -1481,10 +1743,10 @@ def main() -> None:
         elif cmd == "w":
             with ik_lock:
                 reference = arm_ik.tool_position_base(
-                    {a: limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR}
+                    _ik_references({a: limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR})
                 )
                 goal = arm_ik.tool_position_base(
-                    {a: limiter.requested_position(a) for a in ACTUATOR_TO_MOTOR}
+                    _ik_references({a: limiter.requested_position(a) for a in ACTUATOR_TO_MOTOR}, "goal")
                 )
                 measured_refs = _measured_references(limiter, actuator_gear, simulation_only)
                 measured = None if measured_refs is None else arm_ik.tool_position_base(measured_refs)
@@ -1575,6 +1837,7 @@ def main() -> None:
             "SEND_EVERY": SEND_EVERY,
             "CLOSED_LOOP": CLOSED_LOOP,
             "ZERO_TFF": ZERO_TFF,
+            "MOTION_PROFILE": MOTION_PROFILE,
             "MOTOR_DIRECTION": MOTOR_DIRECTION,
             "MOTOR_SCALE": MOTOR_SCALE,
             "TORQUE_FF_SCALE": TORQUE_FF_SCALE,
@@ -1583,6 +1846,11 @@ def main() -> None:
             "CONSTRAINED_JOINTS": CONSTRAINED_JOINTS,
             "HARDWARE_ZERO_ACTUATOR_CTRL_RAD": HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
             "STREAM_KEEPALIVE_S": STREAM_KEEPALIVE_S,
+            "SERVOS": SERVOS,
+            "SERVO_CHANNELS": SERVO_CHANNELS,
+            "WRIST_SERVO_CENTER_JOINT_RAD": WRIST_SERVO_CENTER_JOINT_RAD,
+            "WRIST_SERVO_DIRECTION": WRIST_SERVO_DIRECTION,
+            "SERVO_JOINTS": SERVO_JOINTS,
             "RUNAWAY_STOP": RUNAWAY_STOP,
             "RUNAWAY_POS_ERROR_RAD": RUNAWAY_POS_ERROR_RAD,
             "RUNAWAY_POS_ERROR_S": RUNAWAY_POS_ERROR_S,
@@ -1614,6 +1882,7 @@ def main() -> None:
     streamer = _CommandStreamer()
     runaway = _RunawayMonitor()
     echo_monitor = _EchoMonitor()
+    last_servo_print = 0.0
     idle_slider_hint_shown = False
     stm32_print_window_s = 0.0
     stm32_print_count = 0
@@ -1630,7 +1899,7 @@ def main() -> None:
         panel_backend: _GuiBackend | None = None
         if use_gui:
             panel_backend = _GuiBackend(
-                model, limiter, arm_ik, ik_lock, actuator_gear, simulation_only, port, viewer
+                model, limiter, arm_ik, ik_lock, actuator_gear, simulation_only, port, viewer, servos
             )
             panel = ControlPanel(panel_backend, title=f"Robot arm control - {port or 'simulation'}")
             print("[ctrl] Control panel open (closing it twice quits the controller).")
@@ -1694,6 +1963,9 @@ def main() -> None:
                     f"start snapshot {snap_str}; offsets {off_str}"
                     + (f"; no feedback from {missing}" if missing else "")
                 )
+                # An IK wrist move interrupted by a hold or stop does not resume.
+                if _ik_wrist is not None:
+                    _ik_wrist.move = None
                 # First tick after start sends a full frame to every motor.
                 streamer.reset()
                 runaway.reset()
@@ -1764,7 +2036,12 @@ def main() -> None:
 
             if _request_goal is not None and _control_active:
                 for actuator, target in _request_goal.items():
-                    limiter.set_requested_position(actuator, target)
+                    if actuator in ACTUATOR_TO_MOTOR:
+                        limiter.set_requested_position(actuator, target)
+                    elif _ik_wrist is not None and actuator == SERVO_CHANNELS["wrist"][2]:
+                        # Same profile and limits as the limiter, from the same tick.
+                        _ik_wrist.start_move(target, float(data.time), limiter.max_velocity_rad_s,
+                                             limiter.max_acceleration_rad_s2)
                 _request_goal = None
 
             if _request_home and _control_active:
@@ -1865,6 +2142,20 @@ def main() -> None:
                 _apply_encoder_state(data, qpos_idx, qvel_idx, keyframe_qpos, pos_snap, vel_snap)
             else:
                 _apply_reference_state(data, qpos_idx, qvel_idx, keyframe_qpos, limiter)
+
+            # --- Servos: follow their sliders whenever the port is open,
+            # independent of the motors' enable/start state ---
+            for servo in servos.values():
+                servo.sync_control_tab(data)       # a Control-tab edit cancels an IK move
+                servo.advance_move(float(data.time))
+                servo_line = servo.update(send=not simulation_only)
+                if servo_line:
+                    _log_events.append(f"servo {servo.name} {servo.target_deg:.1f} deg: {servo_line}")
+                    if DEBUG_COMMANDS and time.perf_counter() - last_servo_print >= 0.5:
+                        last_servo_print = time.perf_counter()
+                        print(f"[cmd] {servo.name} {servo.target_deg:.1f} deg -> {servo_line}")
+            for servo in servos.values():
+                _apply_servo_state(data, model, qpos_idx, qvel_idx, servo)
             mujoco.mj_forward(model, data)
 
             if _control_active and not _paused:

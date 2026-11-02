@@ -1,7 +1,7 @@
 """Position inverse kinematics for the robot_master gripper.
 
 Solves for the four driven joint references (revolute_1-4, joint side, the
-same coordinates ``TrapezoidalReferenceLimiter.set_requested_position`` takes)
+same coordinates the reference limiter's ``set_requested_position`` takes)
 that put the tool point at a requested position in the base frame.
 
 Kinematic model (identical to the controller's reference display,
@@ -9,10 +9,10 @@ Kinematic model (identical to the controller's reference display,
   * driven joints are set to their references;
   * the passive four-bar followers are offset from the hardware_zero keyframe
     by ``scale * (revolute_4 - keyframe revolute_4)`` (``CONSTRAINED_JOINTS``);
-  * every other joint (revolute_12 wrist servo, revolute_14 loop closure)
-    stays at its keyframe value.  The controller never commands the wrist
-    servo, so the real wrist must be at the keyframe angle for the tool point
-    to land where the model says.
+  * every other joint stays at its keyframe value.  The controller passes the
+    wrist servo's joint (revolute_12) in as a fifth driven joint, so the
+    solution includes a wrist angle; a caller that leaves it out holds the
+    wrist at its keyframe angle.
 
 The linear four-bar coupling leaves a loop-closure gap of up to 1.7 mm away
 from hardware_zero; against settled MuJoCo physics the tool point differs by
@@ -59,10 +59,20 @@ from robot_master_configuration import (
     IK_TABLE_CLEARANCE_M,
     IK_TOOL_BODY,
     IK_TOOL_POINT_IN_BODY_M,
+    MOTION_PROFILE,
     TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2,
     TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S,
 )
+from cubic_spline_motion import cubic_duration, cubic_position
 from trapezoidal_motion import trapezoidal_duration, trapezoidal_position
+
+
+# Rest-to-rest (duration, position) functions of each MOTION_PROFILE, so the
+# clearance check samples the same path the controller's limiter will run.
+_PROFILE_FUNCTIONS = {
+    "cubic": (cubic_duration, cubic_position),
+    "trapezoidal": (trapezoidal_duration, trapezoidal_position),
+}
 
 
 # Solver settings.  Errors are in metres, steps in joint radians.
@@ -109,11 +119,18 @@ class ArmIK:
         constrained_joints: dict[str, tuple[str, float]],
         max_velocity_rad_s: float = TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S,
         max_acceleration_rad_s2: float = TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2,
+        motion_profile: str = MOTION_PROFILE,
+        extra_bounds_rad: dict[str, tuple[float, float]] | None = None,
     ) -> None:
+        """``extra_bounds_rad`` narrows an actuator's joint-side range beyond its
+        ctrl and joint ranges (e.g. the wrist servo's reachable 0-180 deg)."""
+        if motion_profile not in _PROFILE_FUNCTIONS:
+            raise ValueError(f"unknown motion profile {motion_profile!r}")
         self.model = model
         self.data = mujoco.MjData(model)
         self.max_velocity_rad_s = max_velocity_rad_s
         self.max_acceleration_rad_s2 = max_acceleration_rad_s2
+        self._profile_duration, self._profile_position = _PROFILE_FUNCTIONS[motion_profile]
 
         keyframe_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_KEY, HARDWARE_ZERO_KEYFRAME_NAME)
         if keyframe_id < 0:
@@ -162,6 +179,9 @@ class ArmIK:
             if model.jnt_limited[jid]:
                 lower[i] = max(lower[i], float(model.jnt_range[jid, 0]))
                 upper[i] = min(upper[i], float(model.jnt_range[jid, 1]))
+            if extra_bounds_rad and actuator in extra_bounds_rad:
+                a, b = sorted(extra_bounds_rad[actuator])
+                lower[i], upper[i] = max(lower[i], a), min(upper[i], b)
 
         # Followers: qpos = keyframe + scale * (source - keyframe source).
         self._followers: list[tuple[int, int, int, float, float, float]] = []
@@ -290,11 +310,16 @@ class ArmIK:
         return verts @ self.data.xmat[body].reshape(3, 3).T + self.data.xpos[body]
 
     def home_references_array(self) -> np.ndarray:
-        """hardware_zero references (joint side) in actuator order."""
+        """hardware_zero references (joint side) in actuator order.  An actuator
+        without a hardware_zero ctrl (the wrist servo) uses its keyframe angle,
+        clamped into its IK range."""
         out = []
-        for actuator in self.actuators:
+        for i, actuator in enumerate(self.actuators):
             act_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
-            out.append(HARDWARE_ZERO_ACTUATOR_CTRL_RAD[actuator] / float(self.model.actuator_gear[act_id, 0]))
+            if actuator in HARDWARE_ZERO_ACTUATOR_CTRL_RAD:
+                out.append(HARDWARE_ZERO_ACTUATOR_CTRL_RAD[actuator] / float(self.model.actuator_gear[act_id, 0]))
+            else:
+                out.append(min(max(float(self.keyframe_qpos[self._qadr[i]]), self.lower[i]), self.upper[i]))
         return np.array(out)
 
     def to_array(self, references: dict[str, float]) -> np.ndarray:
@@ -372,18 +397,18 @@ class ArmIK:
 
     def path_references(self, q_start: np.ndarray, q_goal: np.ndarray) -> tuple[list[np.ndarray], float]:
         """Samples of the limiter's rest-to-rest path (every joint its own
-        trapezoid, as TrapezoidalReferenceLimiter moves them), and its duration."""
+        MOTION_PROFILE move, as the controller's limiter runs them), and its duration."""
         q_start = np.asarray(q_start, dtype=float)
         q_goal = np.asarray(q_goal, dtype=float)
         durations = [
-            trapezoidal_duration(g - s, self.max_velocity_rad_s, self.max_acceleration_rad_s2)
+            self._profile_duration(g - s, self.max_velocity_rad_s, self.max_acceleration_rad_s2)
             for s, g in zip(q_start, q_goal)
         ]
         duration = max(durations, default=0.0)
         samples = max(2, int(math.ceil(duration / PATH_CHECK_STEP_S)) + 1)
         path = [
             np.array([
-                trapezoidal_position(s, g, t, self.max_velocity_rad_s, self.max_acceleration_rad_s2)
+                self._profile_position(s, g, t, self.max_velocity_rad_s, self.max_acceleration_rad_s2)
                 for s, g in zip(q_start, q_goal)
             ])
             for t in np.linspace(0.0, duration, samples)

@@ -21,6 +21,7 @@ from typing import Protocol
 
 REFRESH_PERIOD_S = 0.1     # how often labels are refreshed (events are pumped every tick)
 CONFIRM_WINDOW_S = 4.0     # second click must come within this time
+SERVO_DRAG_HOLD_S = 0.5    # a servo slider moved this recently is not overwritten by a refresh
 
 
 @dataclass
@@ -31,6 +32,14 @@ class MotorRow:
     encoder_raw_rad: float | None   # raw STM32 reading, motor side
     feedback_age_s: float | None
     fault: int | None
+
+
+@dataclass
+class ServoRow:
+    name: str                       # backend key, passed back to set_servo
+    label: str
+    target_deg: float               # slider value, servo angle 0-180
+    commanded_deg: float | None     # last angle sent (None: nothing sent yet)
 
 
 @dataclass
@@ -50,6 +59,7 @@ class PanelStatus:
     preview_busy: bool              # a solve is in progress
     notice: str = ""                # latest controller event worth showing
     notice_is_alert: bool = False
+    servos: list[ServoRow] = field(default_factory=list)
 
 
 class PanelBackend(Protocol):
@@ -66,6 +76,7 @@ class PanelBackend(Protocol):
     def preview(self, target_base_m: tuple[float, float, float]) -> str: ...
     def run_preview(self) -> str: ...
     def clear_preview(self) -> str: ...
+    def set_servo(self, name: str, servo_deg: float) -> str: ...
     def quit(self) -> None: ...
 
 
@@ -128,8 +139,10 @@ class ControlPanel:
         frame = ttk.LabelFrame(self.root, text="Motors")
         frame.grid(row=1, column=0, sticky="ew", **pad)
         self.enable_btn = ttk.Button(frame, text="Enable motors", command=lambda: self._act(self.backend.enable))
-        self.start_home_btn = ttk.Button(frame, text="Start - arm is at home", command=self._start_home)
-        self.start_keep_btn = ttk.Button(frame, text="Start - keep current pose", command=self._start_keep)
+        # Same as the terminal 's': snapshot the encoders and follow reference
+        # changes from there, so starting never moves the arm.
+        self.start_btn = ttk.Button(frame, text="Start control loop",
+                                    command=lambda: self._act(lambda: self.backend.start(arm_at_home=False)))
         self.pause_btn = ttk.Button(frame, text="Pause", command=lambda: self._act(self.backend.pause))
         self.resume_btn = ttk.Button(frame, text="Resume", command=lambda: self._act(self.backend.resume))
         self.home_btn = ttk.Button(frame, text="Go home", command=lambda: self._act(self.backend.home))
@@ -137,19 +150,13 @@ class ControlPanel:
                                    command=lambda: self._act(self.backend.hold))
         self.disable_btn = ttk.Button(frame, text="Disable (limp)", command=self._disable)
         buttons = (
-            (self.enable_btn, 0, 0), (self.start_home_btn, 0, 1), (self.start_keep_btn, 0, 2),
+            (self.enable_btn, 0, 0), (self.start_btn, 0, 1),
             (self.pause_btn, 1, 0), (self.resume_btn, 1, 1), (self.home_btn, 1, 2),
             (self.hold_btn, 2, 0), (self.disable_btn, 2, 1),
         )
         for button, row, column in buttons:
             button.grid(row=row, column=column, sticky="ew", **pad)
         self._disable_confirm = _Confirm(self.disable_btn, "Disable (limp)", "Click again: arm goes limp")
-        self._start_home_confirm = _Confirm(
-            self.start_home_btn, "Start - arm is at home", "Click again: arm IS at home"
-        )
-        self._start_keep_confirm = _Confirm(
-            self.start_keep_btn, "Start - keep current pose", "Click again: arm matches sim"
-        )
 
         # --- Motor table ---
         frame = ttk.LabelFrame(self.root, text="Joints")
@@ -203,13 +210,34 @@ class ControlPanel:
         self.preview_label = ttk.Label(frame, textvariable=self.preview_var, justify="left", width=70)
         self.preview_label.grid(row=2, column=0, columnspan=7, sticky="w", **pad)
 
+        # --- Servos (independent of the motors: they move as the slider moves) ---
+        self.servo_vars: dict[str, tk.DoubleVar] = {}
+        self.servo_sent_vars: dict[str, tk.StringVar] = {}
+        self._servo_touched_at: dict[str, float] = {}
+        if status.servos:
+            frame = ttk.LabelFrame(self.root, text="Servos (0-180 deg, 90 = centre)")
+            frame.grid(row=5, column=0, sticky="ew", **pad)
+            for row, servo in enumerate(status.servos):
+                variable = tk.DoubleVar(value=servo.target_deg)
+                self.servo_vars[servo.name] = variable
+                self.servo_sent_vars[servo.name] = tk.StringVar()
+                ttk.Label(frame, text=servo.label, width=20).grid(row=row, column=0, sticky="w", **pad)
+                # tk.Scale (not ttk) shows its value and steps in whole degrees.
+                tk.Scale(
+                    frame, from_=0, to=180, resolution=1, orient="horizontal", length=360,
+                    variable=variable, command=lambda value, name=servo.name: self._servo_moved(name, value),
+                ).grid(row=row, column=1, sticky="ew", **pad)
+                ttk.Label(frame, textvariable=self.servo_sent_vars[servo.name], width=16).grid(
+                    row=row, column=2, sticky="w", **pad
+                )
+
         # --- Messages ---
         self.message_var = tk.StringVar(value="Ready.")
         self.message_label = ttk.Label(self.root, textvariable=self.message_var, width=80)
-        self.message_label.grid(row=5, column=0, sticky="w", **pad)
+        self.message_label.grid(row=6, column=0, sticky="w", **pad)
         self.notice_var = tk.StringVar()
         self.notice_label = ttk.Label(self.root, textvariable=self.notice_var, width=80)
-        self.notice_label.grid(row=6, column=0, sticky="w", **pad)
+        self.notice_label.grid(row=7, column=0, sticky="w", **pad)
 
         self._refresh(status)
 
@@ -251,23 +279,15 @@ class ControlPanel:
         is_error = message.startswith(("Cannot", "Not ", "Refused", "No ", "Unavailable"))
         self.message_label.configure(style="Alert.TLabel" if is_error else "TLabel")
 
-    def _start_home(self) -> None:
-        if self._start_home_confirm.click():
-            self._act(lambda: self.backend.start(arm_at_home=True))
-        else:
-            self._say("Start resets the reference to hardware_zero. Only confirm if the arm is physically at home.")
-
-    def _start_keep(self) -> None:
-        if self._start_keep_confirm.click():
-            self._act(lambda: self.backend.start(arm_at_home=False))
-        else:
-            self._say("Start keeps the current reference. Only confirm if the real arm matches the sim pose.")
-
     def _disable(self) -> None:
         if self._disable_confirm.click():
             self._act(self.backend.disable)
         else:
             self._say("Disable makes every motor limp: the arm drops unless it rests on its hard stops.")
+
+    def _servo_moved(self, name: str, value: str) -> None:
+        self._servo_touched_at[name] = time.monotonic()
+        self._say(self.backend.set_servo(name, float(value)))
 
     def _read_target_m(self) -> tuple[float, float, float] | None:
         try:
@@ -313,8 +333,7 @@ class ControlPanel:
         return "  ".join(f"{axis}={1000.0 * v:+8.1f}" for axis, v in zip("xyz", position_m))
 
     def _refresh(self, s: PanelStatus) -> None:
-        for confirm in (self._disable_confirm, self._start_home_confirm, self._start_keep_confirm):
-            confirm.expire()
+        self._disable_confirm.expire()
 
         self.mode_var.set(s.mode)
         self.state_var.set(s.control_state + ("  (moving)" if s.moving else ""))
@@ -328,8 +347,7 @@ class ControlPanel:
             button.state(["!disabled"] if allowed else ["disabled"])
 
         set_state(self.enable_btn, s.hardware and not active and s.motor_power != "enabling")
-        set_state(self.start_home_btn, s.hardware and not active and enabled)
-        set_state(self.start_keep_btn, s.hardware and not active and enabled)
+        set_state(self.start_btn, s.hardware and not active and enabled)
         set_state(self.pause_btn, running)
         set_state(self.resume_btn, s.control_state == "PAUSED")
         set_state(self.home_btn, running)
@@ -359,3 +377,17 @@ class ControlPanel:
         self.preview_label.configure(style=("Ok.TLabel" if s.preview_ok else "Alert.TLabel") if s.preview_text else "TLabel")
         self.notice_var.set(s.notice)
         self.notice_label.configure(style="Alert.TLabel" if s.notice_is_alert else "TLabel")
+
+        now = time.monotonic()
+        for servo in s.servos:
+            if servo.name not in self.servo_vars:
+                continue
+            self.servo_sent_vars[servo.name].set(
+                "not sent (at 90)" if servo.commanded_deg is None else f"sent {servo.commanded_deg:.0f} deg"
+            )
+            # Follow a target set elsewhere (the wrist's MuJoCo Control-tab
+            # slider), but never fight a drag in progress.
+            variable = self.servo_vars[servo.name]
+            recently_touched = now - self._servo_touched_at.get(servo.name, -math.inf) < SERVO_DRAG_HOLD_S
+            if not recently_touched and abs(variable.get() - servo.target_deg) >= 0.5:
+                variable.set(round(servo.target_deg))

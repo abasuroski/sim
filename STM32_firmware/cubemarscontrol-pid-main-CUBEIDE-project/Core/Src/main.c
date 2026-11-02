@@ -2,18 +2,19 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Robot arm UART remote control (4 motors + 3 servos)
+  * @brief          : Robot arm UART remote control (4 motors + 2 servos)
   *
   * Thin passthrough: receives MIT control commands from a PC controller
   * over UART, packs CAN frames, and forwards motor feedback back over UART.
   * All trajectory generation, PID, and gain scheduling live on the PC side.
   *
   * Controls up to 4 CubeMars motors (AK60, AK70/80, or AK40) via CAN bus,
-  * and 3 MG995 servos via TIM2 PWM (end effector).
+  * and 2 MG995 servos via TIM2 PWM (end effector: wrist and pinch).
   *
   * PC -> STM32 protocol: <motor_num><cmd><value>[*HH]\n
   *   motor_num = 1-4 (Body: Base, Shoulder, Elbow, Linkage)
-  *   motor_num = 5-7 (End Effector: Wrist1, Wrist2, Gripper)
+  *   motor_num = 5, 7 (End Effector: Wrist, Gripper/pinch); 6 was Wrist 2,
+  *               now removed and ignored
   *   P=position (rad for motors, degrees for servos)
   *   V=velocity feedforward, K=inner MIT kp, D=inner MIT kd, T=torque offset
   *   M<pos>,<vel>,<kp>,<kd>,<tff> = all five MIT fields, applied together
@@ -33,7 +34,7 @@
   * AK40 uses standard CAN ID (same frame as AK70, different limits)
   *
   * Servo PWM: TIM2 @ 50Hz (prescaler=84-1, period=20000-1)
-  *   CH1 (PA0) = Wrist 1, CH2 (PA1) = Wrist 2, CH3 (PB10) = Gripper
+  *   CH1 (PA0) = Wrist, CH3 (PB10) = Gripper (pinch); CH2/PA1 unused
   *   Pulse 500 = 0 deg, Pulse 2500 = 180 deg (MG995 TowerPro)
   *
   * Hardware: STM32F446RE Nucleo + Waveshare CAN shield
@@ -233,9 +234,8 @@ static uint32_t servo_angle_to_pulse(float angle_deg)
 static void update_servos(void)
 {
     float *spos = uart_cmd_servo_pos();
-    TIM2->CCR1 = servo_angle_to_pulse(spos[0]);
-    TIM2->CCR2 = servo_angle_to_pulse(spos[1]);
-    TIM2->CCR3 = servo_angle_to_pulse(spos[2]);
+    TIM2->CCR1 = servo_angle_to_pulse(spos[SERVO_WRIST]);
+    TIM2->CCR3 = servo_angle_to_pulse(spos[SERVO_GRIPPER]);
 }
 
 static unsigned int float_to_uint(float x, float x_min, float x_max, unsigned int bits)
@@ -1004,17 +1004,18 @@ static void MX_TIM2_Init(void)
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
     __DSB();  // ensure clock is active before accessing registers
 
-    // 2. Configure PA0 (TIM2_CH1) and PA1 (TIM2_CH2) as AF1
+    // 2. Configure PA0 (TIM2_CH1, wrist) as AF1.  PA1 (TIM2_CH2, the removed
+    //    Wrist 2) is left at its reset state, an input.
     //    MODER = 10 (alternate function), AFRL = 0001 (AF1 = TIM2)
-    GPIOA->MODER   &= ~(GPIO_MODER_MODER0 | GPIO_MODER_MODER1);
-    GPIOA->MODER   |=  (2U << (0*2)) | (2U << (1*2));  // AF mode for PA0, PA1
-    GPIOA->OSPEEDR |=  (1U << (0*2)) | (1U << (1*2));  // Medium speed
-    GPIOA->OTYPER  &= ~(GPIO_OTYPER_OT0 | GPIO_OTYPER_OT1);  // Push-pull
-    GPIOA->PUPDR   &= ~(GPIO_PUPDR_PUPD0 | GPIO_PUPDR_PUPD1);  // No pull
-    GPIOA->AFR[0]  &= ~(0xFU << (0*4)) & ~(0xFU << (1*4));
-    GPIOA->AFR[0]  |=  (1U << (0*4)) | (1U << (1*4));  // AF1 for PA0, PA1
+    GPIOA->MODER   &= ~(GPIO_MODER_MODER0);
+    GPIOA->MODER   |=  (2U << (0*2));  // AF mode for PA0
+    GPIOA->OSPEEDR |=  (1U << (0*2));  // Medium speed
+    GPIOA->OTYPER  &= ~(GPIO_OTYPER_OT0);  // Push-pull
+    GPIOA->PUPDR   &= ~(GPIO_PUPDR_PUPD0);  // No pull
+    GPIOA->AFR[0]  &= ~(0xFU << (0*4));
+    GPIOA->AFR[0]  |=  (1U << (0*4));  // AF1 for PA0
 
-    // 3. Configure PB10 (TIM2_CH3) as AF1
+    // 3. Configure PB10 (TIM2_CH3, gripper/pinch) as AF1
     GPIOB->MODER   &= ~(GPIO_MODER_MODER10);
     GPIOB->MODER   |=  (2U << (10*2));  // AF mode
     GPIOB->OSPEEDR |=  (1U << (10*2));  // Medium speed
@@ -1027,16 +1028,14 @@ static void MX_TIM2_Init(void)
     TIM2->PSC  = 84 - 1;     // 84MHz / 84 = 1MHz
     TIM2->ARR  = 20000 - 1;  // 1MHz / 20000 = 50Hz
     TIM2->CCR1 = 1500;       // 1.5ms = 90 deg
-    TIM2->CCR2 = 1500;
     TIM2->CCR3 = 1500;
 
-    // PWM mode 1 on CH1, CH2 (CCMR1), CH3 (CCMR2)
-    TIM2->CCMR1 = (6U << TIM_CCMR1_OC1M_Pos) | TIM_CCMR1_OC1PE
-                 | (6U << TIM_CCMR1_OC2M_Pos) | TIM_CCMR1_OC2PE;
+    // PWM mode 1 on CH1 (CCMR1) and CH3 (CCMR2)
+    TIM2->CCMR1 = (6U << TIM_CCMR1_OC1M_Pos) | TIM_CCMR1_OC1PE;
     TIM2->CCMR2 = (6U << TIM_CCMR2_OC3M_Pos) | TIM_CCMR2_OC3PE;
 
-    // Enable CH1, CH2, CH3 outputs
-    TIM2->CCER = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E;
+    // Enable CH1 and CH3 outputs
+    TIM2->CCER = TIM_CCER_CC1E | TIM_CCER_CC3E;
 
     // Generate update event to load prescaler/ARR, then start counter
     TIM2->EGR = TIM_EGR_UG;

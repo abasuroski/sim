@@ -46,6 +46,11 @@ M4_STARTUP_ENCODER_DELTA_RAD = 0.5
 # reduction makes the corresponding joint-output limit 2.5 N m.
 AK40_MOTOR_TORQUE_LIMIT_NM = 1.0
 
+# MJCF position actuators for the MG995 end-effector servos (hand-added to
+# robot_master.xml).  They are hobby PWM servos driven by the STM32, not
+# CubeMars motors, so gain-schedule training and the MIT controller skip them.
+END_EFFECTOR_SERVO_ACTUATORS = ("mg995_revolute_12", "mg995_gripper_pinch")
+
 # Scheduled PD safety limits.  ``SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_RAD``
 # converts each actuator's output-torque limit into a maximum usable position
 # stiffness: kp_max = torque_limit / position_error.  This prevents a large
@@ -74,6 +79,12 @@ SCHEDULED_PD_POSITION_ERROR_FOR_FULL_TORQUE_OVERRIDES_RAD = {
 # are deliberately easy to tune without changing controller source code.
 TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S = 1.0
 TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2 = 2.0
+
+# Reference shape within those limits: "cubic" (cubic_spline_motion.py, one
+# cubic per request, acceleration ramps instead of switching) or
+# "trapezoidal" (trapezoidal_motion.py).  The hardware controller's limiter and
+# the IK path-clearance check both follow this, so they agree on the path.
+MOTION_PROFILE = "cubic"
 
 # AK40 is specified at the motor encoder rather than joint output. With its
 # 1.25:1 reduction, the limiter converts this to 0.4 rad/s joint-side.
