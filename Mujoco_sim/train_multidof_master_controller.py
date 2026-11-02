@@ -26,6 +26,7 @@ import numpy as np
 
 from master_controller import MasterController, PositionSchedule, actuator_gear, actuator_name, joint_name, output_pd_gains
 from robot_master_configuration import (
+    END_EFFECTOR_SERVO_ACTUATORS,
     HARDWARE_ZERO_KEYFRAME_NAME,
     TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2,
     TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S,
@@ -89,6 +90,9 @@ def driven_joints(model: mujoco.MjModel, key_id: int) -> list[DrivenJoint]:
     mujoco.mj_forward(model, data)
     result: list[DrivenJoint] = []
     for actuator_id in range(model.nu):
+        # The MG995 servos hold their keyframe ctrl; only CubeMars motors get schedules.
+        if actuator_name(model, actuator_id) in END_EFFECTOR_SERVO_ACTUATORS:
+            continue
         joint_id = int(model.actuator_trnid[actuator_id, 0])
         address = int(model.jnt_qposadr[joint_id])
         command_min, command_max = modelled_command_bounds(model, actuator_id)
