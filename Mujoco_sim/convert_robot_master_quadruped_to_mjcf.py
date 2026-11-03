@@ -30,7 +30,7 @@ from robot_master_configuration import (
 
 
 ROOT      = Path(__file__).resolve().parent
-URDF      = Path("C:/Users/AndreaBasuroski/Downloads/Robot_Master_quadruped/robot_master_copy_1/urdf/robot_master_copy_1.urdf")
+URDF      = Path("C:/school/sim/robot_master_copy_1/urdf/robot_master_copy_1.urdf")
 MESH_DIR  = URDF.parent.parent / "meshes"
 OUTPUT_DIR = ROOT / "robot_master_urdf_quadruped" / "mjcf"
 ASSET_DIR  = OUTPUT_DIR / "assets"
