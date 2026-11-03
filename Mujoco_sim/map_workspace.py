@@ -37,11 +37,29 @@ from robot_master_configuration import IK_TABLE_CLEARANCE_M
 POINT_RADIUS_M = 0.003
 
 
+def _has_self_collision(ik: ArmIK) -> bool:
+    """True if the IK's current qpos has any arm-on-arm contacts.
+
+    Relies on the five capsule geoms (contype=2/conaffinity=2) hand-added to
+    robot_master.xml.  mj_forward populates data.contact; we ignore any contact
+    that involves the table (contype=1) by checking that both geoms belong to
+    collision group 2."""
+    mujoco.mj_forward(ik.model, ik._data)
+    for i in range(ik._data.ncon):
+        c = ik._data.contact[i]
+        g1 = ik.model.geom_contype[c.geom1]
+        g2 = ik.model.geom_contype[c.geom2]
+        # Both must be arm capsules (contype=2) to count as self-collision.
+        if g1 == 2 and g2 == 2:
+            return True
+    return False
+
+
 def sample_workspace(
     ik: ArmIK, samples: int, base_angle_rad: float | None, seed: int
-) -> tuple[np.ndarray, np.ndarray, int]:
+) -> tuple[np.ndarray, np.ndarray, int, int]:
     """Return (joint references [k x 4], tool points base frame m [k x 3],
-    number rejected for table clearance)."""
+    number rejected for table clearance, number rejected for self-collision)."""
     rng = np.random.default_rng(seed)
     lower, upper = ik.lower.copy(), ik.upper.copy()
     # revolute_1 declares +-2 pi; one turn covers every base angle.
@@ -49,14 +67,19 @@ def sample_workspace(
     q_all = lower + rng.random((samples, lower.size)) * (upper - lower)
     if base_angle_rad is not None:
         q_all[:, 0] = base_angle_rad
-    kept_q, kept_p, rejected = [], [], 0
+    kept_q, kept_p = [], []
+    rejected_table = 0
+    rejected_collision = 0
     for q in q_all:
         if ik.min_clearance_m(q) < IK_TABLE_CLEARANCE_M:
-            rejected += 1
+            rejected_table += 1
+            continue
+        if _has_self_collision(ik):
+            rejected_collision += 1
             continue
         kept_q.append(q)
         kept_p.append(ik.tool_position_base(q))
-    return np.array(kept_q), np.array(kept_p), rejected
+    return np.array(kept_q), np.array(kept_p), rejected_table, rejected_collision
 
 
 def _height_colour(z: float, z_lo: float, z_hi: float) -> np.ndarray:
@@ -116,8 +139,9 @@ def main() -> None:
     base_angle = None if args.base_angle is None else math.radians(args.base_angle)
 
     started = time.perf_counter()
-    q, p, rejected = sample_workspace(ik, args.samples, base_angle, args.seed)
-    print(f"[map] {len(p)} reachable poses, {rejected} rejected for table clearance "
+    q, p, rejected_table, rejected_collision = sample_workspace(ik, args.samples, base_angle, args.seed)
+    print(f"[map] {len(p)} reachable poses, {rejected_table} rejected for table clearance, "
+          f"{rejected_collision} rejected for self-collision "
           f"({time.perf_counter() - started:.1f} s)")
     if len(p) == 0:
         raise SystemExit(1)
