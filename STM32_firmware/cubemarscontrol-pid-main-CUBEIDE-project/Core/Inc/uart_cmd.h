@@ -6,10 +6,10 @@
 #define NUM_MOTORS 4
 // End effector: one wrist servo and one pinch (gripper) servo.  Their
 // command digits stay '5' and '7' from the original three-servo layout
-// (Wrist 1, Wrist 2, Gripper); '6' (Wrist 2, PA1) was removed and is ignored.
+// (Wrist 1, Wrist 2, Gripper); '6' (old Wrist 2 address) is ignored.
 #define NUM_SERVOS     2
-#define SERVO_WRIST    0   // command '5', PA0  / TIM2_CH1
-#define SERVO_GRIPPER  1   // command '7', PB10 / TIM2_CH3
+#define SERVO_WRIST    0   // command '5', PA0 / TIM2_CH1
+#define SERVO_GRIPPER  1   // command '7', PA1 / TIM2_CH2
 #define SERVO_CMD_SLOTS 3  // command digits '5'..'7' are servo addresses
 
 typedef enum {

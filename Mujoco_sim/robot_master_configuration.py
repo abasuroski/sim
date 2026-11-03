@@ -110,7 +110,7 @@ IK_TABLE_BODY = "part_1_13"
 # vertices farthest along the gripper's pointing axis, local -z), in the frame
 # of the gripper body, which moves rigidly with the fingers.
 IK_TOOL_BODY = "part_2_6"
-IK_TOOL_POINT_IN_BODY_M = (-0.00587, -0.00500, -0.09676)
+IK_TOOL_POINT_IN_BODY_M = (-0.00587, -0.00500, -0.05866)  # moved 1.5 in (0.0381 m) back from finger tips
 # A solution is accepted only if the tool point lands within this distance of
 # the target (model kinematics; tracking error on the real arm comes on top).
 IK_ACCEPT_ERROR_M = 1e-4

@@ -163,7 +163,7 @@ SERVO_RESEND_DEG = 0.5     # send only when the angle changes by this much
 # name: (panel label, firmware address, MuJoCo actuator mirroring it or None)
 SERVO_CHANNELS = {
     "wrist":   ("Wrist (A0 / PA0)",   5, "mg995_revolute_12"),
-    "gripper": ("Gripper (D6 / PB10)", 7, "mg995_gripper_pinch"),
+    "gripper": ("Gripper (A1 / PA1)", 7, "mg995_gripper_pinch"),
 }
 # The wrist servo turns revolute_12, which the sim shows at the commanded
 # angle.  Servo 90 deg was first put at the middle of the CAD joint range
