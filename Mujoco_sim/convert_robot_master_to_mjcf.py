@@ -25,7 +25,7 @@ from robot_master_configuration import (
 ROOT = Path(__file__).resolve().parent
 URDF = ROOT / "robot_master_urdf_table" / "urdf" / "robot_master.urdf"
 MESH_DIR = ROOT / "robot_master_urdf_table" / "meshes"
-OUTPUT_DIR = ROOT / "robot_master_urdf_table" / "mjcf"
+OUTPUT_DIR = ROOT / "robot_master_urdf_quadruped" / "mjcf"
 ASSET_DIR = OUTPUT_DIR / "assets"
 MJCF = OUTPUT_DIR / "robot_master.xml"
 
