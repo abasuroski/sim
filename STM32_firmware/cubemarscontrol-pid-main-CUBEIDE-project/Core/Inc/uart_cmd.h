@@ -12,6 +12,15 @@
 #define SERVO_GRIPPER  1   // command '7', PA1 / TIM2_CH2
 #define SERVO_CMD_SLOTS 3  // command digits '5'..'7' are servo addresses
 
+// Gripper travel, in the firmware's servo unit: degrees from centre at
+// 8.333 us/deg, which is (servo angle - 90) * 4/3.  The gripper must not go
+// below servo 156 deg; 180 is its full extension.  Enforced here so that every
+// sender is limited.  The PC controller has the same limits (SERVO_LIMITS_DEG,
+// SERVO_PARK_DEG), so change both together.
+#define SERVO_GRIPPER_CMD_MIN  88.1f   // 2234 us = 156.1 deg; 88.0 would truncate to just under 156
+#define SERVO_GRIPPER_CMD_MAX  120.0f  // servo 180 deg
+#define SERVO_GRIPPER_CMD_PARK 104.0f  // servo 168 deg, mid-travel: boot position
+
 typedef enum {
     MOTOR_TYPE_AK40 = 40,
     MOTOR_TYPE_AK60 = 60,

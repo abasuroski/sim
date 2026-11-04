@@ -31,8 +31,24 @@ IK_TABLE_CLEARANCE_M above the table top, at the target pose and along the
 limiter's rest-to-rest path to it (except IK_CLEARANCE_IGNORE_BODIES, a stray
 CAD part).  The table top is treated as an infinite plane, which is
 conservative where the arm reaches past the table's edge.  The MJCF has no collision geometry for
-the arm links or gripper, so self-collision is NOT checked; instead no joint
-may change by more than IK_MAX_JOINT_CHANGE_RAD in one solve.
+the arm links or gripper, so self-collision is NOT checked.  No joint may change
+by more than IK_MAX_JOINT_CHANGE_RAD in one solve (currently unlimited), and a
+solution moving any joint but the base by more than IK_WARN_JOINT_CHANGE_RAD
+carries a warning.
+
+A target that cannot be reached can still be approached: ``solve_nearest``
+falls back to mink (differential IK as a QP per step) to minimise the distance
+to the target under the same joint ranges, joint-change window and table
+clearance, then runs the same checks.  "Nearest" therefore means nearest for
+this one command, and repeating the command continues toward the arm's limit.
+The search is local, from several seeds, so the location is the best one found,
+not a proven optimum.  A target that is in reach but refused by a check (a joint
+would exceed IK_MAX_JOINT_CHANGE_RAD, or the path dips too low) stays refused unless the caller
+passes ``include_refused``, which the control panel does because it previews
+before moving; a command that moves at once should not go somewhere unasked.
+Such a partial move can stall at a local minimum short of a reachable target,
+when getting there needs the tool to move away first.  A location that is no
+closer than the arm already is gives the original refusal instead.
 
 Command-line use (simulation only, no hardware):
     python inverse_kinematics.py <x> <y> <z>        # metres, base frame; opens the viewer
@@ -45,6 +61,7 @@ from dataclasses import dataclass, field
 import math
 from pathlib import Path
 
+import mink
 import mujoco
 import numpy as np
 
@@ -59,6 +76,7 @@ from robot_master_configuration import (
     IK_TABLE_CLEARANCE_M,
     IK_TOOL_BODY,
     IK_TOOL_POINT_IN_BODY_M,
+    IK_WARN_JOINT_CHANGE_RAD,
     MOTION_PROFILE,
     TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2,
     TRAPEZOIDAL_MAX_JOINT_VELOCITY_RAD_S,
@@ -88,6 +106,21 @@ SOLVER_STALL_ITERATIONS = 25       # stop a seed after this many iterations ...
 SOLVER_STALL_RELATIVE = 1e-3       # ... without this relative error improvement
 PATH_CHECK_STEP_S = 0.02           # path clearance sample spacing (limiter time)
 
+# Nearest-location search (mink).  Each QP step is a joint displacement, so the
+# integration time step is 1 and "velocity" is radians per iteration.
+NEAREST_QP_SOLVER = "daqp"
+NEAREST_MAX_ITERATIONS = 100
+NEAREST_MAX_STEP_RAD = 0.1         # largest joint change per iteration; halved when a step does not help
+NEAREST_MIN_STEP_RAD = 1e-4        # stop a seed when the step limit falls below this
+NEAREST_MIN_IMPROVEMENT_M = 1e-6   # a step must get this much closer to count as progress
+NEAREST_DAMPING = 1e-4             # Levenberg-Marquardt; Jacobian columns squared are ~0.01-0.1 m^2
+NEAREST_RANDOM_SEEDS = 15          # uniform seeds in the joint window, after the start pose
+NEAREST_TIE_M = 1e-4               # locations this close count as equally near; least joint motion wins
+NEAREST_MIN_PROGRESS_M = 1e-3      # a location must beat the current one by this much to be offered
+NEAREST_WINDOW_MARGIN_RAD = 1e-6   # keeps rounding from failing the joint-change check
+NEAREST_TABLE_MARGIN_M = 1e-3      # kept above IK_TABLE_CLEARANCE_M: the QP's table limit is linearised
+NEAREST_TABLE_ACTIVATION_M = 0.05  # table rows are added for bodies this close to the limit
+
 
 @dataclass
 class IKResult:
@@ -98,8 +131,121 @@ class IKResult:
     target_base_m: np.ndarray
     joint_targets: dict[str, float] = field(default_factory=dict)   # actuator -> joint rad
     achieved_base_m: np.ndarray | None = None
-    error_m: float = math.inf
+    error_m: float = math.inf       # for a nearest result: distance from the requested target
     move_duration_s: float = 0.0
+    unreachable: bool = False       # no pose puts the tool point there while clearing the table
+    nearest: bool = False           # success at the nearest location, not at the target
+    window_limited: bool = False    # nearest stopped by IK_MAX_JOINT_CHANGE_RAD: repeating may get closer
+    warning: str = ""               # shown to the operator with a successful result
+
+
+class _ToolPointTask(mink.Task):
+    """Drive the tool point to a world position.
+
+    Not mink.FrameTask: its SE(3) log error mixes the unconstrained orientation
+    into the position error, and the tool point is an offset, not a frame.
+    """
+
+    def __init__(self, body: int, point_in_body_m: np.ndarray, target_world_m: np.ndarray) -> None:
+        super().__init__(cost=np.ones(3))
+        self.body = body
+        self.point_in_body_m = point_in_body_m
+        self.target_world_m = target_world_m
+
+    def _point_world(self, configuration: mink.Configuration) -> np.ndarray:
+        data = configuration.data
+        return data.xpos[self.body] + data.xmat[self.body].reshape(3, 3) @ self.point_in_body_m
+
+    def compute_error(self, configuration: mink.Configuration) -> np.ndarray:
+        return self._point_world(configuration) - self.target_world_m
+
+    def compute_jacobian(self, configuration: mink.Configuration) -> np.ndarray:
+        jacp = np.zeros((3, configuration.model.nv))
+        mujoco.mj_jac(configuration.model, configuration.data, jacp, None, self._point_world(configuration), self.body)
+        return jacp
+
+
+class _KinematicCouplingTask(mink.Task):
+    """Hard constraint leaving only the driven joints free: followers move with
+    their source and every other DOF stays put.
+
+    mink solves over every DOF of the model, while ArmIK's kinematic model has
+    only the driven ones.  The error is zero because qpos is rebuilt from the
+    driven references (``ArmIK.full_qpos``) before every step.
+    """
+
+    def __init__(self, rows: np.ndarray) -> None:
+        super().__init__(cost=np.zeros(rows.shape[0]))
+        self.rows = rows
+
+    def compute_error(self, configuration: mink.Configuration) -> np.ndarray:
+        return np.zeros(self.rows.shape[0])
+
+    def compute_jacobian(self, configuration: mink.Configuration) -> np.ndarray:
+        return self.rows
+
+
+class _DrivenJointLimit(mink.Limit):
+    """Driven joints stay in [lower, upper] (joint side), with a bounded step.
+
+    Not mink.ConfigurationLimit: ArmIK's ranges are narrower than the MJCF's
+    (control and follower ranges, the per-command joint-change window).
+    """
+
+    def __init__(self, nv: int, dofs: np.ndarray, qadr: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> None:
+        self.selection = np.zeros((dofs.size, nv))
+        self.selection[np.arange(dofs.size), dofs] = 1.0
+        self.qadr = qadr
+        self.lower = lower
+        self.upper = upper
+        self.max_step_rad = NEAREST_MAX_STEP_RAD
+
+    def compute_qp_inequalities(self, configuration: mink.Configuration, dt: float) -> mink.Constraint:
+        q = configuration.data.qpos[self.qadr]
+        up = np.minimum(self.upper - q, self.max_step_rad)
+        down = np.minimum(q - self.lower, self.max_step_rad)
+        return mink.Constraint(np.vstack([self.selection, -self.selection]), np.concatenate([up, down]))
+
+
+class _TableClearanceLimit(mink.Limit):
+    """Keep the lowest vertex of each moving body above the table.
+
+    Not mink.CollisionAvoidanceLimit: the arm has no collision geometry.  The
+    limit is linearised, so ``ArmIK._check`` still has the final word.
+    """
+
+    def __init__(self, ik: "ArmIK") -> None:
+        self.ik = ik
+        self.bodies, self.starts = np.unique(ik._moving_vertex_body, return_index=True)
+        self.stops = np.append(self.starts[1:], ik._moving_vertex_body.size)
+        # Bounding radius of each body about its origin: a cheap test that skips
+        # scanning the vertices of bodies nowhere near the table.
+        self.radii_m = np.array([
+            np.linalg.norm(ik._moving_vertices[start:stop], axis=1).max()
+            for start, stop in zip(self.starts, self.stops)
+        ])
+        self.limit_z_m = ik.table_top_z_world + IK_TABLE_CLEARANCE_M + NEAREST_TABLE_MARGIN_M
+
+    def compute_qp_inequalities(self, configuration: mink.Configuration, dt: float) -> mink.Constraint:
+        model, data = configuration.model, configuration.data
+        rows: list[np.ndarray] = []
+        slack: list[float] = []
+        jacp = np.zeros((3, model.nv))
+        near = data.xpos[self.bodies, 2] - self.radii_m - self.limit_z_m <= NEAREST_TABLE_ACTIVATION_M
+        for body, start, stop in zip(self.bodies[near], self.starts[near], self.stops[near]):
+            vertices = self.ik._moving_vertices[start:stop]
+            z = vertices @ data.xmat[body, 6:9] + data.xpos[body, 2]
+            lowest = int(np.argmin(z))
+            margin = float(z[lowest]) - self.limit_z_m
+            if margin > NEAREST_TABLE_ACTIVATION_M:
+                continue
+            point = data.xpos[body] + data.xmat[body].reshape(3, 3) @ vertices[lowest]
+            mujoco.mj_jac(model, data, jacp, None, point, int(body))
+            rows.append(-jacp[2].copy())
+            slack.append(margin)
+        if not rows:
+            return mink.Constraint()
+        return mink.Constraint(np.vstack(rows), np.array(slack))
 
 
 class ArmIK:
@@ -121,9 +267,14 @@ class ArmIK:
         max_acceleration_rad_s2: float = TRAPEZOIDAL_MAX_JOINT_ACCELERATION_RAD_S2,
         motion_profile: str = MOTION_PROFILE,
         extra_bounds_rad: dict[str, tuple[float, float]] | None = None,
+        tool_joint: str | None = None,
+        fixed_joints_rad: dict[str, float] | None = None,
     ) -> None:
         """``extra_bounds_rad`` narrows an actuator's joint-side range beyond its
-        ctrl and joint ranges (e.g. the wrist servo's reachable 0-180 deg)."""
+        ctrl and joint ranges (e.g. the wrist servo's reachable 0-180 deg).
+        ``tool_joint`` puts the tool point on that joint's location instead of
+        between the fingers.  ``fixed_joints_rad`` holds undriven joints at
+        these angles instead of their keyframe ones."""
         if motion_profile not in _PROFILE_FUNCTIONS:
             raise ValueError(f"unknown motion profile {motion_profile!r}")
         self.model = model
@@ -144,6 +295,9 @@ class ArmIK:
             if model.jnt_type[jid] not in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE):
                 raise ValueError(f"joint {name!r} is not a 1-DOF joint")
             return jid
+
+        for name, angle in (fixed_joints_rad or {}).items():
+            self.keyframe_qpos[model.jnt_qposadr[joint_id(name)]] = angle
 
         # Driven joints, in actuator order given by the caller.
         self.actuators = list(actuator_to_joint)
@@ -206,8 +360,13 @@ class ArmIK:
         self.upper = upper
 
         # Tool point and base frame.
-        self._tool_body = self._body_id(IK_TOOL_BODY)
-        self._tool_point = np.asarray(IK_TOOL_POINT_IN_BODY_M, dtype=float)
+        if tool_joint is None:
+            self._tool_body = self._body_id(IK_TOOL_BODY)
+            self._tool_point = np.asarray(IK_TOOL_POINT_IN_BODY_M, dtype=float)
+        else:
+            tool_joint_id = joint_id(tool_joint)
+            self._tool_body = int(model.jnt_bodyid[tool_joint_id])
+            self._tool_point = model.jnt_pos[tool_joint_id].copy()
         self._base_body = self._body_id(IK_BASE_BODY)
         self._require_fixed(self._base_body)
         table_body = self._body_id(IK_TABLE_BODY)
@@ -236,9 +395,32 @@ class ArmIK:
         self._moving_vertex_body = np.concatenate(bodies)
         self._moving_vertices = np.vstack(chunks)
 
+        # mink's view of the arm, for solve_nearest.
+        self._mink_configuration = mink.Configuration(model)
+        self._mink_coupling = _KinematicCouplingTask(self._coupling_rows())
+        self._mink_table_limit = _TableClearanceLimit(self)
+
     # ------------------------------------------------------------------
     # Model helpers
     # ------------------------------------------------------------------
+
+    def _coupling_rows(self) -> np.ndarray:
+        """Rows A with A dq = 0 exactly when dq is a motion of the driven joints."""
+        nv = self.model.nv
+        rows = []
+        coupled = set(int(d) for d in self._dofadr)
+        for src, _, f_dof, scale, _, _ in self._followers:
+            row = np.zeros(nv)
+            row[f_dof] = 1.0
+            row[self._dofadr[src]] = -scale
+            rows.append(row)
+            coupled.add(f_dof)
+        for dof in range(nv):
+            if dof not in coupled:
+                row = np.zeros(nv)
+                row[dof] = 1.0
+                rows.append(row)
+        return np.array(rows)
 
     def _body_id(self, name: str) -> int:
         bid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, name)
@@ -420,6 +602,10 @@ class ArmIK:
         path, _ = self.path_references(q_start, q_goal)
         return [self.tool_position_base(q) for q in path]
 
+    def move_clearance_m(self, q_start: np.ndarray, q_goal: np.ndarray) -> float:
+        """Lowest table clearance along the limiter's rest-to-rest move (m)."""
+        return self._path_min_clearance_m(q_start, q_goal)[0]
+
     def _path_min_clearance_m(self, q_start: np.ndarray, q_goal: np.ndarray) -> tuple[float, float]:
         """Minimum clearance along the limiter's rest-to-rest path; also its duration."""
         path, duration = self.path_references(q_start, q_goal)
@@ -495,6 +681,7 @@ class ArmIK:
         q_start = self.to_array(start)
         target_world = self.base_to_world(target)
         if target_world[2] - self.table_top_z_world < IK_TABLE_CLEARANCE_M:
+            result.unreachable = True
             result.message = (
                 f"target is {1000 * (target_world[2] - self.table_top_z_world):.1f} mm above the table top; "
                 f"at least {1000 * IK_TABLE_CLEARANCE_M:.0f} mm is required"
@@ -536,6 +723,7 @@ class ArmIK:
                     return result
                 rejected.append(verdict)
 
+        result.unreachable = all(self.min_clearance_m(q) < IK_TABLE_CLEARANCE_M for q in seen)
         if rejected:
             result.message = f"no solution passed the checks ({rejected[0]})"
         else:
@@ -545,7 +733,94 @@ class ArmIK:
             result.error_m = closest_err
         return result
 
-    def _check(self, result: IKResult, q_start: np.ndarray, q: np.ndarray) -> str | None:
+    def _nearest_from(
+        self, target_world: np.ndarray, seed: np.ndarray, lower: np.ndarray, upper: np.ndarray
+    ) -> tuple[np.ndarray, float] | None:
+        """Descend from one seed to a local minimum of the distance to the target.
+
+        Returns the pose and its distance, or None if the seed is too close to
+        the table or the QP has no solution.  A step that does not get closer
+        is undone and the step limit halved: with the target out of reach, full
+        steps otherwise bounce around the minimum instead of settling on it.
+        """
+        q = np.clip(seed, lower, upper)
+        if self.min_clearance_m(q) < IK_TABLE_CLEARANCE_M:
+            return None
+        configuration = self._mink_configuration
+        task = _ToolPointTask(self._tool_body, self._tool_point, target_world)
+        joint_limit = _DrivenJointLimit(self.model.nv, self._dofadr, self._qadr, lower, upper)
+        limits = [joint_limit, self._mink_table_limit]
+        best_q, best_err = q, math.inf
+        for _ in range(NEAREST_MAX_ITERATIONS):
+            configuration.update(self.full_qpos(q))
+            err = float(np.linalg.norm(task.compute_error(configuration)))
+            if err < best_err - NEAREST_MIN_IMPROVEMENT_M:
+                best_q, best_err = q, err
+            else:
+                joint_limit.max_step_rad *= 0.5
+                if joint_limit.max_step_rad < NEAREST_MIN_STEP_RAD:
+                    break
+                configuration.update(self.full_qpos(best_q))
+            try:
+                velocity = mink.solve_ik(
+                    configuration, [task], 1.0, NEAREST_QP_SOLVER,
+                    damping=NEAREST_DAMPING, limits=limits, constraints=[self._mink_coupling],
+                )
+            except mink.NoSolutionFound:
+                break
+            q = np.clip(best_q + velocity[self._dofadr], lower, upper)
+        return best_q, best_err
+
+    def solve_nearest(
+        self,
+        target_base_m: np.ndarray | list[float],
+        start: dict[str, float],
+        include_refused: bool = False,
+    ) -> IKResult:
+        """Like ``solve``, but an unreachable target gets the nearest location found.
+
+        ``include_refused`` extends that to reachable targets that ``solve``
+        refused.  The result has ``nearest`` set, ``error_m`` is its distance
+        from the target, and ``message`` says why the target itself failed.  It
+        passes every check of ``solve`` except reaching the target.
+        """
+        exact = self.solve(target_base_m, start)
+        if exact.success or not np.all(np.isfinite(exact.target_base_m)):
+            return exact
+        if not (exact.unreachable or include_refused):
+            return exact
+        q_start = self.to_array(start)
+        window = IK_MAX_JOINT_CHANGE_RAD - NEAREST_WINDOW_MARGIN_RAD
+        lower = np.maximum(self.lower, q_start - window)
+        upper = np.minimum(self.upper, q_start + window)
+        target_world = self.base_to_world(exact.target_base_m)
+
+        rng = np.random.default_rng(0)
+        seeds = [q_start] + [lower + rng.random(q_start.size) * (upper - lower) for _ in range(NEAREST_RANDOM_SEEDS)]
+        found = [self._nearest_from(target_world, seed, lower, upper) for seed in seeds]
+        candidates = [pose for pose in found if pose is not None]
+        candidates.sort(key=lambda c: (round(c[1] / NEAREST_TIE_M), float(np.linalg.norm(c[0] - q_start))))
+
+        current_error_m = float(np.linalg.norm(self.tool_position_base(q_start) - exact.target_base_m))
+        result = IKResult(False, "", exact.target_base_m)
+        rejected: list[str] = []
+        for q, error_m in candidates:
+            if error_m > current_error_m - NEAREST_MIN_PROGRESS_M:
+                return exact   # sorted nearest first: nothing here beats staying put
+            verdict = self._check(result, q_start, q, max_error_m=math.inf)
+            if verdict is None:
+                result.nearest = True
+                result.window_limited = bool(np.max(np.abs(q - q_start)) > window - NEAREST_MIN_STEP_RAD)
+                result.message = exact.message
+                return result
+            rejected.append(verdict)
+        reason = rejected[0] if rejected else "the search found no pose"
+        result.message = f"{exact.message}; no nearby location passed the checks either ({reason})"
+        return result
+
+    def _check(
+        self, result: IKResult, q_start: np.ndarray, q: np.ndarray, max_error_m: float = IK_ACCEPT_ERROR_M
+    ) -> str | None:
         """Fill ``result`` and return None if ``q`` is acceptable, else a reason."""
         if np.any(q < self.lower) or np.any(q > self.upper):
             return "solution outside the joint ranges"
@@ -558,7 +833,7 @@ class ArmIK:
             )
         achieved = self.tool_position_base(q)
         err = float(np.linalg.norm(achieved - result.target_base_m))
-        if err > IK_ACCEPT_ERROR_M:
+        if err > max_error_m:
             return f"residual {1000 * err:.3f} mm"
         final_clearance = self.min_clearance_m(q)
         if final_clearance < IK_TABLE_CLEARANCE_M:
@@ -566,6 +841,9 @@ class ArmIK:
         path_clearance, duration = self._path_min_clearance_m(q_start, q)
         if path_clearance < IK_TABLE_CLEARANCE_M:
             return f"arm would pass {1000 * path_clearance:.1f} mm above the table on the way"
+        large = [a for a, c in zip(self.actuators[1:], change[1:]) if c > IK_WARN_JOINT_CHANGE_RAD]
+        if large:
+            result.warning = f"Large move of {', '.join(large)}: self-collision is not modelled, so watch the arm."
         result.success = True
         result.message = "ok"
         result.joint_targets = {a: float(v) for a, v in zip(self.actuators, q)}
@@ -639,12 +917,19 @@ def _main() -> None:
     home = dict(zip(ik.actuators, home_q))
     print(f"[ik] Tool point at hardware_zero: {np.round(ik.tool_position_base(home), 4)} m (base frame)")
     target = np.array([args.x, args.y, args.z])
-    result = ik.solve(target, home)
+    result = ik.solve_nearest(target, home)
+    if result.warning:
+        print(f"[ik] WARNING: {result.warning}")
+    if result.nearest:
+        print(f"[ik] {result.message}; showing the nearest location found.")
+        if result.window_limited:
+            print("[ik] A joint reached the per-command limit, so repeated moves may get closer.")
     if result.success:
         for actuator, q in result.joint_targets.items():
             print(f"[ik]   {actuator}: {q:+.5f} rad joint ({math.degrees(q):+.2f} deg)")
         print(
-            f"[ik] Reaches {np.round(result.achieved_base_m, 5)} m, error {1000 * result.error_m:.4f} mm, "
+            f"[ik] Reaches {np.round(result.achieved_base_m, 5)} m, "
+            f"{1000 * result.error_m:.4f} mm from the target, "
             f"move {result.move_duration_s:.2f} s"
         )
     else:

@@ -38,8 +38,11 @@ class MotorRow:
 class ServoRow:
     name: str                       # backend key, passed back to set_servo
     label: str
-    target_deg: float               # slider value, servo angle 0-180
+    target_deg: float               # slider value, servo angle
     commanded_deg: float | None     # last angle sent (None: nothing sent yet)
+    min_deg: float = 0.0            # slider range
+    max_deg: float = 180.0
+    locked: bool = False            # held by the end-effector state; the slider is disabled
 
 
 @dataclass
@@ -59,6 +62,7 @@ class PanelStatus:
     preview_busy: bool              # a solve is in progress
     notice: str = ""                # latest controller event worth showing
     notice_is_alert: bool = False
+    end_effector_state: str = "Gripping"
     servos: list[ServoRow] = field(default_factory=list)
 
 
@@ -76,6 +80,7 @@ class PanelBackend(Protocol):
     def preview(self, target_base_m: tuple[float, float, float]) -> str: ...
     def run_preview(self) -> str: ...
     def clear_preview(self) -> str: ...
+    def set_end_effector_state(self, name: str) -> str: ...
     def set_servo(self, name: str, servo_deg: float) -> str: ...
     def quit(self) -> None: ...
 
@@ -184,6 +189,17 @@ class ControlPanel:
         ):
             ttk.Label(frame, text=f"{name}:").grid(row=row, column=0, sticky="w", **pad)
             ttk.Label(frame, textvariable=var, width=46).grid(row=row, column=1, sticky="w", **pad)
+        ttk.Label(frame, text="State:").grid(row=3, column=0, sticky="w", **pad)
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=3, column=1, sticky="w", **pad)
+        self.ee_state_var = tk.StringVar()
+        ttk.Label(buttons, textvariable=self.ee_state_var, width=12).grid(row=0, column=0, sticky="w")
+        self.ee_state_btns = {}
+        for column, name in enumerate(("Gripping", "Pushing"), start=1):
+            self.ee_state_btns[name] = ttk.Button(
+                buttons, text=name, command=lambda name=name: self._act(lambda: self.backend.set_end_effector_state(name))
+            )
+            self.ee_state_btns[name].grid(row=0, column=column, sticky="w", padx=2)
 
         # --- IK target ---
         frame = ttk.LabelFrame(self.root, text="Move tool point (base frame)")
@@ -214,8 +230,9 @@ class ControlPanel:
         self.servo_vars: dict[str, tk.DoubleVar] = {}
         self.servo_sent_vars: dict[str, tk.StringVar] = {}
         self._servo_touched_at: dict[str, float] = {}
+        self.servo_scales: dict[str, tk.Scale] = {}
         if status.servos:
-            frame = ttk.LabelFrame(self.root, text="Servos (0-180 deg, 90 = centre)")
+            frame = ttk.LabelFrame(self.root, text="Servos (deg, 90 = centre)")
             frame.grid(row=5, column=0, sticky="ew", **pad)
             for row, servo in enumerate(status.servos):
                 variable = tk.DoubleVar(value=servo.target_deg)
@@ -223,10 +240,11 @@ class ControlPanel:
                 self.servo_sent_vars[servo.name] = tk.StringVar()
                 ttk.Label(frame, text=servo.label, width=20).grid(row=row, column=0, sticky="w", **pad)
                 # tk.Scale (not ttk) shows its value and steps in whole degrees.
-                tk.Scale(
-                    frame, from_=0, to=180, resolution=1, orient="horizontal", length=360,
+                self.servo_scales[servo.name] = tk.Scale(
+                    frame, from_=servo.min_deg, to=servo.max_deg, resolution=1, orient="horizontal", length=360,
                     variable=variable, command=lambda value, name=servo.name: self._servo_moved(name, value),
-                ).grid(row=row, column=1, sticky="ew", **pad)
+                )
+                self.servo_scales[servo.name].grid(row=row, column=1, sticky="ew", **pad)
                 ttk.Label(frame, textvariable=self.servo_sent_vars[servo.name], width=16).grid(
                     row=row, column=2, sticky="w", **pad
                 )
@@ -356,6 +374,9 @@ class ControlPanel:
         set_state(self.preview_btn, not s.preview_busy)
         set_state(self.run_btn, s.preview_runnable)
         set_state(self.clear_btn, bool(s.preview_text) and not s.preview_busy)
+        self.ee_state_var.set(s.end_effector_state)
+        for name, button in self.ee_state_btns.items():
+            set_state(button, name != s.end_effector_state and not s.moving and not s.preview_busy)
 
         for row in s.motors:
             values = (
@@ -383,10 +404,11 @@ class ControlPanel:
             if servo.name not in self.servo_vars:
                 continue
             self.servo_sent_vars[servo.name].set(
-                "not sent (at 90)" if servo.commanded_deg is None else f"sent {servo.commanded_deg:.0f} deg"
+                "not sent (parked)" if servo.commanded_deg is None else f"sent {servo.commanded_deg:.0f} deg"
             )
             # Follow a target set elsewhere (the wrist's MuJoCo Control-tab
             # slider), but never fight a drag in progress.
+            self.servo_scales[servo.name].configure(state="disabled" if servo.locked else "normal")
             variable = self.servo_vars[servo.name]
             recently_touched = now - self._servo_touched_at.get(servo.name, -math.inf) < SERVO_DRAG_HOLD_S
             if not recently_touched and abs(variable.get() - servo.target_deg) >= 0.5:

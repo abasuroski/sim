@@ -8,8 +8,8 @@ base frame -- the same x/y/z the control panel's IK target takes.
 
 Kinematics are ArmIK's (followers from CONSTRAINED_JOINTS, wrist servo at its
 keyframe angle), so a mapped point is one ``ik`` can solve.  Reaching it from
-the current pose may still take several moves: each IK move may change a
-joint by at most IK_MAX_JOINT_CHANGE_RAD.  Self-collision is not checked (the
+the current pose may take several moves if IK_MAX_JOINT_CHANGE_RAD caps how far
+an IK move may change a joint.  Self-collision is not checked (the
 MJCF has no arm collision geometry).
 
 Usage:
