@@ -45,8 +45,10 @@ Commands (type in terminal, press Enter):
     s            — start control loop
     g <j> <rad>  — go: move joint j (1-4) to position in radians
     ik <x> <y> <z> — move the gripper tool point to a base-frame position (m,
-                   or mm/cm suffixes); see inverse_kinematics.py
+                   or mm/cm suffixes), or to the nearest location found if it
+                   is out of reach; see inverse_kinematics.py
     w            — print the tool point position (base frame)
+    state [gripping|pushing] — print or change the end-effector state
     h            — go to hardware_zero pose
     p            — pause control
     r            — resume control
@@ -64,6 +66,7 @@ from __future__ import annotations
 
 import atexit
 import csv
+import enum
 import json
 import math
 import platform
@@ -81,6 +84,9 @@ import mujoco.viewer
 import numpy as np
 
 from robot_master_configuration import (
+    IK_TABLE_CLEARANCE_M,
+    PUSHING_TOOL_JOINT,
+    PUSHING_WRIST_SERVO_DEG,
     HARDWARE_ZERO_KEYFRAME_NAME,
     HARDWARE_ZERO_ACTUATOR_CTRL_RAD,
     MOTION_PROFILE,
@@ -148,7 +154,8 @@ STREAM_KEEPALIVE_S   = 0.25   # full frame per motor at least this often
 
 # End-effector MG995 servos on the STM32's TIM2 PWM.  Positions are servo
 # angles, 0-180 deg over 500-2500 us (the firmware header's MG995 mapping);
-# 90 deg is centre, where the firmware parks both at boot.  The firmware's own
+# 90 deg is centre.  The firmware parks each servo at SERVO_PARK_DEG at boot,
+# which must match its own values.  The firmware's own
 # servo unit is degrees from centre at 8.333 us/deg (+/-120 = 500-2500 us), so
 # angle S goes out as "<address>P<(S - 90) * 4/3>".  The servos report nothing,
 # and are independent of the CubeMars motors: whenever the serial port is
@@ -156,9 +163,17 @@ STREAM_KEEPALIVE_S   = 0.25   # full frame per motor at least this often
 # slider) is sent at once, with or without 'a'/'s'.  Nothing is sent until a
 # slider moves, so connecting never moves a servo.
 SERVOS = True
-SERVO_BOOT_DEG   = 90.0
-SERVO_MIN_DEG    = 0.0
-SERVO_MAX_DEG    = 180.0
+SERVO_CENTER_DEG = 90.0
+# name: (lowest, highest) servo angle.  The gripper must not go below 156 deg;
+# 180 is its full extension.  The firmware enforces the same gripper limits
+# (SERVO_GRIPPER_CMD_MIN/MAX in uart_cmd.h), so change both together.
+SERVO_LIMITS_DEG = {
+    "wrist":   (0.0, 180.0),
+    "gripper": (156.0, 180.0),
+}
+# Where the firmware parks each servo at boot; the gripper's is mid-range,
+# clear of both ends of its travel (SERVO_GRIPPER_CMD_PARK in uart_cmd.h).
+SERVO_PARK_DEG = {"wrist": 90.0, "gripper": 168.0}
 SERVO_RESEND_DEG = 0.5     # send only when the angle changes by this much
 # name: (panel label, firmware address, MuJoCo actuator mirroring it or None)
 SERVO_CHANNELS = {
@@ -177,10 +192,9 @@ WRIST_SERVO_CENTER_JOINT_RAD = -0.65327 + math.pi / 2   # revolute_12 at servo 9
 WRIST_SERVO_DIRECTION = -1
 # The gripper servo turns the pinch gear gripper_pinch 1:1 (its meshed idler,
 # gripper_pinch_follower, turns opposite); positive joint angle closes, and
-# the fingers touch at 0.0586 rad.  NOT CALIBRATED: slider 180 is taken as
-# fully closed, so raising the slider closes the gripper; below about 87 the
-# sim shows it fully open (the joint's -1.5708 limit).  The gripper is never
-# part of the IK.
+# the fingers touch at 0.0586 rad.  NOT CALIBRATED: slider 180 (the servo's
+# full extension) is shown as fully closed, so raising the slider closes the
+# gripper in the sim.  The gripper is never part of the IK.
 GRIPPER_SERVO_JOINT = "gripper_pinch"
 GRIPPER_SERVO_FOLLOWER = "gripper_pinch_follower"
 GRIPPER_SERVO_DIRECTION = 1
@@ -291,6 +305,17 @@ DEFAULT_GAINS = {
     "ak40_revolute_4": (3.28, 0.3),
 }
 
+class EndEffectorState(enum.Enum):
+    """What the end of the arm is doing; it decides the IK tool point.
+
+    GRIPPING: tool point between the fingers, wrist free (solved by the IK).
+    PUSHING: tool point on PUSHING_TOOL_JOINT, wrist held at PUSHING_WRIST_SERVO_DEG.
+    """
+
+    GRIPPING = "Gripping"
+    PUSHING = "Pushing"
+
+
 # ---------------------------------------------------------------------------
 # Control state flags (written by terminal thread, read by main loop)
 # ---------------------------------------------------------------------------
@@ -300,6 +325,9 @@ _request_start   = False
 _request_pause   = False
 _paused          = False
 _request_goal: dict[str, float] | None = None   # actuator → target (rad, joint side)
+_ee_state = EndEffectorState.GRIPPING
+_request_ee_state: EndEffectorState | None = None
+_arm_iks: dict[EndEffectorState, ArmIK] = {}    # the IK of each available state
 _request_home    = False
 _request_rezero  = False
 _request_start_home = False   # reset the reference to hardware_zero before the start sync
@@ -486,18 +514,18 @@ def _ik_references(arm: dict[str, float], wrist: str = "reference") -> dict[str,
 
 def _servo_firmware_deg(servo_deg: float) -> float:
     """Servo angle (0-180, 500-2500 us) -> firmware command (deg from centre, 8.333 us/deg)."""
-    return (servo_deg - SERVO_BOOT_DEG) * 4.0 / 3.0
+    return (servo_deg - SERVO_CENTER_DEG) * 4.0 / 3.0
 
 
 def _servo_joint_rad(name: str, servo_deg: float) -> float:
     """Servo angle -> its joint's angle (SERVO_JOINTS; joint side, rad)."""
     _, center, direction, _ = SERVO_JOINTS[name]
-    return center + direction * math.radians(servo_deg - SERVO_BOOT_DEG)
+    return center + direction * math.radians(servo_deg - SERVO_CENTER_DEG)
 
 
 def _servo_deg_from_joint(name: str, joint_rad: float) -> float:
     _, center, direction, _ = SERVO_JOINTS[name]
-    return SERVO_BOOT_DEG + direction * math.degrees(joint_rad - center)
+    return SERVO_CENTER_DEG + direction * math.degrees(joint_rad - center)
 
 
 def _wrist_joint_rad(servo_deg: float) -> float:
@@ -507,14 +535,15 @@ def _wrist_joint_rad(servo_deg: float) -> float:
 class _Servo:
     """One end-effector servo (SERVO_CHANNELS).  ``target_deg`` is the slider
     value and ``commanded_deg`` what the servo was last sent (in simulation, the
-    target itself); both are servo angles, 0-180 deg."""
+    target itself); both are servo angles, within SERVO_LIMITS_DEG."""
 
     def __init__(self, model: mujoco.MjModel, name: str, label: str, address: int, actuator: str | None) -> None:
         self.name, self.label, self.address = name, label, address
         self.actuator_id = -1 if actuator is None else mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator)
-        # Firmware parks every servo at centre at boot.
-        self.target_deg = SERVO_BOOT_DEG
-        self.commanded_deg = SERVO_BOOT_DEG
+        self.min_deg, self.max_deg = SERVO_LIMITS_DEG[name]
+        self.park_deg = SERVO_PARK_DEG[name]   # where the firmware leaves it at boot
+        self.target_deg = self.park_deg
+        self.commanded_deg = self.park_deg
         self.last_sent_deg: float | None = None
         self._last_written_ctrl: float | None = None
         self._previous_target_deg: float | None = None
@@ -522,14 +551,17 @@ class _Servo:
         # (start, goal, start time on data.time, duration).  data.time only
         # advances while control runs, so a pause or hold freezes it with the arm.
         self.move: tuple[float, float, float, float] | None = None
+        self.locked = False     # sliders are ignored (the wrist in the Pushing state)
         self._move_limits = (1.0, 1.0)
         self._move_elapsed_s = 0.0
 
     def set_target(self, servo_deg: float) -> None:
-        self.target_deg = round(max(SERVO_MIN_DEG, min(SERVO_MAX_DEG, float(servo_deg))), 1)
+        self.target_deg = round(max(self.min_deg, min(self.max_deg, float(servo_deg))), 1)
 
     def set_target_by_operator(self, servo_deg: float) -> None:
-        """A slider edit: it wins over any IK move in progress."""
+        """A slider edit: it wins over any IK move in progress, unless locked."""
+        if self.locked:
+            return
         self.move = None
         self.set_target(servo_deg)
 
@@ -586,7 +618,7 @@ class _Servo:
             self.commanded_deg = self.target_deg
             return None
         if self.last_sent_deg is None:
-            if self.target_deg == SERVO_BOOT_DEG:
+            if self.target_deg == self.park_deg:
                 return None   # still where the firmware parked it; send nothing
         else:
             change = abs(self.target_deg - self.last_sent_deg)
@@ -1053,11 +1085,48 @@ def _start_enable() -> None:
 def _limiter_moving(limiter: "TrapezoidalReferenceLimiter") -> bool:
     """True while a goal is pending, any reference is not at rest on its
     request, or the wrist is on an IK move."""
-    return _request_goal is not None or (_ik_wrist is not None and _ik_wrist.move is not None) or any(
+    return (
+        _request_goal is not None or _request_ee_state is not None
+        or (_ik_wrist is not None and _ik_wrist.move is not None)
+    ) or any(
         limiter.reference_velocity(a) != 0.0
         or abs(limiter.requested_position(a) - limiter.reference_position(a)) > 1e-9
         for a in ACTUATOR_TO_MOTOR
     )
+
+
+def _request_end_effector_state(
+    requested: EndEffectorState, limiter: "TrapezoidalReferenceLimiter", ik_lock: threading.Lock
+) -> str:
+    """Ask the control loop to change state; returns a message for the operator.
+
+    Entering Pushing swings the wrist, so it needs a running control loop and
+    a swing that clears the table.  Leaving it moves nothing: the wrist stays
+    at PUSHING_WRIST_SERVO_DEG until the next IK move or slider edit.
+    """
+    global _request_ee_state
+    if requested not in _arm_iks:
+        return f"Refused: {requested.value} needs the wrist servo in the IK (SERVOS and WRIST_IK)."
+    if requested is _ee_state:
+        return f"Already {requested.value}."
+    if _limiter_moving(limiter):
+        return "Refused: wait for the current move to finish."
+    if requested is EndEffectorState.PUSHING:
+        if not _control_active:
+            return "Refused: control is not active. Start control first."
+        if _paused:
+            return "Refused: control is paused. Resume first."
+        gripping_ik = _arm_iks[EndEffectorState.GRIPPING]
+        q_now = gripping_ik.to_array(_ik_references({a: limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR}))
+        q_pushing = q_now.copy()
+        q_pushing[gripping_ik.actuators.index(SERVO_CHANNELS["wrist"][2])] = _wrist_joint_rad(PUSHING_WRIST_SERVO_DEG)
+        with ik_lock:
+            clearance = gripping_ik.move_clearance_m(q_now, q_pushing)
+        if clearance < IK_TABLE_CLEARANCE_M:
+            return (f"Refused: turning the wrist to {PUSHING_WRIST_SERVO_DEG:.0f} deg here would pass "
+                    f"{1000 * clearance:.1f} mm above the table. Raise the arm first.")
+    _request_ee_state = requested
+    return f"Changing to {requested.value}."
 
 
 def _measured_references(
@@ -1105,6 +1174,7 @@ class _Preview:
     qpos: np.ndarray | None = None          # full qpos of the solved pose
     path_world: list[np.ndarray] = field(default_factory=list)
     executed: bool = False
+    state: EndEffectorState = EndEffectorState.GRIPPING   # the state it was solved in
 
 
 class _GuiBackend:
@@ -1120,7 +1190,6 @@ class _GuiBackend:
         self,
         model: mujoco.MjModel,
         limiter: "TrapezoidalReferenceLimiter",
-        arm_ik: ArmIK,
         ik_lock: threading.Lock,
         actuator_gear: dict[str, float],
         simulation_only: bool,
@@ -1130,7 +1199,6 @@ class _GuiBackend:
     ) -> None:
         self.model = model
         self.limiter = limiter
-        self.arm_ik = arm_ik
         self.servos = servos
         self.ik_lock = ik_lock
         self.actuator_gear = actuator_gear
@@ -1149,6 +1217,10 @@ class _GuiBackend:
 
     # --- helpers ---
 
+    @property
+    def arm_ik(self) -> ArmIK:
+        return _arm_iks[_ee_state]
+
     def _references(self) -> dict[str, float]:
         """IK references: M1-M4 from the limiter, plus the wrist (WRIST_IK)."""
         return _ik_references({a: self.limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR})
@@ -1165,6 +1237,8 @@ class _GuiBackend:
             return "No valid preview to run."
         if preview.executed:
             return "Refused: this preview was already run. Preview again."
+        if preview.state is not _ee_state:
+            return "Refused: the end-effector state changed since this preview. Preview again."
         if not _control_active:
             return "Refused: control is not active. Start control first."
         if _paused:
@@ -1179,6 +1253,8 @@ class _GuiBackend:
     # --- PanelBackend ---
 
     def status(self) -> PanelStatus:
+        if self._preview is not None and self._preview.state is not _ee_state:
+            self._set_preview(None)     # solved for the other tool point
         raw_pos: dict[int, float | None] = {m: None for m in MOTOR_TO_JOINT}
         ages: dict[int, float | None] = {m: None for m in MOTOR_TO_JOINT}
         faults: dict[int, int | None] = {m: None for m in MOTOR_TO_JOINT}
@@ -1214,14 +1290,23 @@ class _GuiBackend:
             r = preview.result
             target = "(" + ", ".join(f"{1000 * v:.1f}" for v in preview.target_base_m) + ") mm"
             if r.success:
-                ok = True
+                ok = not r.nearest
                 changes = "  ".join(
                     f"{_ik_joint_label(a)} {math.degrees(q - preview.start[a]):+.1f}°"
                     for a, q in r.joint_targets.items()
                 )
                 state = "Running on the arm." if preview.executed else "The orange ghost in MuJoCo shows the pose."
-                text = (f"Preview {target}: error {1000 * r.error_m:.3f} mm, move {r.move_duration_s:.2f} s. "
-                        f"{state}\nJoint changes: {changes}")
+                if r.warning:
+                    changes += f"\nWARNING: {r.warning}"
+                if r.nearest:
+                    reached = "(" + ", ".join(f"{1000 * v:.1f}" for v in r.achieved_base_m) + ") mm"
+                    closer = " Repeating may get closer." if r.window_limited else ""
+                    text = (f"{target}: {r.message}.\n"
+                            f"Nearest location {reached}, {1000 * r.error_m:.1f} mm away, "
+                            f"move {r.move_duration_s:.2f} s.{closer} {state}\nJoint changes: {changes}")
+                else:
+                    text = (f"Preview {target}: error {1000 * r.error_m:.3f} mm, move {r.move_duration_s:.2f} s. "
+                            f"{state}\nJoint changes: {changes}")
             else:
                 text = f"No solution for {target}: {r.message}"
         if self.simulation_only:
@@ -1244,9 +1329,10 @@ class _GuiBackend:
             preview_busy=busy,
             notice=_notice[0],
             notice_is_alert=_notice[1],
+            end_effector_state=_ee_state.value,
             servos=[
                 ServoRow(s.name, s.label, s.target_deg, s.commanded_deg if s.last_sent_deg is not None or
-                         self.simulation_only else None)
+                         self.simulation_only else None, s.min_deg, s.max_deg, s.locked)
                 for s in self.servos.values()
             ],
         )
@@ -1322,29 +1408,35 @@ class _GuiBackend:
                 return "Refused: a solve is already running."
             self._preview_busy = True
         start = self._references()
+        state = _ee_state
+        arm_ik = self.arm_ik
 
         def solve() -> None:
             preview = _Preview(tuple(target_base_m), start, IKResult(False, "", np.asarray(target_base_m)))
             try:
                 with self.ik_lock:
-                    result = self.arm_ik.solve(target_base_m, start)
+                    # The panel previews before moving, so refused targets get
+                    # a nearest location too; the terminal "ik" moves at once.
+                    result = arm_ik.solve_nearest(target_base_m, start, include_refused=True)
                     preview.result = result
                     if result.success:
-                        q_start = self.arm_ik.to_array(start)
-                        q_goal = self.arm_ik.to_array(result.joint_targets)
-                        preview.qpos = self.arm_ik.full_qpos(q_goal)
+                        q_start = arm_ik.to_array(start)
+                        q_goal = arm_ik.to_array(result.joint_targets)
+                        preview.qpos = arm_ik.full_qpos(q_goal)
                         preview.path_world = [
-                            self.arm_ik.base_to_world(p)
-                            for p in self.arm_ik.path_tool_positions_base(q_start, q_goal)
+                            arm_ik.base_to_world(p)
+                            for p in arm_ik.path_tool_positions_base(q_start, q_goal)
                         ]
             except Exception as exc:   # report it; never kill the controller
                 preview = _Preview(
                     tuple(target_base_m), start,
                     IKResult(False, f"solver error: {exc}", np.asarray(target_base_m, dtype=float)),
                 )
+            preview.state = state
             _log_events.append(
                 f"panel preview {tuple(round(v, 4) for v in target_base_m)}: "
-                + ("ok" if preview.result.success else preview.result.message)
+                + (f"nearest location {np.round(preview.result.achieved_base_m, 4)} ({preview.result.message})"
+                   if preview.result.nearest else "ok" if preview.result.success else preview.result.message)
             )
             with self._preview_lock:
                 self._preview = preview
@@ -1370,7 +1462,9 @@ class _GuiBackend:
             f"panel run {preview.target_base_m} -> "
             + ", ".join(f"{a}={q:+.5f}" for a, q in preview.result.joint_targets.items())
         )
-        print(f"[ctrl] Panel: running the preview to {preview.target_base_m} m")
+        destination = tuple(round(float(v), 4) for v in preview.result.achieved_base_m)
+        print(f"[ctrl] Panel: running the preview to {destination} m"
+              + (f" (nearest location to {preview.target_base_m})" if preview.result.nearest else ""))
         return f"Running: move {preview.result.move_duration_s:.2f} s."
 
     def clear_preview(self) -> str:
@@ -1380,10 +1474,19 @@ class _GuiBackend:
         self._set_preview(None)
         return "Preview cleared."
 
+    def set_end_effector_state(self, name: str) -> str:
+        with self._preview_lock:
+            if self._preview_busy:
+                return "Refused: a solve is running."
+        _log_events.append(f"panel state {name}")
+        return _request_end_effector_state(EndEffectorState(name), self.limiter, self.ik_lock)
+
     def set_servo(self, name: str, servo_deg: float) -> str:
         servo = self.servos.get(name)
         if servo is None:
             return f"No servo {name!r}."
+        if servo.locked:
+            return f"{servo.label} is held at {servo.target_deg:.0f} deg in the {_ee_state.value} state."
         servo.set_target_by_operator(servo_deg)   # the control loop sends it next tick
         where = "simulation" if self.simulation_only else f"'{servo.address}P'"
         return f"{servo.label}: {servo.target_deg:.0f} deg ({where})."
@@ -1441,7 +1544,10 @@ class _GuiBackend:
                 mujoco.mjv_initGeom(
                     scn.geoms[scn.ngeom], mujoco.mjtGeom.mjGEOM_SPHERE, np.array([0.006, 0.0, 0.0]),
                     self.arm_ik.base_to_world(np.array(preview.target_base_m)), np.eye(3).flatten(),
-                    np.array(TARGET_OK_RGBA if preview.result.success else TARGET_BAD_RGBA, dtype=np.float32),
+                    np.array(
+                        TARGET_OK_RGBA if preview.result.success and not preview.result.nearest else TARGET_BAD_RGBA,
+                        dtype=np.float32,
+                    ),
                 )
                 scn.ngeom += 1
 
@@ -1454,6 +1560,7 @@ def main() -> None:
     global _ser, _control_active, _request_start, _request_pause
     global _paused, _request_goal, _request_home, _request_rezero
     global _request_start_home, _request_hold, _request_disable, _motor_power, _notice, _ik_wrist
+    global _ee_state, _request_ee_state
 
     arguments = sys.argv[1:]
     enable_motors_on_start = "--enable-motors" in arguments
@@ -1546,7 +1653,7 @@ def main() -> None:
     if wrist_in_ik:
         # The wrist can only go where the servo's 0-180 deg reaches.
         ik_joints[wrist_actuator] = WRIST_SERVO_JOINT
-        ik_extra_bounds[wrist_actuator] = (_wrist_joint_rad(SERVO_MIN_DEG), _wrist_joint_rad(SERVO_MAX_DEG))
+        ik_extra_bounds[wrist_actuator] = tuple(_wrist_joint_rad(deg) for deg in SERVO_LIMITS_DEG["wrist"])
     arm_ik = ArmIK(
         model,
         MODEL_PATH,
@@ -1560,6 +1667,18 @@ def main() -> None:
         i = arm_ik.actuators.index(wrist_actuator)
         print(f"[ctrl] IK includes the wrist ({WRIST_SERVO_JOINT} "
               f"{math.degrees(arm_ik.lower[i]):+.1f}..{math.degrees(arm_ik.upper[i]):+.1f} deg).")
+    _arm_iks[EndEffectorState.GRIPPING] = arm_ik
+    if wrist_in_ik:
+        _arm_iks[EndEffectorState.PUSHING] = ArmIK(
+            model,
+            MODEL_PATH,
+            {actuator: MOTOR_TO_JOINT[motor] for actuator, motor in ACTUATOR_TO_MOTOR.items()},
+            CONSTRAINED_JOINTS,
+            limiter.max_velocity_rad_s,
+            limiter.max_acceleration_rad_s2,
+            tool_joint=PUSHING_TOOL_JOINT,
+            fixed_joints_rad={WRIST_SERVO_JOINT: _wrist_joint_rad(PUSHING_WRIST_SERVO_DEG)},
+        )
     ik_lock = threading.Lock()
     actuator_gear = {
         actuator: float(model.actuator_gear[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator), 0])
@@ -1579,8 +1698,9 @@ def main() -> None:
         for name, (label, address, actuator) in SERVO_CHANNELS.items():
             servos[name] = _Servo(model, name, label, address, actuator)
             servos[name].sync_control_tab(data)
-        print("[ctrl] Servos (0-180 deg, start at 90): " + ", ".join(
-            f"{s.label} -> '{s.address}P'" for s in servos.values()
+        print("[ctrl] Servos: " + ", ".join(
+            f"{s.label} {s.min_deg:.0f}-{s.max_deg:.0f} deg, starts at {s.park_deg:.0f} -> '{s.address}P'"
+            for s in servos.values()
         ) + f"; wrist 90 deg = {WRIST_SERVO_JOINT} {WRIST_SERVO_CENTER_JOINT_RAD:+.3f} rad (uncalibrated)")
     _ik_wrist = servos["wrist"] if wrist_in_ik else None
     if simulation_only:
@@ -1608,6 +1728,7 @@ def main() -> None:
     print("         ik <x> <y> <z> — move the gripper tool point to a base-frame position;")
     print("                        metres, or with mm/cm, e.g.  ik 0.05 0.25 0.22   ik 50mm 250mm 220mm")
     print("         w            — print the tool point position (base frame)")
+    print("         state [gripping|pushing] — print or change the end-effector state")
     print("         h            — go to hardware_zero pose")
     print("         p            — pause control loop")
     print("         r            — resume control loop")
@@ -1717,17 +1838,29 @@ def main() -> None:
                 return
             start = _ik_references({a: limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR})
             with ik_lock:
-                result = arm_ik.solve(target, start)
+                result = _arm_iks[_ee_state].solve_nearest(target, start)
             target_text = f"({target[0]:+.4f}, {target[1]:+.4f}, {target[2]:+.4f}) m"
             if not result.success:
                 print(f"[ctrl] IK {target_text}: not moving — {result.message}")
                 _log_events.append(f"ik {target_text} rejected: {result.message}")
                 return
             _request_goal = dict(result.joint_targets)
-            print(
-                f"[ctrl] IK {target_text}: model error {1000 * result.error_m:.3f} mm, "
-                f"move {result.move_duration_s:.2f} s"
-            )
+            if result.warning:
+                print(f"[ctrl] WARNING: {result.warning}")
+            if result.nearest:
+                reached = result.achieved_base_m
+                print(f"[ctrl] IK {target_text}: {result.message}")
+                print(
+                    f"[ctrl] Going to the nearest location ({reached[0]:+.4f}, {reached[1]:+.4f}, {reached[2]:+.4f}) m, "
+                    f"{1000 * result.error_m:.1f} mm from the target, move {result.move_duration_s:.2f} s"
+                )
+                if result.window_limited:
+                    print("[ctrl]     A joint reached the per-command limit; repeating the command may get closer.")
+            else:
+                print(
+                    f"[ctrl] IK {target_text}: model error {1000 * result.error_m:.3f} mm, "
+                    f"move {result.move_duration_s:.2f} s"
+                )
             for actuator, q in result.joint_targets.items():
                 print(
                     f"[ctrl]     {_ik_joint_label(actuator)} {actuator}: {start[actuator]:+.4f} -> {q:+.4f} rad joint "
@@ -1737,24 +1870,36 @@ def main() -> None:
                 print("[ctrl]     Control is paused — type 'r' to move.")
             _log_events.append(
                 f"ik {target_text} -> "
+                + (f"nearest location {np.round(result.achieved_base_m, 4)}: " if result.nearest else "")
                 + ", ".join(f"{a}={q:+.5f}" for a, q in result.joint_targets.items())
             )
 
         elif cmd == "w":
+            active_ik = _arm_iks[_ee_state]
             with ik_lock:
-                reference = arm_ik.tool_position_base(
+                reference = active_ik.tool_position_base(
                     _ik_references({a: limiter.reference_position(a) for a in ACTUATOR_TO_MOTOR})
                 )
-                goal = arm_ik.tool_position_base(
+                goal = active_ik.tool_position_base(
                     _ik_references({a: limiter.requested_position(a) for a in ACTUATOR_TO_MOTOR}, "goal")
                 )
                 measured_refs = _measured_references(limiter, actuator_gear, simulation_only)
-                measured = None if measured_refs is None else arm_ik.tool_position_base(measured_refs)
+                measured = None if measured_refs is None else active_ik.tool_position_base(measured_refs)
             fmt = lambda p: f"({p[0]:+.4f}, {p[1]:+.4f}, {p[2]:+.4f}) m"
-            print(f"[ctrl] Tool point, base frame: reference {fmt(reference)}  target {fmt(goal)}")
+            print(f"[ctrl] {_ee_state.value} tool point, base frame: reference {fmt(reference)}  target {fmt(goal)}")
             if measured is not None:
                 print(f"[ctrl]     from encoders {fmt(measured)}  "
                       f"(reference - encoders = {1000 * math.dist(reference, measured):.1f} mm)")
+
+        elif cmd == "state" or cmd.startswith("state "):
+            parts = cmd.split()
+            states = {state.value.lower(): state for state in EndEffectorState}
+            if len(parts) == 1:
+                print(f"[ctrl] End-effector state: {_ee_state.value}")
+            elif len(parts) == 2 and parts[1] in states:
+                print(f"[ctrl] {_request_end_effector_state(states[parts[1]], limiter, ik_lock)}")
+            else:
+                print("[ctrl] Usage: state [gripping|pushing]")
 
         elif cmd == "h":
             _request_home = True
@@ -1848,6 +1993,10 @@ def main() -> None:
             "STREAM_KEEPALIVE_S": STREAM_KEEPALIVE_S,
             "SERVOS": SERVOS,
             "SERVO_CHANNELS": SERVO_CHANNELS,
+            "SERVO_LIMITS_DEG": SERVO_LIMITS_DEG,
+            "PUSHING_WRIST_SERVO_DEG": PUSHING_WRIST_SERVO_DEG,
+            "PUSHING_TOOL_JOINT": PUSHING_TOOL_JOINT,
+            "SERVO_PARK_DEG": SERVO_PARK_DEG,
             "WRIST_SERVO_CENTER_JOINT_RAD": WRIST_SERVO_CENTER_JOINT_RAD,
             "WRIST_SERVO_DIRECTION": WRIST_SERVO_DIRECTION,
             "SERVO_JOINTS": SERVO_JOINTS,
@@ -1899,7 +2048,7 @@ def main() -> None:
         panel_backend: _GuiBackend | None = None
         if use_gui:
             panel_backend = _GuiBackend(
-                model, limiter, arm_ik, ik_lock, actuator_gear, simulation_only, port, viewer, servos
+                model, limiter, ik_lock, actuator_gear, simulation_only, port, viewer, servos
             )
             panel = ControlPanel(panel_backend, title=f"Robot arm control - {port or 'simulation'}")
             print("[ctrl] Control panel open (closing it twice quits the controller).")
@@ -2043,6 +2192,31 @@ def main() -> None:
                         _ik_wrist.start_move(target, float(data.time), limiter.max_velocity_rad_s,
                                              limiter.max_acceleration_rad_s2)
                 _request_goal = None
+
+            if _request_ee_state is not None:
+                _ee_state, _request_ee_state = _request_ee_state, None
+                if _ik_wrist is not None:
+                    _ik_wrist.locked = _ee_state is EndEffectorState.PUSHING
+                    if _ik_wrist.locked:
+                        _ik_wrist.start_move(_wrist_joint_rad(PUSHING_WRIST_SERVO_DEG), float(data.time),
+                                             limiter.max_velocity_rad_s, limiter.max_acceleration_rad_s2)
+                _notice = (f"End-effector state: {_ee_state.value}.", False)
+                _log_events.append(f"end-effector state {_ee_state.value}")
+                print(f"[ctrl] End-effector state: {_ee_state.value}.")
+
+            # Pushing's IK assumes this wrist angle.  A hold during the swing
+            # can leave the wrist short of it, so fall back instead of solving
+            # for a pose the arm is not in.
+            if (
+                _ee_state is EndEffectorState.PUSHING and _ik_wrist.move is None
+                and abs(_ik_wrist.target_deg - PUSHING_WRIST_SERVO_DEG) > 0.05
+            ):
+                _ee_state = EndEffectorState.GRIPPING
+                _ik_wrist.locked = False
+                _notice = (f"Back to Gripping: the wrist stopped at {_ik_wrist.target_deg:.0f} deg, "
+                           f"short of {PUSHING_WRIST_SERVO_DEG:.0f}.", True)
+                _log_events.append(_notice[0])
+                print(f"[ctrl] {_notice[0]}")
 
             if _request_home and _control_active:
                 for actuator, ctrl_val in HARDWARE_ZERO_ACTUATOR_CTRL_RAD.items():

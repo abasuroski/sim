@@ -5,7 +5,7 @@
 #define CMD_BUF_SIZE UART_CMD_LINE_MAX
 
 static MotorState motors[NUM_MOTORS];
-static float servo_pos[NUM_SERVOS] = {0.0f, 0.0f};
+static float servo_pos[NUM_SERVOS] = {0.0f, SERVO_GRIPPER_CMD_PARK};
 
 // Servo index for a command address ('5'..'7' -> motor_num 4..6), or -1
 // for the removed Wrist 2 address '6'.
@@ -266,6 +266,10 @@ static void parse_cmd(void)
             if (checksum != 1 || !parse_value(&buf[2], &val)) { reject_line(); return; }
             if (val < -120.0f) val = -120.0f;
             if (val > 120.0f) val = 120.0f;
+            if (servo == SERVO_GRIPPER) {
+                if (val < SERVO_GRIPPER_CMD_MIN) val = SERVO_GRIPPER_CMD_MIN;
+                if (val > SERVO_GRIPPER_CMD_MAX) val = SERVO_GRIPPER_CMD_MAX;
+            }
             servo_pos[servo] = val;
         }
         return;

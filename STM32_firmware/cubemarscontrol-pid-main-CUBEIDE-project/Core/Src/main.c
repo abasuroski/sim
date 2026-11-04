@@ -34,7 +34,7 @@
   * AK40 uses standard CAN ID (same frame as AK70, different limits)
   *
   * Servo PWM: TIM2 @ 50Hz (prescaler=84-1, period=20000-1)
-  *   CH1 (PA0) = Wrist, CH2 (PA1) = Gripper (pinch)
+  *   CH1 (PA0) = Wrist, CH2 (PA1) = Gripper (pinch), limited to servo 156-180 deg
   *   Pulse 500 = 0 deg, Pulse 2500 = 180 deg (MG995 TowerPro)
   *
   * Hardware: STM32F446RE Nucleo + Waveshare CAN shield
@@ -1018,7 +1018,8 @@ static void MX_TIM2_Init(void)
     TIM2->PSC  = 84 - 1;     // 84MHz / 84 = 1MHz
     TIM2->ARR  = 20000 - 1;  // 1MHz / 20000 = 50Hz
     TIM2->CCR1 = 1500;       // 1.5ms = 90 deg
-    TIM2->CCR2 = 1500;
+    // The gripper must never see centre: 90 deg is below its limit.
+    TIM2->CCR2 = servo_angle_to_pulse(SERVO_GRIPPER_CMD_PARK);
 
     // PWM mode 1 on CH1 and CH2 (both in CCMR1)
     TIM2->CCMR1 = (6U << TIM_CCMR1_OC1M_Pos) | TIM_CCMR1_OC1PE
