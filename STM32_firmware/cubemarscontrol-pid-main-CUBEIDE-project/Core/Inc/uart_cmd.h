@@ -14,11 +14,13 @@
 
 // Gripper travel, in the firmware's servo unit: degrees from centre at
 // 8.333 us/deg, which is (servo angle - 90) * 4/3.  The gripper must not go
-// below servo 156 deg; 180 is its full extension.  Enforced here so that every
-// sender is limited.  The PC controller has the same limits (SERVO_LIMITS_DEG,
-// SERVO_PARK_DEG), so change both together.
+// below servo 156 deg.  Its top end is servo 230 deg, 50 deg past the MG995's
+// rated 180 deg (2500 us): about 3056 us, outside the servo's spec (requested
+// 2026-11-11).  Only the gripper gets this; the wrist stays within +/-120.
+// Enforced here so that every sender is limited.  The PC controller has the
+// same limits (SERVO_LIMITS_DEG, SERVO_PARK_DEG), so change both together.
 #define SERVO_GRIPPER_CMD_MIN  88.1f   // 2234 us = 156.1 deg; 88.0 would truncate to just under 156
-#define SERVO_GRIPPER_CMD_MAX  120.0f  // servo 180 deg
+#define SERVO_GRIPPER_CMD_MAX  186.7f  // servo 230 deg (the PC sends 230 as "186.7")
 #define SERVO_GRIPPER_CMD_PARK 104.0f  // servo 168 deg, mid-travel: boot position
 
 typedef enum {

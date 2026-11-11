@@ -34,7 +34,7 @@
   * AK40 uses standard CAN ID (same frame as AK70, different limits)
   *
   * Servo PWM: TIM2 @ 50Hz (prescaler=84-1, period=20000-1)
-  *   CH1 (PA0) = Wrist, CH2 (PA1) = Gripper (pinch), limited to servo 156-180 deg
+  *   CH1 (PA0) = Wrist, CH2 (PA1) = Gripper (pinch), limited to servo 156-230 deg
   *   Pulse 500 = 0 deg, Pulse 2500 = 180 deg (MG995 TowerPro)
   *
   * Hardware: STM32F446RE Nucleo + Waveshare CAN shield
@@ -107,7 +107,8 @@ DMA_HandleTypeDef hdma_usart2_rx;
 
 // Servo PWM: 50Hz, 1us resolution (prescaler=84-1, period=20000-1)
 // MG995: center at 1500us, ~8.33us per degree
-// Pulse clamped to 500-2500us for safety
+// Pulse clamped to 500-2500us, except the gripper's top end (~3056us, see
+// SERVO_GRIPPER_CMD_MAX in uart_cmd.h)
 #define SERVO_PULSE_CENTER 1500
 #define SERVO_US_PER_DEG   8.333f
 #define SERVO_PULSE_CLAMP_MIN  500
@@ -223,10 +224,12 @@ static inline uint32_t get_us(void)
     return DWT->CYCCNT / (SystemCoreClock / 1000000U);
 }
 
-static uint32_t servo_angle_to_pulse(float angle_deg)
+// Clamped to [-120, max_deg]: max_deg is +120 (2500 us) for the wrist, and
+// SERVO_GRIPPER_CMD_MAX (past 2500 us) for the gripper.
+static uint32_t servo_angle_to_pulse(float angle_deg, float max_deg)
 {
     if (angle_deg < -120.0f) angle_deg = -120.0f;
-    if (angle_deg > 120.0f) angle_deg = 120.0f;
+    if (angle_deg > max_deg) angle_deg = max_deg;
     float pulse = (float)SERVO_PULSE_CENTER + angle_deg * SERVO_US_PER_DEG;
     return (uint32_t)pulse;
 }
@@ -234,8 +237,8 @@ static uint32_t servo_angle_to_pulse(float angle_deg)
 static void update_servos(void)
 {
     float *spos = uart_cmd_servo_pos();
-    TIM2->CCR1 = servo_angle_to_pulse(spos[SERVO_WRIST]);
-    TIM2->CCR2 = servo_angle_to_pulse(spos[SERVO_GRIPPER]);
+    TIM2->CCR1 = servo_angle_to_pulse(spos[SERVO_WRIST], 120.0f);
+    TIM2->CCR2 = servo_angle_to_pulse(spos[SERVO_GRIPPER], SERVO_GRIPPER_CMD_MAX);
 }
 
 static unsigned int float_to_uint(float x, float x_min, float x_max, unsigned int bits)
@@ -1019,7 +1022,7 @@ static void MX_TIM2_Init(void)
     TIM2->ARR  = 20000 - 1;  // 1MHz / 20000 = 50Hz
     TIM2->CCR1 = 1500;       // 1.5ms = 90 deg
     // The gripper must never see centre: 90 deg is below its limit.
-    TIM2->CCR2 = servo_angle_to_pulse(SERVO_GRIPPER_CMD_PARK);
+    TIM2->CCR2 = servo_angle_to_pulse(SERVO_GRIPPER_CMD_PARK, SERVO_GRIPPER_CMD_MAX);
 
     // PWM mode 1 on CH1 and CH2 (both in CCMR1)
     TIM2->CCMR1 = (6U << TIM_CCMR1_OC1M_Pos) | TIM_CCMR1_OC1PE

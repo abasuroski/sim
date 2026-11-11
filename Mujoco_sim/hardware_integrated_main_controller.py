@@ -164,12 +164,15 @@ STREAM_KEEPALIVE_S   = 0.25   # full frame per motor at least this often
 # slider moves, so connecting never moves a servo.
 SERVOS = True
 SERVO_CENTER_DEG = 90.0
-# name: (lowest, highest) servo angle.  The gripper must not go below 156 deg;
-# 180 is its full extension.  The firmware enforces the same gripper limits
+# name: (lowest, highest) servo angle.  The gripper must not go below 156 deg.
+# Its top end is 230 deg, 50 deg past the MG995's rated 180 deg: about 3056 us,
+# outside the 500-2500 us spec, so the servo may stall against its internal
+# stop up there (requested 2026-11-11).  The sim shows anything past 180 as
+# fully closed.  The firmware enforces the same gripper limits
 # (SERVO_GRIPPER_CMD_MIN/MAX in uart_cmd.h), so change both together.
 SERVO_LIMITS_DEG = {
     "wrist":   (0.0, 180.0),
-    "gripper": (156.0, 180.0),
+    "gripper": (156.0, 230.0),
 }
 # Where the firmware parks each servo at boot; the gripper's is mid-range,
 # clear of both ends of its travel (SERVO_GRIPPER_CMD_PARK in uart_cmd.h).
@@ -181,13 +184,13 @@ SERVO_CHANNELS = {
     "gripper": ("Gripper (A1 / PA1)", 7, "mg995_gripper_pinch"),
 }
 # The wrist servo turns revolute_12, which the sim shows at the commanded
-# angle.  Servo 90 deg was first put at the middle of the CAD joint range
-# (-1.79646 .. 0.489918, so -0.65327), then shifted +90 deg on request, with
-# the MJCF upper limit widened by the same 90 deg (to 2.060714).  Still not
-# measured on the arm: set the slider to 90, see where the real wrist sits,
-# and set this so the sim matches.
+# angle.  Servo 90 deg is the middle of the CAD joint range
+# (-1.79646 .. 0.489918, so -0.65327).  A +90 deg shift tried earlier left the
+# sim 90 deg out of phase with the real wrist (2026-11-11), so it was undone.
+# With direction -1 the servo's 0-180 deg spans -2.22407 .. 0.91753 rad; the
+# MJCF range was widened by 90 deg at each end (-3.367256 .. 2.060714) to hold it.
 WRIST_SERVO_JOINT = "revolute_12"
-WRIST_SERVO_CENTER_JOINT_RAD = -0.65327 + math.pi / 2   # revolute_12 at servo 90 deg (0.91753)
+WRIST_SERVO_CENTER_JOINT_RAD = -0.65327   # revolute_12 at servo 90 deg
 # -1: the real wrist turned opposite to the sim with +1 (2026-11-02).
 WRIST_SERVO_DIRECTION = -1
 # The gripper servo turns the pinch gear gripper_pinch 1:1 (its meshed idler,
