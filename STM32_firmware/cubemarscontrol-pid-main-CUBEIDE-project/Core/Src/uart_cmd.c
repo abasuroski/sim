@@ -264,11 +264,13 @@ static void parse_cmd(void)
         if (servo < 0) return;
         if (cmd == 'P' || cmd == 'p') {
             if (checksum != 1 || !parse_value(&buf[2], &val)) { reject_line(); return; }
-            if (val < -120.0f) val = -120.0f;
-            if (val > 120.0f) val = 120.0f;
             if (servo == SERVO_GRIPPER) {
+                // The gripper has its own range, which goes past +120.
                 if (val < SERVO_GRIPPER_CMD_MIN) val = SERVO_GRIPPER_CMD_MIN;
                 if (val > SERVO_GRIPPER_CMD_MAX) val = SERVO_GRIPPER_CMD_MAX;
+            } else {
+                if (val < -120.0f) val = -120.0f;
+                if (val > 120.0f) val = 120.0f;
             }
             servo_pos[servo] = val;
         }
