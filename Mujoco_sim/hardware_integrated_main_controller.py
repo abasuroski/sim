@@ -103,7 +103,19 @@ import serial_interface as si
 # Paths and constants
 # ---------------------------------------------------------------------------
 
-MODEL_PATH = Path(__file__).parent / "robot_master_urdf_table" / "mjcf" / "robot_master.xml"
+_MODEL_CHOICES = {
+    "table":    Path(__file__).parent / "robot_master_urdf_table"     / "mjcf" / "robot_master.xml",
+    "combined": Path(__file__).parent / "robot_master_urdf_quadruped" / "mjcf" / "go2_with_arm.xml",
+}
+_model_arg = next((a.split("=", 1)[1] if a.startswith("--model=") else
+                   sys.argv[sys.argv.index("--model") + 1]
+                   for a in sys.argv if a.startswith("--model=") or a == "--model"), "table")
+if _model_arg not in _MODEL_CHOICES:
+    print(f"[cfg] Unknown --model '{_model_arg}'. Choose: {list(_MODEL_CHOICES)}")
+    sys.exit(1)
+MODEL_PATH = _MODEL_CHOICES[_model_arg]
+COMBINED_MODEL = _model_arg == "combined"
+print(f"[cfg] Model: {_model_arg} → {MODEL_PATH}")
 SCHEDULE_PATH = Path(__file__).parent / "master_controller_schedule.json"
 
 UPDATE_HZ  = 84   # control loop rate (Hz)
@@ -1568,7 +1580,8 @@ def main() -> None:
     arguments = sys.argv[1:]
     enable_motors_on_start = "--enable-motors" in arguments
     use_gui = "--gui" in arguments
-    port_arguments = [argument for argument in arguments if argument not in ("--enable-motors", "--gui")]
+    port_arguments = [argument for argument in arguments if argument not in ("--enable-motors", "--gui")
+                      and not argument.startswith("--model")]
     if len(port_arguments) > 1:
         print("Usage: python3 hardware_integrated_main_controller.py [serial_port] [--enable-motors] [--gui]")
         sys.exit(1)
@@ -1657,6 +1670,11 @@ def main() -> None:
         # The wrist can only go where the servo's 0-180 deg reaches.
         ik_joints[wrist_actuator] = WRIST_SERVO_JOINT
         ik_extra_bounds[wrist_actuator] = tuple(_wrist_joint_rad(deg) for deg in SERVO_LIMITS_DEG["wrist"])
+    # In the combined model the arm bodies are no longer fixed to the world
+    # (they ride on the Go2's freejoint), so skip the fixed-body check.
+    if COMBINED_MODEL:
+        ArmIK._require_fixed = lambda self, body: None
+
     arm_ik = ArmIK(
         model,
         MODEL_PATH,
