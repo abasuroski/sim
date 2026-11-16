@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 
 # The named MuJoCo keyframe used when the real arm is at its repeatable zero
 # configuration. These are actuator-control coordinates: AK40's value is on
@@ -123,13 +125,24 @@ IK_TABLE_CLEARANCE_M = 0.01
 # floats ~22 cm from any other part and swings through the table plane
 # whenever the shoulder moves.  The real arm has nothing there.
 IK_CLEARANCE_IGNORE_BODIES = ("proximal_limb__1_",)
+# The "Pushing" end-effector state (the controller's EndEffectorState): the
+# wrist servo is held at this angle, and the IK tool point is this joint's
+# location, which the wrist's own rotation does not move.
+PUSHING_WRIST_SERVO_DEG = 180.0
+PUSHING_TOOL_JOINT = "revolute_12"
 # Largest change of any one joint (joint side) that a single "ik" command may
-# make.  The model has no self-collision geometry and revolute_1/revolute_3
+# make.  Unlimited so that every reachable target can be reached in one move
+# (user decision, 2026-11-04); a 1.0 rad cap left some reachable targets
+# refused.  Set it to 1.0 to restore that cap.  The risk it covered still
+# stands: the model has no self-collision geometry and revolute_1/revolute_3
 # are unlimited, so a large reconfiguration (e.g. lowering the tool from
 # hardware_zero, where the shoulder is on its hard stop, gives a ~180 degree
 # elbow flip) cannot be checked for the arm hitting itself.  Moves at and above
 # the hardware_zero height within +-10 cm need at most ~41 degrees.
-IK_MAX_JOINT_CHANGE_RAD = 1.0
+IK_MAX_JOINT_CHANGE_RAD = math.inf
+# A solution moving any joint but the base by more than this carries a warning
+# for that reason.  The base is exempt: it turns the whole arm as one rigid piece.
+IK_WARN_JOINT_CHANGE_RAD = 1.0
 
 def hardware_zero_joint_positions(joint_names: list[str]) -> list[float]:
     """Return the physically consistent zero-qpos keyframe in joint-ID order."""

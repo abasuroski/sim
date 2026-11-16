@@ -1,2 +1,3 @@
+mink==1.4.0
 mujoco==3.12.0
 pyserial==3.5

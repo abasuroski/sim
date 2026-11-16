@@ -762,9 +762,9 @@
                                                   </body>
                                                   <body name="part_1_19" pos="-0.0345778 0.00587 -0.01493" quat="-0.3234507424 -1.684625843e-06 0.9462450091 -1.684625843e-06">
                                                     <inertial pos="1.39286e-05 -1.01997e-09 -1.79943e-05" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" quat="0.2170354076 0.5975367026 -5.682329395e-07 -0.7719103063" />
-                                                    <!-- damping, armature and the upper limit hand-added: MG995 back-EMF and gear train, see mg995_revolute_12;
-                                                         the URDF upper limit 0.489918 was widened by 90 deg (pi/2) to 2.060714. -->
-                                                    <joint name="revolute_12" type="hinge" axis="0.612127 6.84004e-18 -0.790759" range="-1.79646 2.060714" damping="0.14" armature="1e-4" />
+                                                    <!-- damping, armature and both limits hand-added: MG995 back-EMF and gear train, see mg995_revolute_12;
+                                                         the URDF range -1.79646 .. 0.489918 was widened by 90 deg (pi/2) at each end to -3.367256 .. 2.060714. -->
+                                                    <joint name="revolute_12" type="hinge" axis="0.612127 6.84004e-18 -0.790759" range="-3.367256 2.060714" damping="0.14" armature="1e-4" />
                                                     <geom type="mesh" mesh="mesh_019" contype="0" conaffinity="0" pos="0.0100923 0.0627482 0.032653" quat="0.2170354076 0.5975367026 -5.682329395e-07 -0.7719103063" rgba="0.713726 0.760784 0.8 1" />
                                                     <body name="part_4" pos="-0.000918191 -1.33809e-09 0.00118614" quat="0.7332088752 0.4779269432 -0.2271830496 0.4270578933">
                                                       <inertial pos="0.0168273 -0.003186 -0.00104884" mass="0.0001" diaginertia="1e-09 1.24212e-09 1.27648e-09" quat="1 0 0 0" />
@@ -1059,8 +1059,10 @@
          inertia (a lower bound for an MG995).  Without it the ~4e-5 kg m^2 gears are too light for the stiff
          gear-mesh equality at the 2 ms timestep, and a wrist move slips the follower gear by up to 1.5 rad.
          Joint side, gear 1 (the servo output drives the joint directly). -->
-    <position name="mg995_revolute_12" joint="revolute_12" gear="1" kp="4.6" ctrllimited="true" ctrlrange="-1.79646 2.060714" forcelimited="true" forcerange="-0.92 0.92" />
-    <position name="mg995_gripper_pinch" joint="gripper_pinch" gear="1" kp="4.6" ctrllimited="true" ctrlrange="-1.5708 0.0586" forcelimited="true" forcerange="-0.92 0.92" />
+    <position name="mg995_revolute_12" joint="revolute_12" gear="1" kp="4.6" ctrllimited="true" ctrlrange="-3.367256 2.060714" forcelimited="true" forcerange="-0.92 0.92" />
+    <!-- ctrlrange top hand-widened to servo 230 deg (0.0586 + 50 deg) so the Control-tab slider reaches it; the joint range
+         still stops at 0.0586 (fingers touching), so the sim shows anything past 180 deg as closed. -->
+    <position name="mg995_gripper_pinch" joint="gripper_pinch" gear="1" kp="4.6" ctrllimited="true" ctrlrange="-1.5708 0.931265" forcelimited="true" forcerange="-0.92 0.92" />
   </actuator>
   <keyframe>
     <!-- The last two qpos (gripper_pinch_follower, gripper_pinch) and ctrl values (wrist, pinch) were hand-added. -->
