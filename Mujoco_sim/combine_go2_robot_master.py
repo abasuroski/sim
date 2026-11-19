@@ -7,19 +7,33 @@ Usage:
     python3 combine_go2_robot_master.py
 
 Output:
-    /home/andrea/sim/Mujoco_sim/robot_master_urdf_quadruped/mjcf/go2_with_arm.xml
+    robot_master_urdf_quadruped/mjcf/go2_with_arm.xml (next to this script).
+    Every mesh it uses is copied into that folder's assets/ and referenced as
+    "assets/<file>", so the model loads on any machine.
 """
 
 from __future__ import annotations
+import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Paths
+# Paths (relative to this script, so they work on every machine)
 # ---------------------------------------------------------------------------
-ARM_MJCF = Path("/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/robot_master.xml")
-GO2_MJCF = Path("/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/go2.xml")
-OUTPUT   = Path("/home/andrea/sim/Mujoco_sim/robot_master_urdf_quadruped/mjcf/go2_with_arm.xml")
+HERE     = Path(__file__).resolve().parent
+ARM_MJCF = HERE / "robot_master_urdf_table" / "mjcf" / "robot_master.xml"
+GO2_MJCF = HERE / "unitree_mujoco" / "unitree_robots" / "go2" / "go2.xml"
+OUTPUT   = HERE / "robot_master_urdf_quadruped" / "mjcf" / "go2_with_arm.xml"
+OUTPUT_ASSETS = OUTPUT.parent / "assets"
+
+
+def _localise_mesh(elem: ET.Element, source: Path) -> None:
+    """Copy one asset file into OUTPUT_ASSETS and point ``elem`` at it, relative."""
+    OUTPUT_ASSETS.mkdir(parents=True, exist_ok=True)
+    destination = OUTPUT_ASSETS / source.name
+    if source.resolve() != destination.resolve():
+        shutil.copy2(source, destination)
+    elem.attrib["file"] = f"assets/{source.name}"
 
 # Where to mount the arm on the Go2 back (in base_link frame)
 MOUNT_POS  = "0.15 -0.08 0.09"
@@ -60,13 +74,13 @@ if planar is not None:
     print("  planar_1_1 offset zeroed")
 
 # ---------------------------------------------------------------------------
-# 2. Rewrite arm asset paths to absolute so Go2's meshdir doesn't interfere
+# 2. Copy arm assets next to the output and reference them relatively
 # ---------------------------------------------------------------------------
 arm_assets = arm_root.find("asset")
 if arm_assets is not None:
     for elem in arm_assets:
         if "file" in elem.attrib:
-            elem.attrib["file"] = str((arm_asset_dir / elem.attrib["file"]).resolve())
+            _localise_mesh(elem, arm_asset_dir / elem.attrib["file"])
 
 # ---------------------------------------------------------------------------
 # 3. Merge Go2 assets into arm's <asset>
@@ -76,9 +90,9 @@ go2_meshdir = GO2_MJCF.parent  # bare mesh names resolve relative to go2.xml
 
 if go2_assets is not None:
     for elem in go2_assets:
-        # Rewrite bare go2 mesh paths to absolute
+        # Copy go2 meshes next to the output and reference them relatively
         if "file" in elem.attrib:
-            elem.attrib["file"] = str((go2_meshdir / "assets" / elem.attrib["file"]).resolve())
+            _localise_mesh(elem, go2_meshdir / "assets" / elem.attrib["file"])
         arm_assets.append(elem)
 
 # Remove meshdir from arm compiler since we now use absolute paths
@@ -114,10 +128,14 @@ if arm_root_body is None:
 
 # Detach 'root' from arm worldbody and re-attach under base_link
 arm_worldbody.remove(arm_root_body)
+# childclass="main" resets the defaults: base_link has childclass="go2",
+# which would otherwise give every arm joint the Go2's damping 0.1,
+# armature 0.01 and frictionloss 0.2, and the arm geoms its contact settings.
 mount = ET.SubElement(base_link, "body",
     name="arm_mount",
     pos=MOUNT_POS,
     quat=MOUNT_QUAT,
+    childclass="main",
 )
 mount.append(arm_root_body)
 

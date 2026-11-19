@@ -3,7 +3,8 @@
 Samples the four driven joints uniformly inside the same limits the IK
 solver uses (``ArmIK.lower``/``upper``: actuator control ranges, joint ranges
 and four-bar follower ranges), keeps the poses whose every moving mesh vertex
-clears the table by IK_TABLE_CLEARANCE_M, and records the tool point in the
+clears the table (combined model: the floor and the Go2 body) by
+IK_TABLE_CLEARANCE_M, and records the tool point in the
 base frame -- the same x/y/z the control panel's IK target takes.
 
 Kinematics are ArmIK's (followers from CONSTRAINED_JOINTS, wrist servo at its
@@ -44,9 +45,9 @@ def _has_self_collision(ik: ArmIK) -> bool:
     robot_master.xml.  mj_forward populates data.contact; we ignore any contact
     that involves the table (contype=1) by checking that both geoms belong to
     collision group 2."""
-    mujoco.mj_forward(ik.model, ik._data)
-    for i in range(ik._data.ncon):
-        c = ik._data.contact[i]
+    mujoco.mj_forward(ik.model, ik.data)
+    for i in range(ik.data.ncon):
+        c = ik.data.contact[i]
         g1 = ik.model.geom_contype[c.geom1]
         g2 = ik.model.geom_contype[c.geom2]
         # Both must be arm capsules (contype=2) to count as self-collision.
@@ -132,6 +133,9 @@ def main() -> None:
     parser.add_argument("--csv", type=Path, default=None, help="write joint references and tool points here")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--no-view", action="store_true", help="print the summary only")
+    # Read by hardware_integrated_main_controller when it is imported (MODEL_PATH).
+    parser.add_argument("--model", choices=("table", "combined"), default="table",
+                        help="table: robot_master.xml; combined: the arm on the Go2 (go2_with_arm.xml)")
     args = parser.parse_args()
 
     model = mujoco.MjModel.from_xml_path(str(Path(MODEL_PATH)))

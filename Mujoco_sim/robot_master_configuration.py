@@ -106,8 +106,17 @@ JOINT_RANGE_OVERRIDES_RAD = {
 # axes, +z up.  At hardware_zero the tool point is at about
 # (+0.023, +0.267, +0.279) m in this frame.
 IK_BASE_BODY = "part_1_11"
+# In the combined Go2 model (go2_with_arm.xml) the base frame rides on the Go2
+# trunk, which the IK holds at the model's hardware_zero keyframe pose (trunk
+# standing at z = 0.27 m); targets stay in this base frame.
 # The table plate; its top face is the clearance reference.
 IK_TABLE_BODY = "part_1_13"
+# Used instead when the table body has no geometry (the combined model strips
+# it): the floor plane is the clearance reference, and every collidable geom
+# that does not move with the arm (the Go2 trunk, head and legs) must also be
+# kept IK_TABLE_CLEARANCE_M away.  The floor clearance assumes the keyframe
+# stance; a sagging or tilted dog in simulation changes the real height.
+IK_FLOOR_GEOM = "floor"
 # Tool point: midway between the two soft-finger tips (the finger mesh
 # vertices farthest along the gripper's pointing axis, local -z), in the frame
 # of the gripper body, which moves rigidly with the fingers.
@@ -116,8 +125,9 @@ IK_TOOL_POINT_IN_BODY_M = (-0.00587, -0.00500, -0.05866)  # moved 1.5 in (0.0381
 # A solution is accepted only if the tool point lands within this distance of
 # the target (model kinematics; tracking error on the real arm comes on top).
 IK_ACCEPT_ERROR_M = 1e-4
-# Every moving mesh vertex must stay at least this far above the table top,
-# at the target and along the joint-space path to it.
+# Every moving mesh vertex must stay at least this far above the table top
+# (combined model: the floor, and this far from the Go2 body), at the target
+# and along the joint-space path to it.
 IK_TABLE_CLEARANCE_M = 0.01
 # Bodies left out of that check.  proximal_limb__1_ is a stray M3x10 screw
 # from the CAD export: its URDF visual origin (0.2526, -0.1491, 0.1277) is an

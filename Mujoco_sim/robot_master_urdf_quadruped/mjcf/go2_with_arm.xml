@@ -8,92 +8,92 @@
     <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
   </visual>
   <asset>
-    <mesh name="mesh_001" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/001_Hex_nut_grade_A___B_M5x0_8.obj" />
-    <mesh name="mesh_002" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/002_Hex_socket_head_cap_screw_M2_5x0_45_x_8.obj" />
-    <mesh name="mesh_003" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/003_Hex_socket_head_cap_screw_M3x0_50_x_10.obj" />
-    <mesh name="mesh_004" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/004_Hex_socket_head_cap_screw_M3x0_50_x_14.obj" />
-    <mesh name="mesh_005" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/005_Hex_socket_head_cap_screw_M3x0_50_x_20.obj" />
-    <mesh name="mesh_006" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/006_Hex_socket_head_cap_screw_M3x0_50_x_8.obj" />
-    <mesh name="mesh_007" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/007_Hex_socket_head_cap_screw_M4x0_70_x_10.obj" />
-    <mesh name="mesh_008" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/008_Hex_socket_head_cap_screw_M4x0_70_x_14.obj" />
-    <mesh name="mesh_009" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/009_Hex_socket_head_cap_screw_M4x0_70_x_8.obj" />
-    <mesh name="mesh_010" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/010_Hex_socket_head_cap_screw_M5x0_80_x_14.obj" />
-    <mesh name="mesh_011" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/011_Hex_socket_head_cap_screw_M5x0_80_x_22.obj" />
-    <mesh name="mesh_012" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/012_MG995.obj" />
-    <mesh name="mesh_013" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/013_Part_1.obj" />
-    <mesh name="mesh_014" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/014_Part_10.obj" />
-    <mesh name="mesh_015" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/015_Part_11.obj" />
-    <mesh name="mesh_016" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/016_Part_1_1.obj" />
-    <mesh name="mesh_017" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/017_Part_1_10.obj" />
-    <mesh name="mesh_018" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/018_Part_1_11.obj" />
-    <mesh name="mesh_019" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/019_Part_1_12.obj" />
-    <mesh name="mesh_020" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/020_Part_1_13.obj" />
-    <mesh name="mesh_021" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/021_Part_1_14.obj" />
-    <mesh name="mesh_022" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/022_Part_1_15.obj" />
-    <mesh name="mesh_023" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/023_Part_1_16.obj" />
-    <mesh name="mesh_024" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/024_Part_1_17.obj" />
-    <mesh name="mesh_025" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/025_Part_1_18.obj" />
-    <mesh name="mesh_026" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/026_Part_1_19.obj" />
-    <mesh name="mesh_027" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/027_Part_1_2.obj" />
-    <mesh name="mesh_028" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/028_Part_1_20.obj" />
-    <mesh name="mesh_029" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/029_Part_1_21.obj" />
-    <mesh name="mesh_030" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/030_Part_1_22.obj" />
-    <mesh name="mesh_031" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/031_Part_1_23.obj" />
-    <mesh name="mesh_032" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/032_Part_1_3.obj" />
-    <mesh name="mesh_033" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/033_Part_1_4.obj" />
-    <mesh name="mesh_034" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/034_Part_1_5.obj" />
-    <mesh name="mesh_035" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/035_Part_1_6.obj" />
-    <mesh name="mesh_036" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/036_Part_1_7.obj" />
-    <mesh name="mesh_037" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/037_Part_1_8.obj" />
-    <mesh name="mesh_038" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/038_Part_1_9.obj" />
-    <mesh name="mesh_039" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/039_Part_2.obj" />
-    <mesh name="mesh_040" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/040_Part_2_1.obj" />
-    <mesh name="mesh_041" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/041_Part_2_2.obj" />
-    <mesh name="mesh_042" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/042_Part_2_3.obj" />
-    <mesh name="mesh_043" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/043_Part_2_4.obj" />
-    <mesh name="mesh_044" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/044_Part_2_5.obj" />
-    <mesh name="mesh_045" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/045_Part_2_6.obj" />
-    <mesh name="mesh_046" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/046_Part_3.obj" />
-    <mesh name="mesh_047" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/047_Part_3_1.obj" />
-    <mesh name="mesh_048" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/048_Part_4.obj" />
-    <mesh name="mesh_049" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/049_Part_4_1.obj" />
-    <mesh name="mesh_050" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/050_Part_5.obj" />
-    <mesh name="mesh_051" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/051_Part_5_1.obj" />
-    <mesh name="mesh_052" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/052_Part_8.obj" />
-    <mesh name="mesh_053" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/053_Part_8_1.obj" />
-    <mesh name="mesh_054" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/054_Part_9.obj" />
-    <mesh name="mesh_055" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/055_Socket_button_head_screw_M3x0_5_x_12.obj" />
-    <mesh name="mesh_056" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/056_Socket_button_head_screw_M3x0_5_x_16.obj" />
-    <mesh name="mesh_057" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/057_Socket_button_head_screw_M3x0_5_x_8.obj" />
-    <mesh name="mesh_058" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/058_Socket_button_head_screw_M4x0_7_x_16.obj" />
-    <mesh name="mesh_059" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/059_Socket_button_head_screw_M4x0_7_x_8.obj" />
-    <mesh name="mesh_060" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/060_Spur_gear__25_teeth_.obj" />
-    <mesh name="mesh_061" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/061_Spur_gear__36_teeth_.obj" />
-    <mesh name="mesh_062" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/062_Spur_gear__36_teeth__1.obj" />
-    <mesh name="mesh_063" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/063__35T_HTD_Custom_Pulley.obj" />
-    <mesh name="mesh_064" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/064__35T_HTD_Custom_Pulley_1.obj" />
-    <mesh name="mesh_065" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/065__48T_GT2_Custom_Pulley.obj" />
-    <mesh name="mesh_066" file="/home/andrea/sim/Mujoco_sim/robot_master_urdf_table/mjcf/assets/066_soft_gripper_finger.obj" />
+    <mesh name="mesh_001" file="assets/001_Hex_nut_grade_A___B_M5x0_8.obj" />
+    <mesh name="mesh_002" file="assets/002_Hex_socket_head_cap_screw_M2_5x0_45_x_8.obj" />
+    <mesh name="mesh_003" file="assets/003_Hex_socket_head_cap_screw_M3x0_50_x_10.obj" />
+    <mesh name="mesh_004" file="assets/004_Hex_socket_head_cap_screw_M3x0_50_x_14.obj" />
+    <mesh name="mesh_005" file="assets/005_Hex_socket_head_cap_screw_M3x0_50_x_20.obj" />
+    <mesh name="mesh_006" file="assets/006_Hex_socket_head_cap_screw_M3x0_50_x_8.obj" />
+    <mesh name="mesh_007" file="assets/007_Hex_socket_head_cap_screw_M4x0_70_x_10.obj" />
+    <mesh name="mesh_008" file="assets/008_Hex_socket_head_cap_screw_M4x0_70_x_14.obj" />
+    <mesh name="mesh_009" file="assets/009_Hex_socket_head_cap_screw_M4x0_70_x_8.obj" />
+    <mesh name="mesh_010" file="assets/010_Hex_socket_head_cap_screw_M5x0_80_x_14.obj" />
+    <mesh name="mesh_011" file="assets/011_Hex_socket_head_cap_screw_M5x0_80_x_22.obj" />
+    <mesh name="mesh_012" file="assets/012_MG995.obj" />
+    <mesh name="mesh_013" file="assets/013_Part_1.obj" />
+    <mesh name="mesh_014" file="assets/014_Part_10.obj" />
+    <mesh name="mesh_015" file="assets/015_Part_11.obj" />
+    <mesh name="mesh_016" file="assets/016_Part_1_1.obj" />
+    <mesh name="mesh_017" file="assets/017_Part_1_10.obj" />
+    <mesh name="mesh_018" file="assets/018_Part_1_11.obj" />
+    <mesh name="mesh_019" file="assets/019_Part_1_12.obj" />
+    <mesh name="mesh_020" file="assets/020_Part_1_13.obj" />
+    <mesh name="mesh_021" file="assets/021_Part_1_14.obj" />
+    <mesh name="mesh_022" file="assets/022_Part_1_15.obj" />
+    <mesh name="mesh_023" file="assets/023_Part_1_16.obj" />
+    <mesh name="mesh_024" file="assets/024_Part_1_17.obj" />
+    <mesh name="mesh_025" file="assets/025_Part_1_18.obj" />
+    <mesh name="mesh_026" file="assets/026_Part_1_19.obj" />
+    <mesh name="mesh_027" file="assets/027_Part_1_2.obj" />
+    <mesh name="mesh_028" file="assets/028_Part_1_20.obj" />
+    <mesh name="mesh_029" file="assets/029_Part_1_21.obj" />
+    <mesh name="mesh_030" file="assets/030_Part_1_22.obj" />
+    <mesh name="mesh_031" file="assets/031_Part_1_23.obj" />
+    <mesh name="mesh_032" file="assets/032_Part_1_3.obj" />
+    <mesh name="mesh_033" file="assets/033_Part_1_4.obj" />
+    <mesh name="mesh_034" file="assets/034_Part_1_5.obj" />
+    <mesh name="mesh_035" file="assets/035_Part_1_6.obj" />
+    <mesh name="mesh_036" file="assets/036_Part_1_7.obj" />
+    <mesh name="mesh_037" file="assets/037_Part_1_8.obj" />
+    <mesh name="mesh_038" file="assets/038_Part_1_9.obj" />
+    <mesh name="mesh_039" file="assets/039_Part_2.obj" />
+    <mesh name="mesh_040" file="assets/040_Part_2_1.obj" />
+    <mesh name="mesh_041" file="assets/041_Part_2_2.obj" />
+    <mesh name="mesh_042" file="assets/042_Part_2_3.obj" />
+    <mesh name="mesh_043" file="assets/043_Part_2_4.obj" />
+    <mesh name="mesh_044" file="assets/044_Part_2_5.obj" />
+    <mesh name="mesh_045" file="assets/045_Part_2_6.obj" />
+    <mesh name="mesh_046" file="assets/046_Part_3.obj" />
+    <mesh name="mesh_047" file="assets/047_Part_3_1.obj" />
+    <mesh name="mesh_048" file="assets/048_Part_4.obj" />
+    <mesh name="mesh_049" file="assets/049_Part_4_1.obj" />
+    <mesh name="mesh_050" file="assets/050_Part_5.obj" />
+    <mesh name="mesh_051" file="assets/051_Part_5_1.obj" />
+    <mesh name="mesh_052" file="assets/052_Part_8.obj" />
+    <mesh name="mesh_053" file="assets/053_Part_8_1.obj" />
+    <mesh name="mesh_054" file="assets/054_Part_9.obj" />
+    <mesh name="mesh_055" file="assets/055_Socket_button_head_screw_M3x0_5_x_12.obj" />
+    <mesh name="mesh_056" file="assets/056_Socket_button_head_screw_M3x0_5_x_16.obj" />
+    <mesh name="mesh_057" file="assets/057_Socket_button_head_screw_M3x0_5_x_8.obj" />
+    <mesh name="mesh_058" file="assets/058_Socket_button_head_screw_M4x0_7_x_16.obj" />
+    <mesh name="mesh_059" file="assets/059_Socket_button_head_screw_M4x0_7_x_8.obj" />
+    <mesh name="mesh_060" file="assets/060_Spur_gear__25_teeth_.obj" />
+    <mesh name="mesh_061" file="assets/061_Spur_gear__36_teeth_.obj" />
+    <mesh name="mesh_062" file="assets/062_Spur_gear__36_teeth__1.obj" />
+    <mesh name="mesh_063" file="assets/063__35T_HTD_Custom_Pulley.obj" />
+    <mesh name="mesh_064" file="assets/064__35T_HTD_Custom_Pulley_1.obj" />
+    <mesh name="mesh_065" file="assets/065__48T_GT2_Custom_Pulley.obj" />
+    <mesh name="mesh_066" file="assets/066_soft_gripper_finger.obj" />
     <material name="metal" rgba=".9 .95 .95 1" />
     <material name="black" rgba="0 0 0 1" />
     <material name="white" rgba="1 1 1 1" />
     <material name="gray" rgba="0.671705 0.692426 0.774270 1" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/base_0.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/base_1.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/base_2.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/base_3.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/base_4.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/hip_0.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/hip_1.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/thigh_0.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/thigh_1.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/thigh_mirror_0.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/thigh_mirror_1.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/calf_0.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/calf_1.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/calf_mirror_0.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/calf_mirror_1.obj" />
-    <mesh file="/home/andrea/sim/Mujoco_sim/unitree_mujoco/unitree_robots/go2/assets/foot.obj" />
+    <mesh file="assets/base_0.obj" />
+    <mesh file="assets/base_1.obj" />
+    <mesh file="assets/base_2.obj" />
+    <mesh file="assets/base_3.obj" />
+    <mesh file="assets/base_4.obj" />
+    <mesh file="assets/hip_0.obj" />
+    <mesh file="assets/hip_1.obj" />
+    <mesh file="assets/thigh_0.obj" />
+    <mesh file="assets/thigh_1.obj" />
+    <mesh file="assets/thigh_mirror_0.obj" />
+    <mesh file="assets/thigh_mirror_1.obj" />
+    <mesh file="assets/calf_0.obj" />
+    <mesh file="assets/calf_1.obj" />
+    <mesh file="assets/calf_mirror_0.obj" />
+    <mesh file="assets/calf_mirror_1.obj" />
+    <mesh file="assets/foot.obj" />
   </asset>
   <worldbody>
     <light name="spotlight" pos="0 0 3" dir="0 0 -1" diffuse="0.8 0.8 0.8" specular="0.2 0.2 0.2" castshadow="true" />
@@ -211,7 +211,7 @@
           </body>
         </body>
       </body>
-      <body name="arm_mount" pos="0.15 -0.08 0.09" quat="1 0 0 0">
+      <body name="arm_mount" pos="0.15 -0.08 0.09" quat="1 0 0 0" childclass="main">
         <body name="root">
           <inertial pos="0 0 0" mass="0.0001" diaginertia="1e-09 1e-09 1e-09" />
           <body name="part_1_13" pos="0 0 0" quat="1 3.311535e-19 -8.277e-21 3.47745e-18">

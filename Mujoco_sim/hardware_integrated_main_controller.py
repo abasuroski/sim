@@ -1138,8 +1138,9 @@ def _request_end_effector_state(
         with ik_lock:
             clearance = gripping_ik.move_clearance_m(q_now, q_pushing)
         if clearance < IK_TABLE_CLEARANCE_M:
-            return (f"Refused: turning the wrist to {PUSHING_WRIST_SERVO_DEG:.0f} deg here would pass "
-                    f"{1000 * clearance:.1f} mm above the table. Raise the arm first.")
+            return (f"Refused: turning the wrist to {PUSHING_WRIST_SERVO_DEG:.0f} deg here would leave only "
+                    f"{1000 * clearance:.1f} mm clearance to {gripping_ik.clearance_plane_name}"
+                    f"{' or the Go2 body' if COMBINED_MODEL else ''}. Raise the arm first.")
     _request_ee_state = requested
     return f"Changing to {requested.value}."
 
@@ -1179,6 +1180,9 @@ PATH_RGBA = (1.0, 0.85, 0.1, 0.9)         # preview tool-point path
 TARGET_OK_RGBA = (0.1, 0.9, 0.1, 0.6)
 TARGET_BAD_RGBA = (0.9, 0.1, 0.1, 0.8)
 PATH_MAX_SEGMENTS = 200
+# Redraw the preview when the arm's base (the Go2 trunk in the combined model)
+# has moved this much (m, and rotation-matrix entries) since it was drawn.
+PREVIEW_REDRAW_BASE_MOVE_M = 1e-3
 
 
 @dataclass
@@ -1186,8 +1190,10 @@ class _Preview:
     target_base_m: tuple[float, float, float]
     start: dict[str, float]                 # references the solve started from
     result: IKResult
-    qpos: np.ndarray | None = None          # full qpos of the solved pose
-    path_world: list[np.ndarray] = field(default_factory=list)
+    qpos: np.ndarray | None = None          # full qpos of the solved pose (dog at its keyframe pose)
+    # Tool path in the IK base frame; drawn on the live base pose, which moves
+    # with the Go2 in the combined model.
+    path_base: list[np.ndarray] = field(default_factory=list)
     executed: bool = False
     state: EndEffectorState = EndEffectorState.GRIPPING   # the state it was solved in
 
@@ -1211,8 +1217,12 @@ class _GuiBackend:
         port: str | None,
         viewer: object,
         servos: dict[str, _Servo],
+        live_data: mujoco.MjData,
     ) -> None:
+        """``live_data`` is the control loop's MjData (read on the main thread
+        only), for drawing the preview where the arm's base really is."""
         self.model = model
+        self.live_data = live_data
         self.limiter = limiter
         self.servos = servos
         self.ik_lock = ik_lock
@@ -1229,8 +1239,13 @@ class _GuiBackend:
         self._preview_busy = False
         self._preview_version = 0
         self._drawn_version = 0
+        self._drawn_base_pose: tuple[np.ndarray, np.ndarray] | None = None
 
     # --- helpers ---
+
+    @property
+    def _arm_qpos_mask(self) -> np.ndarray:
+        return self.arm_ik.arm_qpos_mask
 
     @property
     def arm_ik(self) -> ArmIK:
@@ -1438,10 +1453,7 @@ class _GuiBackend:
                         q_start = arm_ik.to_array(start)
                         q_goal = arm_ik.to_array(result.joint_targets)
                         preview.qpos = arm_ik.full_qpos(q_goal)
-                        preview.path_world = [
-                            arm_ik.base_to_world(p)
-                            for p in arm_ik.path_tool_positions_base(q_start, q_goal)
-                        ]
+                        preview.path_base = arm_ik.path_tool_positions_base(q_start, q_goal)
             except Exception as exc:   # report it; never kill the controller
                 preview = _Preview(
                     tuple(target_base_m), start,
@@ -1513,7 +1525,8 @@ class _GuiBackend:
     # --- drawing (main thread, every tick) ---
 
     def render(self) -> None:
-        """Redraw the preview in the viewer's user scene when it changes."""
+        """Redraw the preview in the viewer's user scene when it changes, or
+        when the arm's base has moved (the Go2 in the combined model)."""
         with self._preview_lock:
             preview = self._preview
             # An executed preview is removed once its move has finished.
@@ -1521,16 +1534,27 @@ class _GuiBackend:
                 self._preview = preview = None
                 self._preview_version += 1
             version = self._preview_version
-        if version == self._drawn_version:
+        base_pos, base_rot = self.arm_ik.base_pose_world(self.live_data)
+        base_moved = preview is not None and (
+            self._drawn_base_pose is None
+            or np.max(np.abs(base_pos - self._drawn_base_pose[0])) > PREVIEW_REDRAW_BASE_MOVE_M
+            or np.max(np.abs(base_rot - self._drawn_base_pose[1])) > PREVIEW_REDRAW_BASE_MOVE_M
+        )
+        if version == self._drawn_version and not base_moved:
             return
         self._drawn_version = version
+        self._drawn_base_pose = (base_pos, base_rot)
         scn = self.viewer.user_scn
         with self.viewer.lock():
             scn.ngeom = 0
             if preview is None:
                 return
             if preview.qpos is not None:
-                self._ghost_data.qpos[:] = preview.qpos
+                # The solved arm pose on the live dog (combined model); the
+                # table model has no other joints, so this is preview.qpos.
+                self._ghost_data.qpos[:] = self.live_data.qpos
+                arm = self._arm_qpos_mask
+                self._ghost_data.qpos[arm] = preview.qpos[arm]
                 mujoco.mj_kinematics(self.model, self._ghost_data)
                 first = scn.ngeom
                 mujoco.mjv_addGeoms(
@@ -1541,7 +1565,7 @@ class _GuiBackend:
                     geom.rgba[:] = GHOST_RGBA
                     geom.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN   # not selectable
                     geom.objid = -1
-            points = preview.path_world
+            points = [self.arm_ik.base_to_world(p, self.live_data) for p in preview.path_base]
             if len(points) > PATH_MAX_SEGMENTS + 1:
                 step = math.ceil((len(points) - 1) / PATH_MAX_SEGMENTS)
                 points = points[::step] + [points[-1]]
@@ -1558,7 +1582,7 @@ class _GuiBackend:
             if scn.ngeom < scn.maxgeom:
                 mujoco.mjv_initGeom(
                     scn.geoms[scn.ngeom], mujoco.mjtGeom.mjGEOM_SPHERE, np.array([0.006, 0.0, 0.0]),
-                    self.arm_ik.base_to_world(np.array(preview.target_base_m)), np.eye(3).flatten(),
+                    self.arm_ik.base_to_world(np.array(preview.target_base_m), self.live_data), np.eye(3).flatten(),
                     np.array(
                         TARGET_OK_RGBA if preview.result.success and not preview.result.nearest else TARGET_BAD_RGBA,
                         dtype=np.float32,
@@ -1580,10 +1604,18 @@ def main() -> None:
     arguments = sys.argv[1:]
     enable_motors_on_start = "--enable-motors" in arguments
     use_gui = "--gui" in arguments
-    port_arguments = [argument for argument in arguments if argument not in ("--enable-motors", "--gui")
-                      and not argument.startswith("--model")]
+    _go2_idx = arguments.index("--go2") if "--go2" in arguments else -1
+    use_go2_mpac = (_go2_idx >= 0
+                    and _go2_idx + 1 < len(arguments)
+                    and arguments[_go2_idx + 1] == "mpac")
+    _go2_tokens = {_go2_idx, _go2_idx + 1} if _go2_idx >= 0 else set()
+    port_arguments = [a for i, a in enumerate(arguments)
+                      if a not in ("--enable-motors", "--gui")
+                      and not a.startswith("--model")
+                      and i not in _go2_tokens]
     if len(port_arguments) > 1:
-        print("Usage: python3 hardware_integrated_main_controller.py [serial_port] [--enable-motors] [--gui]")
+        print("Usage: python3 hardware_integrated_main_controller.py [serial_port] "
+              "[--enable-motors] [--gui] [--go2 mpac]")
         sys.exit(1)
     port = port_arguments[0] if port_arguments else None
     simulation_only = port is None
@@ -1603,6 +1635,18 @@ def main() -> None:
             _motor_power = "enabled"
     else:
         print("[ctrl] Simulation-only mode: no serial port and no hardware commands.")
+
+    # --- MPAC Go2 bridge ---
+    go2_bridge = None
+    if use_go2_mpac:
+        if not COMBINED_MODEL:
+            print("[ctrl] --go2 mpac requires --model combined.  Exiting.")
+            sys.exit(1)
+        from go2_mpac_bridge import Go2MpacBridge
+        go2_bridge = Go2MpacBridge(MODEL_PATH)
+        go2_bridge.start()
+        print("[ctrl] Go2 MPAC bridge running. Send 'stand' to tell MPAC to stand.")
+        atexit.register(go2_bridge.stop)
 
     # --- Load model ---
     model = mujoco.MjModel.from_xml_path(str(MODEL_PATH))
@@ -1670,11 +1714,9 @@ def main() -> None:
         # The wrist can only go where the servo's 0-180 deg reaches.
         ik_joints[wrist_actuator] = WRIST_SERVO_JOINT
         ik_extra_bounds[wrist_actuator] = tuple(_wrist_joint_rad(deg) for deg in SERVO_LIMITS_DEG["wrist"])
-    # In the combined model the arm bodies are no longer fixed to the world
-    # (they ride on the Go2's freejoint), so skip the fixed-body check.
-    if COMBINED_MODEL:
-        ArmIK._require_fixed = lambda self, body: None
-
+    # In the combined model the arm rides on the Go2's freejoint: ArmIK holds
+    # the dog at its keyframe pose and keeps the arm clear of the floor and
+    # the Go2 body instead of the (removed) table.
     arm_ik = ArmIK(
         model,
         MODEL_PATH,
@@ -1761,8 +1803,9 @@ def main() -> None:
     print()
     home_tool = arm_ik.tool_position_base(arm_ik.home_references_array())
     print("[ctrl] IK base frame: origin on the base yaw axis at the base housing's underside")
-    print(f"[ctrl]     ({1000 * (arm_ik.base_pos[2] - arm_ik.table_top_z_world):.1f} mm above the table top); "
-          "axes = table axes, +z up.")
+    print(f"[ctrl]     ({1000 * (arm_ik.base_pos[2] - arm_ik.clearance_plane_z_world):.1f} mm above "
+          f"{arm_ik.clearance_plane_name}{' at the Go2 keyframe stance' if COMBINED_MODEL else ''}); "
+          f"axes = {'Go2 trunk' if COMBINED_MODEL else 'table'} axes, +z up.")
     print(f"[ctrl]     Tool point (between the finger tips) at hardware_zero: "
           f"({home_tool[0]:+.4f}, {home_tool[1]:+.4f}, {home_tool[2]:+.4f}) m")
     print()
@@ -1948,6 +1991,43 @@ def main() -> None:
         elif cmd == "q":
             pass  # only stdin thread should quit
 
+        # --- Go2 dog commands (require --go2 mpac) ---
+        elif cmd in ("stand", "sit", "lie", "stop") or cmd.startswith("walk"):
+            if go2_bridge is None:
+                print("[ctrl] Go2 commands need --go2 mpac --model combined.")
+            else:
+                _handle_dog_command(cmd)
+
+    def _handle_dog_command(cmd: str) -> None:
+        """Forward dog-motion commands to MPAC via UDP (mpac_cmd.py)."""
+        try:
+            import sys as _sys
+            import importlib
+            # Locate mpac_cmd relative to this script's directory
+            _mpac_dir = str(Path(__file__).resolve().parent.parent.parent / "mpac_go2" / "atnmy")
+            if _mpac_dir not in _sys.path:
+                _sys.path.insert(0, _mpac_dir)
+            mc = importlib.import_module("mpac_cmd")
+        except Exception as exc:
+            print(f"[ctrl] Cannot import mpac_cmd: {exc}")
+            return
+        if cmd == "stand":
+            mc.stand_idqp(h=0.25)
+            print("[ctrl] [go2] stand (h=0.25 m)")
+        elif cmd == "lie":
+            mc.lie()
+            print("[ctrl] [go2] lie")
+        elif cmd in ("sit", "stop"):
+            mc.soft_stop()
+            print("[ctrl] [go2] soft stop")
+        elif cmd.startswith("walk"):
+            parts = cmd.split()
+            vx  = float(parts[1]) if len(parts) > 1 else 0.0
+            vy  = float(parts[2]) if len(parts) > 2 else 0.0
+            vrz = float(parts[3]) if len(parts) > 3 else 0.0
+            mc.walk_idqp(h=0.25, vx=vx, vy=vy, vrz=vrz)
+            print(f"[ctrl] [go2] walk vx={vx} vy={vy} vrz={vrz}")
+
     # --- Terminal input thread (stdin) ---
     def _terminal_input() -> None:
         while True:
@@ -2069,7 +2149,7 @@ def main() -> None:
         panel_backend: _GuiBackend | None = None
         if use_gui:
             panel_backend = _GuiBackend(
-                model, limiter, ik_lock, actuator_gear, simulation_only, port, viewer, servos
+                model, limiter, ik_lock, actuator_gear, simulation_only, port, viewer, servos, data
             )
             panel = ControlPanel(panel_backend, title=f"Robot arm control - {port or 'simulation'}")
             print("[ctrl] Control panel open (closing it twice quits the controller).")
@@ -2351,6 +2431,9 @@ def main() -> None:
                         print(f"[cmd] {servo.name} {servo.target_deg:.1f} deg -> {servo_line}")
             for servo in servos.values():
                 _apply_servo_state(data, model, qpos_idx, qvel_idx, servo)
+            # Sync live Go2 state from MPAC bridge (combined model only).
+            if go2_bridge is not None:
+                go2_bridge.sync_to_data(data, model)
             mujoco.mj_forward(model, data)
 
             if _control_active and not _paused:
